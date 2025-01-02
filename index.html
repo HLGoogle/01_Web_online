@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>导航条</title>
+  <link rel="icon" href="https://s21.ax1x.com/2024/06/14/pkda1QP.png?v=20241218" type="image/png">
+  <style>
+    /* CSS变量定义 */
+    :root {
+      --button-border-width: 0.01px;  /* 统一控制所有按钮边框粗细的变量 */
+      --button-border-opacity: 0.5;   /* 统一控制所有按钮边框透明度的变量 */
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+      background-size: 400% 400%;
+      animation: 
+        moveX 10s ease-in-out infinite alternate,
+        moveY 15s ease-in-out infinite alternate;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    @keyframes moveX {
+      0% {
+        background-position-x: 0%;
+      }
+      100% {
+        background-position-x: 100%;
+      }
+    }
+
+    @keyframes moveY {
+      0% {
+        background-position-y: 0%;
+      }
+      100% {
+        background-position-y: 100%;
+      }
+    }
+
+    .nav-panel {
+      text-align: center;
+      width: 100vw;
+      height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;  /* 垂直居中 */
+      align-items: center;  /* 水平居中 */
+      scroll-behavior: smooth;
+    }
+
+    .nav-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 0px solid white;
+      transform: translateY(180px);  /* 向上偏移100px */
+    }
+
+    .search-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 30px;  /* 增加搜索框与下方按钮的间距 */
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 2px;
+      margin-bottom: 20px;  /* 与下方按钮的间隔 */
+    }
+
+    .btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 10px;
+      background-size: cover;
+      background-position: center;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+      margin: 0 1px;
+      border: var(--button-border-width) solid rgba(255, 255, 255, var(--button-border-opacity));  /* 使用CSS变量控制边框粗细和透明度 */
+    }
+
+    /* 图标上文字的样式 */
+    .btn span {
+      position: absolute;
+      bottom: 3px;
+      left: 0;
+      right: 0;
+      font-size: 10px;
+      font-weight: bold;
+      color: #fff;
+      text-align: center;
+      z-index: 1;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .btn:hover {
+      transform: scale(1.4);
+    }
+
+    .description {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.1);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 20px;
+      font-weight: bold;
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .description.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* 这里是控制隐藏开关按钮“-更多-”的样式 */
+    #more-toggle {
+      cursor: pointer;
+      color: #fff;
+      font-size: 12px;
+      margin: 10px 0;
+      padding: 5px 15px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.2); /* 初始透明度：0.2 */
+      -webkit-backdrop-filter: blur(5px);
+      backdrop-filter: blur(5px);
+      transition: all 0.5s ease; /* 过渡动画时间：0.5秒，可调整 */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      width: 80px;  /* 按钮初始宽度：80px，可调整 */
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #more-toggle:hover {
+      width: 200px;  /* 悬停时按钮宽度：200px，可调整 */
+      background: rgba(255, 255, 255, 0.5); /* 悬停时透明度：0.5 */
+    }
+
+    /* 这里是控制隐藏区描述文字的样式 */
+    #hidden-container p {
+      color: #989898;
+      font-size: 10px;
+      margin-bottom: 1px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    #hidden-container {
+      width: 100%;
+      max-height: 0;
+      overflow: hidden;
+      background-color: rgba(0, 0, 0, 0);
+      padding: 4px;
+      transition: max-height 0.5s ease-out;
+    }
+
+    /* 鼠标拖尾效果 */
+    .mouse-particle {
+      pointer-events: none;
+      position: fixed;
+      width: 5px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      z-index: 9999;
+    }
+
+    /* 时钟样式 */
+    .clock {
+      position: fixed;
+      bottom: 50px;  /* 时钟位置：距底部50px */
+      right: calc(48px);   /* 时钟位置：基准20px + 左右偏移值，正值向左偏移，负值向右偏移 */
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.15);  /* 初始透明度：0.15 */
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.2);  /* 边框粗细：1px，边框透明度：0.2 */
+      -webkit-backdrop-filter: blur(5px);
+      backdrop-filter: blur(5px);
+      transition: all 0.25s ease;  /* 过渡动画时间：0.25秒 */
+      will-change: transform;  /* 性能优化属性 */
+    }
+
+    .clock:hover {
+      background: rgba(255, 255, 255, 0.4);  /* 悬停时透明度：0.4 */
+      transform: scale(1.2);  /* 放大倍数：1.2倍 */
+      border-color: rgba(255, 255, 255, 0.3);  /* 悬停时边框透明度：0.3 */
+    }
+
+    /* 时钟指针的基础样式 */
+    .hour-hand,
+    .minute-hand,
+    .second-hand {
+      position: absolute;
+      bottom: 50%;
+      transform-origin: 50% 100%;
+      background: #fff;
+      will-change: transform;  /* 性能优化属性 */
+      border-radius: 4px;
+    }
+
+    /* 时针：粗细范围 2.0px ~ 4.0px */
+    .hour-hand {
+      width: 4px;
+      height: 25%;
+      left: calc(50% - 2px);  /* 保持原有偏移 */
+    }
+
+    /* 分针：粗细范围 0.8px ~ 2.0px */
+    .minute-hand {
+      width: 2px;
+      height: 35%;
+      left: calc(50% - 1px);  /* 保持原有偏移 */
+    }
+
+    /* 秒针：粗细范围 0.1px ~ 1.0px */
+    .second-hand {
+      width: 0.1px;
+      height: 40%;
+      left: calc(50% + 1px);  /* 保持原有偏移 */
+    }
+
+    .clock-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      transform: translate(-50%, -50%);
+    }
+
+    /* 时钟刻度样式 */
+    .clock-mark {
+      position: absolute;
+      width: 1px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.6);
+      left: 50%;
+      transform-origin: 50% 50px; /* 50px是时钟半径 */
+    }
+
+    /* 主要刻度（0, 3, 6, 9点） */
+    .mark-main {
+      width: 3px;      /* 刻度的宽度 */
+      height: 7px;    /* 刻度的高度 */
+      margin-left: -1px;  /* 向左偏移1像素 */
+      background: rgba(255, 255, 255, 0.8);  /* 白色刻度，透明度0.8 */
+    }
+
+    /* 日期显示模块样式 */
+    .date-display {
+      position: fixed;
+      bottom: 12px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      -webkit-backdrop-filter: blur(5px);
+      backdrop-filter: blur(5px);
+      padding: 4px 15px; /* 减小上下内边距压缩高度 */
+      border-radius: 15px;
+      color: #fff;
+      font-size: 13px; /* 调小字体 */
+      font-family: "SF Pro Display", "Helvetica Neue", Arial, sans-serif; /* 更换更细的字体 */
+      font-weight: 300; /* 使字体更细 */
+      text-align: center;
+      line-height: 1.4; /* 稍微压缩行高 */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      white-space: nowrap;
+      transition: all 0.25s ease;  /* 过渡动画时间：0.5秒，可调整 */
+      width: 130px;  /* 初始背板宽度：160px，可调整 */
+      transform-origin: center;
+      left: calc(100% - 180px);
+    }
+
+    .date-display:hover {
+      background: rgba(255, 255, 255, 0.4);
+      width: 170px;  /* 悬停时背板宽度：200px，可调整 */
+      left: calc(100% - 200px);
+    }
+
+    /* 时钟上方的实时时间显示 */
+    .hover-time {
+      position: absolute;
+      top: -25px;  /* 表盘上方30px的位置，可调整 */
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-size: 10px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      white-space: nowrap;
+      --hover-blur: 0px;  /* 背景模糊程度参数，可根据需要调整，数值越大越模糊 */
+      -webkit-backdrop-filter: blur(var(--hover-blur));
+      backdrop-filter: blur(var(--hover-blur));
+      border: 0px solid rgba(255, 255, 255, 1);
+    }
+
+    .clock:hover .hover-time {
+      opacity: 1;
+    }
+
+    /* 搜索框样式 */
+    .search-container {
+      width: 100%;
+      max-width: 584px;
+      margin: 0 auto 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      width: 500px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      padding: 0 15px;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      margin: 0 auto;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .search-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      transition: border-color 0.3s ease;
+      pointer-events: none;
+    }
+
+    .search-box:focus-within::before {
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .search-input {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 16px;
+      padding: 0 10px;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .search-input::placeholder {
+      color: rgba(255, 255, 255, 0.5);  /* 调整为与边框相同的半透明白色 */
+      transition: opacity 0.5s ease;  /* 添加渐变消失效果 */
+    }
+
+    .search-input:focus::placeholder {
+      opacity: 0;  /* 聚焦时完全透明 */
+    }
+
+    .search-input:focus {
+      box-shadow: none;
+    }
+
+    .search-engines {
+      position: relative;
+      width: 30px;  /* 改为单个图标的宽度 */
+      height: 30px;
+      cursor: pointer;
+      overflow: hidden;
+      border-radius: 50%;  /* 添加圆角 */
+    }
+
+    .engine-icon {
+      position: absolute;  /* 使图标重叠 */
+      top: 0;
+      left: 0;
+      width: 30px;
+      height: 30px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      border-radius: 50%;  /* 添加圆角 */
+      transition: opacity 0.3s ease;  /* 改用透明度切换 */
+    }
+
+    .baidu {
+      background-image: url('https://s21.ax1x.com/2024/06/14/pkdnWRJ.png?v=20241218');
+      opacity: 1;
+    }
+
+    .google {
+      background-image: url('https://s21.ax1x.com/2024/06/13/pkaqDkF.png?v=20241218');
+      opacity: 0;
+    }
+
+    .search-engines.using-google .baidu {
+      opacity: 0;
+    }
+
+    .search-engines.using-google .google {
+      opacity: 1;
+    }
+
+    /* 设置按钮和面板样式 */
+    .settings-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .settings-btn:hover {
+      transform: rotate(180deg);
+    }
+
+    .settings-btn i {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 24px;
+      transition: all 0.3s ease;
+    }
+
+    .settings-btn:hover i {
+      color: rgba(255, 255, 255, 1);
+    }
+
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 300px;
+      height: 100vh;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 20px;
+      transition: right 0.3s ease;
+      z-index: 999;
+      overflow-y: auto;
+      visibility: hidden;
+    }
+
+    .settings-panel.active {
+      right: 0;
+      visibility: visible;
+    }
+
+    .reset-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 1001;  /* 确保在最上层 */
+    }
+
+    .reset-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: rotate(180deg);
+    }
+
+    .reset-btn i {
+      font-size: 16px;
+      pointer-events: none;  /* 防止图标影响点击 */
+    }
+
+    .settings-item {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(5px);
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .settings-item h3 {
+      color: white;
+      margin: 0 0 6px 0;
+      font-size: 14px;
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .setting-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .setting-row label {
+      color: white;
+      font-size: 12px;
+    }
+
+    .range-slider {
+      width: 120px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .color-picker-container {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 8px;
+    }
+
+    .color-options {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+      margin-top: 24px;  /* 增加到24px */
+      max-width: 240px;
+    }
+    
+    .color-option {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;  /* 添加3px圆角 */
+      cursor: pointer;
+      transition: transform 0.2s;
+      border: none;
+      background-size: 200% 200%;
+      aspect-ratio: 1;
+      margin: 0 auto;
+    }
+    
+    .color-option:hover {
+      transform: scale(1.05);
+    }
+    
+    .color-option.active {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.2);
+      transition: .4s;
+      border-radius: 20px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: white;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    /* 文字颜色选择器样式 */
+    input[type="color"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 30px;
+      border-radius: 15px;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+    
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+      border-radius: 15px;
+    }
+    
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 15px;
+    }
+  </style>
+</head>
+<body>
+  <!-- 添加Font Awesome图标库 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  
+  <!-- 设置按钮 -->
+  <div class="settings-btn">
+    <i class="fas fa-cog"></i>
+  </div>
+
+  <!-- 设置面板 -->
+  <div class="settings-panel">
+    <!-- 重置按钮 -->
+    <div class="reset-btn">
+      <i class="fas fa-undo-alt"></i>
+    </div>
+
+    <div class="settings-item" style="margin-top: 20px;">
+      <h3 style="margin: 0; padding: 10px 0;">背景颜色</h3>
+      <div>
+        <div class="color-picker-container">
+          <div class="color-option" style="background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab)" data-gradient="default"></div>
+          <div class="color-option" style="background: linear-gradient(-45deg, #FF6B6B, #4ECDC4)" data-gradient="sunset"></div>
+          <div class="color-option" style="background: linear-gradient(-45deg, #a8e6cf, #dcedc1, #ffd3b6, #ffaaa5)" data-gradient="pastel"></div>
+          <div class="color-option" style="background: linear-gradient(-45deg, #3494E6, #EC6EAD)" data-gradient="ocean"></div>
+          <div class="color-option" style="background: linear-gradient(-45deg, #11998e, #38ef7d)" data-gradient="forest"></div>
+          <div class="color-option" style="background: linear-gradient(-45deg, #8E2DE2, #4A00E0)" data-gradient="purple"></div>
+          <div class="color-option" style="background: linear-gradient(-45deg, #F2994A, #F2C94C)" data-gradient="warm"></div>
+          <div class="color-option" style="background: linear-gradient(-45deg, #20002c, #cbb4d4)" data-gradient="night"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-item" style="margin-top: 20px;">
+      <h3 style="margin: 0; padding: 10px 0;">动画效果</h3>
+      <div>
+        <div class="setting-row">
+          <label>背景动画</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="animation-toggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label>动画速度</label>
+          <input type="range" class="range-slider" id="animation-speed" min="5" max="20" value="10">
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-item" style="margin-top: 20px;">
+      <h3 style="margin: 0; padding: 10px 0;">界面效果</h3>
+      <div>
+        <div class="setting-row">
+          <label>毛玻璃</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="blur-toggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label>透明度</label>
+          <input type="range" class="range-slider" id="opacity-slider" min="0" max="100" value="80">
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-item" style="margin-top: 20px;">
+      <h3 style="margin: 0; padding: 10px 0;">按钮样式</h3>
+      <div>
+        <div class="setting-row">
+          <label>悬浮效果</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hover-toggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label>大小</label>
+          <input type="range" class="range-slider" id="size-slider" min="40" max="80" value="60">
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-item" style="margin-top: 20px;">
+      <h3 style="margin: 0; padding: 10px 0;">文字样式</h3>
+      <div>
+        <div class="setting-row">
+          <label>颜色</label>
+          <input type="color" id="text-color" value="#ffffff" style="width: 40px; height: 20px; padding: 0; border: none;">
+        </div>
+        <div class="setting-row">
+          <label>粗细</label>
+          <input type="range" class="range-slider" id="text-weight" min="300" max="700" step="100" value="400">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="nav-panel">
+    <div class="nav-content">
+      <div class="search-container">
+        <div class="search-box">
+          <input type="text" class="search-input" placeholder="百度搜索">
+          <div class="search-engines">
+            <div class="engine-icon baidu"></div>
+            <div class="engine-icon google"></div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <a href="https://www.baidu.com/" class="btn" data-description="百度一下，你就知道" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdnWRJ.png?v=20241218');">
+          <span>百度</span>
+        </a>
+        <a href="https://fanyi.youdao.com/" class="btn" data-description="网易有道翻译" style="background-image: url('https://s21.ax1x.com/2024/06/17/pk0SVqH.png?v=20241218');">
+          <span>有道</span>
+        </a>
+
+        <a href="https://www.google.com" class="btn" data-description="Google Search" style="background-image: url('https://s21.ax1x.com/2024/06/13/pkaqDkF.png?v=20241218');">
+          <span>谷歌</span>
+        </a>
+
+        <a href="https://outlook.live.com/mail/0/" class="btn" data-description="邮箱" style="background-image: url('https://s21.ax1x.com/2024/09/27/pAlw13t.png?v=20241218');">
+          <span>Outlook</span>
+        </a>
+
+        <a href="https://mail.google.com/" class="btn" data-description="Gmail邮箱" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdaAsK.png?v=20241218');">
+          <span>Gmail</span>
+        </a>
+
+        <a href="https://wx.mail.qq.com/" class="btn" data-description="QQ邮箱" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdn4MR.png?v=20241218');">
+          <span>Q邮箱</span>
+        </a>
+        <a href="https://mail.163.com/" class="btn" data-description="网易邮箱" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdnqiD.png?v=20241218');">
+          <span>网易邮箱</span>
+        </a>
+      </div>
+
+      <div class="row">
+        <a href="https://www.pinterest.com/" class="btn" data-description="搜索参考图" style="background-image: url('https://s21.ax1x.com/2024/06/17/pk09lDg.png?v=20241218');">
+          <span>Pinterest</span>
+        </a>
+      </div>
+
+      <div class="row">
+        <a href="https://www.taobao.com/" class="btn" data-description="淘宝" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdueLq.png?v=20241218');">
+          <span>淘宝</span>
+        </a>
+        <a href="https://www.jd.com/" class="btn" data-description="京东" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkduJyR.png?v=20241218');">
+          <span>京东</span>
+        </a>
+      </div>
+
+      <div class="row">
+        <a href="https://chatgpt.com/" class="btn" data-description="ChatGPT3.5" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdaEqO.png?v=20241218');">
+          <span>ChatGPT</span>
+        </a>
+        <a href="https://kimi.moonshot.cn/" class="btn" data-description="1889******4" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdaZZD.png?v=20241218');">
+          <span>Kimi</span>
+        </a>
+        <a href="https://lumalabs.ai/" class="btn" data-description="AI照片生产视频" style="background-image: url('https://s21.ax1x.com/2024/07/26/pkbRgPS.png?v=20241218');">
+          <span>Luma</span>
+        </a>
+        <a href="https://github.com/login" class="btn" data-description="hl27*****21@gmail.com:hl27*****21<br>55***86@QQ.com:hl2******21" style="background-image: url('https://s21.ax1x.com/2024/09/27/pAlwZnO.png?v=20241218');">
+          <span>Github</span>
+        </a>
+
+        <a href="https://bolt.new/" class="btn" data-description="hl27*****21@gmail.com:hl27*****21<br>55***86@QQ.com:hl2******21" style="background-image: url('https://s21.ax1x.com/2024/12/02/pAIJTE9.png?v=20241218');">
+          <span>Bolt</span>
+        </a>
+
+      </div>
+      <div class="row">
+        <a href="https://www.youtube.com/" class="btn" data-description="Youtube" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdnORH.png?v=20241218');">
+          <span>Youtube</span>
+        </a>
+
+        <a href="https://ytdownfk.com/en6902" class="btn" data-description="https://www.videofk.com/  <br>
+https://yt5s.io/en91 <br>
+https://zh.vidiget.com/home30 <br>
+https://www.videofk.com/ <br>
+https://www.converto.io/en69 <br>
+https://y2mate.com/ <br>
+https://ytdownfk.com/en6902" style="background-image: url('https://s21.ax1x.com/2024/08/20/pAPTkTA.png?v=20241218');">
+          <span>油管下载</span>
+        </a>
+
+        <a href="https://www.bilibili.com/" class="btn" data-description="1889*****74:27*****21" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdnLJe.png?v=20241218');">
+          <span>BiLi</span>
+        </a>
+      </div>
+
+      <div class="row">
+        <a href="https://www.123pan.com/" class="btn" data-description="188997****4:273*****1" style="background-image: url('https://s21.ax1x.com/2024/06/17/pkwxLBd.png?v=20241218');">
+          <span>123网盘</span>
+        </a>
+        <a href="https://pan.baidu.com/" class="btn" data-description="百度云盘" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdaJeS.png?v=20241218');">
+          <span>百度云盘</span>
+        </a>
+      </div>
+
+      <div class="row">
+
+        <a href="https://www.iconfont.cn/" class="btn" data-description="188*******4:hl273******1" style="background-image: url('https://s21.ax1x.com/2024/06/14/pkdn2iF.png?v=20241218');">
+          <span>Icon</span>
+        </a>
+        <a href="https://imgse.com/" class="btn" data-description="hl2**6@163.com:273******1" style="background-image: url('https://s21.ax1x.com/2024/06/13/pkaORIO.png?v=20241218');">
+          <span>图床</span>
+        </a>
+
+        <a href="ms-settings:network-proxy" class="btn" data-description="VPN" style="background-image: url('https://s21.ax1x.com/2024/06/25/pksYD2j.png?v=20241218');">
+          <span>VPN开关</span>
+        </a>
+
+        <a href="http://209.209.59.233" class="btn" data-description="http://209.209.59.233/s/8rSkC<br>2914673454@qq.com :QWEasd1<br>1315334050@qq.com :QWEasd1<br>lednumber1@163.com :LEDnumber2022<br>lednumber2@126.com :LEDnumber2022" style="background-image: url('https://s21.ax1x.com/2024/09/27/pAlweBD.png?v=20241218');">
+          <span>丹人VPN</span>
+        </a>
+
+        <a href="http://doc.qianqian.club/" class="btn" data-description="软件集合" style="background-image: url('https://s21.ax1x.com/2024/07/26/pkbRBDI.png?v=20241218');">
+          <span>软件集合</span>
+        </a>
+
+        <!-- This is the last row of buttons -->
+      </div>
+
+      <!-- Here is where the -更多-  element is added -->
+      <div id="more-toggle">More</div>
+      <div id="hidden-container">
+        <!-- Placeholder content -->
+        <p>Game </p>
+        <!-- 下方接着的是隐藏按钮 -->
+        <div class="row">
+          <!-- 第一行的按钮 -->
+          <a href="https://www.luacn.net/" class="btn" data-description="hl2**6:273*****1<br>Q55****6登陆" style="background-image: url('https://s21.ax1x.com/2024/06/17/pk0SiRK.png?v=20241218');">
+            <span>Lua</span>
+          </a>
+          <!-- 添加两个新的按钮 -->
+          <a href="https://uiwow.com/" class="btn" data-description="hl2**6:273*****1" style="background-image: url('https://s21.ax1x.com/2024/06/17/pkwzsUI.png?v=20241218');">
+            <span>有爱</span>
+          </a>
+
+          <a href="https://wiki.luatos.com/_static/luatos-emulator/lua.html?--%0A--%0d%0a" class="btn" data-description="Lua在线" style="background-image: url('https://s21.ax1x.com/2024/09/27/pAlw481.png?v=20241218');">
+            <span>Lua在线</span>
+          </a>
+
+          <a href="http://db.nfuwow.com/80/?items=3&filter=cr=20%3Bcrs=1%3Bcrv=0%3Bqu=2%3A3" class="btn" data-description="数据库1" style="background-image: url('https://s21.ax1x.com/2024/08/21/pAiQEE8.png?v=20241218');">
+            <span>NFU数据库</span>
+          </a>
+          <a href="https://wowgaming.altervista.org/aowow/?items=4.1&filter=sl=3" class="btn" data-description="数据库2" style="background-image: url('https://s21.ax1x.com/2024/08/21/pAiQEE8.png?v=20241218');">
+            <span>AO数据库</span>
+          </a>
+          <a href="https://80.dvg.cn/?items=3" class="btn" data-description="数据库3" style="background-image: url('https://s21.ax1x.com/2024/08/21/pAiQEE8.png?v=20241218');">
+            <span>DVG数据库</span>
+          </a>
+
+          <a href="http://www.99nets.com/forum-36-1.html" class="btn" data-description="99Net" style="background-image: url('https://s21.ax1x.com/2024/08/21/pAiQEE8.png?v=20241218');">
+            <span>99Net</span>
+          </a>
+          <a href="http://www.wangye45.com/thread-998361-1-1.html" class="btn" data-description="网页45" style="background-image: url('https://s21.ax1x.com/2024/08/21/pAiQEE8.png?v=20241218');">
+            <span>网页45</span>
+          </a>
+          <a href="http://www.55nets.com/forum.php?mod=viewthread&tid=934731&extra=" class="btn" data-description="55Nets" style="background-image: url('https://s21.ax1x.com/2024/08/21/pAiQEE8.png?v=20241218');">
+            <span>55Nets</span>
+          </a>
+
+        </div>
+        <p>大厂信息 </p>
+        <div class="row">
+          <!-- 第二行的按钮 -->
+          <a href="https://www.mi.com/service" class="btn" data-description="小米账号2181643911<br>188******74:hl2*****21" style="background-image: url('https://s21.ax1x.com/2024/10/24/pAdjFED.png?v=20241218');">
+            <span>小米</span>
+          </a>
+          <a href="https://www.apple.com.cn/" class="btn" data-description="H***86@163.com:Hl_20****12<br>5****86@qq.com:Mo*******ie_123" style="background-image: url('https://s21.ax1x.com/2024/12/04/pAo6G8O.png?v=20241218');">
+            <span>iphone</span>
+          </a>
+
+
+
+
+          <!-- 你可以在这里添加更多按钮 -->
+        </div>
+      </div>
+    </div>
+    <div id="description" class="description">文字介绍</div>
+    <!-- 添加日期显示 -->
+    <div class="date-display" id="dateDisplay"></div>
+    <!-- 时钟HTML结构 -->
+    <div class="clock">
+      <div class="hover-time" id="hoverTime"></div>
+      <div class="clock-face">
+        <!-- 添加12个刻度 -->
+        <div class="clock-mark mark-main" style="transform: rotate(0deg)"></div>
+        <div class="clock-mark" style="transform: rotate(30deg)"></div>
+        <div class="clock-mark" style="transform: rotate(60deg)"></div>
+        <div class="clock-mark mark-main" style="transform: rotate(90deg)"></div>
+        <div class="clock-mark" style="transform: rotate(120deg)"></div>
+        <div class="clock-mark" style="transform: rotate(150deg)"></div>
+        <div class="clock-mark mark-main" style="transform: rotate(180deg)"></div>
+        <div class="clock-mark" style="transform: rotate(210deg)"></div>
+        <div class="clock-mark" style="transform: rotate(240deg)"></div>
+        <div class="clock-mark mark-main" style="transform: rotate(270deg)"></div>
+        <div class="clock-mark" style="transform: rotate(300deg)"></div>
+        <div class="clock-mark" style="transform: rotate(330deg)"></div>
+        
+        <div class="hand hour-hand"></div>
+        <div class="hand minute-hand"></div>
+        <div class="hand second-hand"></div>
+        <div class="clock-center"></div>
+      </div>
+    </div>
+    <script>
+      // 初始化所有变量
+      const settingsBtn = document.querySelector('.settings-btn');
+      const settingsPanel = document.querySelector('.settings-panel');
+      const resetBtn = document.querySelector('.reset-btn');
+      const colorOptions = document.querySelectorAll('.color-option');
+      const animationToggle = document.getElementById('animation-toggle');
+      const animationSpeed = document.getElementById('animation-speed');
+      const blurToggle = document.getElementById('blur-toggle');
+      const opacitySlider = document.getElementById('opacity-slider');
+      const hoverToggle = document.getElementById('hover-toggle');
+      const sizeSlider = document.getElementById('size-slider');
+      const textColor = document.getElementById('text-color');
+      const textWeight = document.getElementById('text-weight');
+      const textOpacity = document.getElementById('text-opacity');
+
+      // 默认设置
+      const defaultSettings = {
+        background: 'linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab)',
+        animation: 'moveX 10s ease-in-out infinite alternate, moveY 15s ease-in-out infinite alternate',
+        animationEnabled: true,
+        animationSpeed: 10,
+        blurEnabled: true,
+        opacity: 80,
+        buttonHoverEnabled: true,
+        buttonSize: 60,
+        textColor: '#ffffff',
+        textWeight: 400,
+        textOpacity: 100
+      };
+
+      // 预设背景渐变
+      const gradients = {
+        default: 'linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab)',
+        sunset: 'linear-gradient(-45deg, #FF6B6B, #4ECDC4)',
+        pastel: 'linear-gradient(-45deg, #a8e6cf, #dcedc1, #ffd3b6, #ffaaa5)',
+        ocean: 'linear-gradient(-45deg, #3494E6, #EC6EAD)',
+        forest: 'linear-gradient(-45deg, #11998e, #38ef7d)',
+        purple: 'linear-gradient(-45deg, #8E2DE2, #4A00E0)',
+        warm: 'linear-gradient(-45deg, #F2994A, #F2C94C)',
+        night: 'linear-gradient(-45deg, #20002c, #cbb4d4)'
+      };
+
+      // 切换背景颜色
+      colorOptions.forEach((option, index) => {
+        // 设置初始渐变背景
+        const gradientName = option.getAttribute('data-gradient');
+        option.style.background = gradients[gradientName];
+        
+        option.addEventListener('click', () => {
+          const gradient = option.getAttribute('data-gradient');
+          document.body.style.background = gradients[gradient];
+          document.body.style.backgroundSize = '400% 400%';
+          
+          // 更新动画
+          if (animationToggle.checked) {
+            updateBackgroundAnimation();
+          }
+          
+          // 更新选中状态
+          colorOptions.forEach(opt => opt.classList.remove('active'));
+          option.classList.add('active');
+
+          // 保存设置
+          saveSettings();
+        });
+      });
+
+      // 打开/关闭设置面板
+      settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        settingsPanel.classList.toggle('active');
+      });
+
+      // 点击面板外关闭面板
+      document.addEventListener('click', (e) => {
+        if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+          settingsPanel.classList.remove('active');
+        }
+      });
+
+      // 重置按钮点击事件
+      resetBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        console.log('Reset button clicked');
+        
+        // 应用默认设置
+        document.body.style.background = defaultSettings.background;
+        document.body.style.animation = defaultSettings.animation;
+        document.body.style.backgroundSize = '400% 400%';
+        
+        // 重置所有控件状态
+        animationToggle.checked = defaultSettings.animationEnabled;
+        animationSpeed.value = defaultSettings.animationSpeed;
+        blurToggle.checked = defaultSettings.blurEnabled;
+        opacitySlider.value = defaultSettings.opacity;
+        hoverToggle.checked = defaultSettings.buttonHoverEnabled;
+        sizeSlider.value = defaultSettings.buttonSize;
+        textColor.value = defaultSettings.textColor;
+        textWeight.value = defaultSettings.textWeight;
+        textOpacity.value = defaultSettings.textOpacity;
+
+        // 更新所有效果
+        updateBlurEffect();
+        updateButtonSettings();
+        updateTextStyles();
+        updateBackgroundAnimation();
+        
+        // 更新颜色选项的选中状态
+        colorOptions.forEach(opt => opt.classList.remove('active'));
+        colorOptions[0].classList.add('active');
+        
+        // 清除localStorage中的设置
+        localStorage.removeItem('navSettings');
+      });
+
+      // 更新函数定义
+      function updateBackgroundAnimation() {
+        const speed = animationSpeed.value;
+        if (animationToggle.checked) {
+          document.body.style.backgroundSize = '400% 400%';
+          document.body.style.animation = `moveX ${speed}s ease-in-out infinite alternate, moveY ${speed * 1.5}s ease-in-out infinite alternate`;
+        } else {
+          document.body.style.animation = 'none';
+        }
+        saveSettings();
+      }
+
+      function updateBlurEffect() {
+        const elements = document.querySelectorAll('.settings-panel, .settings-item');
+        elements.forEach(el => {
+          if (blurToggle.checked) {
+            el.style.backdropFilter = 'blur(10px)';
+          } else {
+            el.style.backdropFilter = 'none';
+          }
+          el.style.background = `rgba(255, 255, 255, ${opacitySlider.value / 100 * 0.2})`;
+        });
+        saveSettings();
+      }
+
+      function updateButtonSettings() {
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(btn => {
+          btn.style.width = `${sizeSlider.value}px`;
+          btn.style.height = `${sizeSlider.value}px`;
+          if (hoverToggle.checked) {
+            btn.style.transition = 'all 0.3s ease';
+          } else {
+            btn.style.transition = 'none';
+          }
+        });
+        saveSettings();
+      }
+
+      function updateTextStyles() {
+        const buttons = document.querySelectorAll('.btn span');
+        const color = textColor.value;
+        const weight = textWeight.value;
+
+        buttons.forEach(span => {
+          span.style.color = color;
+          span.style.fontWeight = weight;
+        });
+        saveSettings();
+      }
+
+      // 事件监听器
+      animationToggle.addEventListener('change', updateBackgroundAnimation);
+      animationSpeed.addEventListener('input', updateBackgroundAnimation);
+      blurToggle.addEventListener('change', updateBlurEffect);
+      opacitySlider.addEventListener('input', updateBlurEffect);
+      hoverToggle.addEventListener('change', updateButtonSettings);
+      sizeSlider.addEventListener('input', updateButtonSettings);
+      textColor.addEventListener('input', updateTextStyles);
+      textWeight.addEventListener('input', updateTextStyles);
+
+      // 保存和加载设置
+      function saveSettings() {
+        const settings = {
+          background: document.body.style.background,
+          animation: document.body.style.animation,
+          animationEnabled: animationToggle.checked,
+          animationSpeed: animationSpeed.value,
+          blurEnabled: blurToggle.checked,
+          opacity: opacitySlider.value,
+          buttonHoverEnabled: hoverToggle.checked,
+          buttonSize: sizeSlider.value,
+          textColor: textColor.value,
+          textWeight: textWeight.value
+        };
+        localStorage.setItem('navSettings', JSON.stringify(settings));
+      }
+
+      function loadSettings() {
+        const savedSettings = localStorage.getItem('navSettings');
+        if (savedSettings) {
+          const settings = JSON.parse(savedSettings);
+          
+          document.body.style.background = settings.background;
+          document.body.style.animation = settings.animation;
+          document.body.style.backgroundSize = '400% 400%';
+          
+          animationToggle.checked = settings.animationEnabled;
+          animationSpeed.value = settings.animationSpeed;
+          blurToggle.checked = settings.blurEnabled;
+          opacitySlider.value = settings.opacity;
+          hoverToggle.checked = settings.buttonHoverEnabled;
+          sizeSlider.value = settings.buttonSize;
+          textColor.value = settings.textColor;
+          textWeight.value = settings.textWeight;
+          
+          updateBlurEffect();
+          updateButtonSettings();
+          updateTextStyles();
+          updateBackgroundAnimation();
+        }
+      }
+
+      // 初始化
+      loadSettings();
+    </script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        let scrollY = 0;
+        let targetScrollY = 0;
+        let animationFrameId = null;
+        let lastWindowHeight = window.innerHeight;
+
+        function logScrollInfo() {
+          const navContent = document.querySelector('.nav-content');
+          const navPanel = document.querySelector('.nav-panel');
+          const hiddenContainer = document.getElementById('hidden-container');
+          
+          const contentHeight = navContent.scrollHeight;
+          const viewportHeight = navPanel.clientHeight;
+          const windowHeight = window.innerHeight;
+          const threeRowsHeight = 300;
+          const maxUpScroll = Math.max(0, contentHeight - threeRowsHeight);
+          const maxDownScroll = Math.max(0, viewportHeight - threeRowsHeight);
+          
+          console.log({
+            '窗口高度': windowHeight,
+            '内容总高度': contentHeight,
+            '可视区域高度': viewportHeight,
+            '当前滚动位置': scrollY,
+            '目标滚动位置': targetScrollY,
+            '向上最大滚动': maxUpScroll,
+            '向下最大滚动': maxDownScroll,
+            '是否展开': hiddenContainer.style.maxHeight !== '0px',
+            '可见按钮行数': Math.floor((viewportHeight - Math.abs(scrollY)) / 100)
+          });
+        }
+
+        function smoothScroll() {
+          const ease = 0.2;
+          const diff = targetScrollY - scrollY;
+          
+          if (Math.abs(diff) > 0.5) {
+            scrollY += diff * ease;
+            const navContent = document.querySelector('.nav-content');
+            navContent.style.transform = `translateY(${-scrollY}px)`;
+            animationFrameId = requestAnimationFrame(smoothScroll);
+            logScrollInfo();
+          } else {
+            scrollY = targetScrollY;
+            const navContent = document.querySelector('.nav-content');
+            navContent.style.transform = `translateY(${-scrollY}px)`;
+            cancelAnimationFrame(animationFrameId);
+          }
+        }
+
+        function handleScroll(deltaY) {
+          const navContent = document.querySelector('.nav-content');
+          const navPanel = document.querySelector('.nav-panel');
+          const hiddenContainer = document.getElementById('hidden-container');
+          
+          const contentHeight = navContent.scrollHeight;
+          const viewportHeight = navPanel.clientHeight;
+          const minVisibleRows = Math.max(3, Math.floor(viewportHeight / 200));
+          const minVisibleHeight = minVisibleRows * 100;
+            
+          // 可调整的上滑极限参数 
+          const UP_SCROLL_OFFSET = -100;  // 可以根据需要调整这个值-100
+          // 可调整的下滑极限参数
+          const DOWN_SCROLL_OFFSET = 200;  // 可以根据需要调整这个值350
+
+          // 分离上滑和下滑的极限值计算
+          // 上滑极限值计算：实际内容高度 - 最小可见高度 + 上滑偏移值
+          const maxUpScroll = Math.max(0, contentHeight - minVisibleHeight + UP_SCROLL_OFFSET);
+          // 下滑极限值计算：视口高度 - 最小可见高度 + 下滑偏移值
+          const maxDownScroll = Math.max(0, viewportHeight - minVisibleHeight + DOWN_SCROLL_OFFSET);
+          
+          targetScrollY += deltaY * 0.8;
+          
+          // 分别处理上滑和下滑的限制
+          if (deltaY < 0) {
+            // 向上滚动
+            targetScrollY = Math.max(-maxUpScroll, targetScrollY);
+          } else {
+            // 向下滚动
+            targetScrollY = Math.min(maxDownScroll, targetScrollY);
+          }
+
+          if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+          }
+          
+          smoothScroll();
+          
+          // 输出调试信息
+          console.log('滚动状态：', {
+            '滚动方向': deltaY < 0 ? '向上' : '向下',
+            '内容高度': contentHeight,
+            '视口高度': viewportHeight,
+            '最小可见高度': minVisibleHeight,
+            '向上最大滚动': maxUpScroll,
+            '向下最大滚动': maxDownScroll,
+            '当前滚动位置': targetScrollY
+          });
+        }
+
+        window.addEventListener('resize', () => {
+          const newWindowHeight = window.innerHeight;
+          const heightDiff = newWindowHeight - lastWindowHeight;
+          
+          if (Math.abs(heightDiff) > 50) {
+            targetScrollY = Math.max(0, Math.min(targetScrollY, newWindowHeight - 300));
+            smoothScroll();
+            lastWindowHeight = newWindowHeight;
+          }
+          
+          logScrollInfo();
+        });
+
+        document.querySelector('.nav-panel').addEventListener('wheel', (e) => {
+          e.preventDefault();
+          handleScroll(e.deltaY);
+        }, { passive: false });  // 明确指定non-passive，因为我们需要preventDefault
+
+        document.getElementById('more-toggle').addEventListener('click', () => {
+          const hiddenContainer = document.getElementById('hidden-container');
+          const navContent = document.querySelector('.nav-content');
+          const navPanel = document.querySelector('.nav-panel');
+          const wasHidden = hiddenContainer.style.maxHeight === '0px' || !hiddenContainer.style.maxHeight;
+          
+          if (wasHidden) {
+            hiddenContainer.style.maxHeight = hiddenContainer.scrollHeight + 'px';
+          } else {
+            hiddenContainer.style.maxHeight = '0px';
+          }
+
+          // 等待展开/收起动画完成后重新计算滚动范围
+          setTimeout(() => {
+            // 重新获取内容高度（包含展开/收起的内容）
+            const contentHeight = navContent.scrollHeight;
+            const viewportHeight = navPanel.clientHeight;
+            const minVisibleRows = Math.max(3, Math.floor(viewportHeight / 200));
+            const minVisibleHeight = minVisibleRows * 100;
+            
+            // 重新计算上滑和下滑的极限值
+            const maxUpScroll = Math.max(0, contentHeight - minVisibleHeight);
+            const maxDownScroll = Math.max(0, viewportHeight - minVisibleHeight + 600);
+            
+            // 确保当前滚动位置在新的范围内
+            if (targetScrollY < -maxUpScroll) {
+              targetScrollY = -maxUpScroll;
+            } else if (targetScrollY > maxDownScroll) {
+              targetScrollY = maxDownScroll;
+            }
+            
+            // 立即应用新的滚动位置
+            scrollY = targetScrollY;
+            navContent.style.transform = `translateY(${-scrollY}px)`;
+            
+            // 输出日志查看新的值
+            console.log('展开/收起后重新计算：', {
+              '内容高度': contentHeight,
+              '视口高度': viewportHeight,
+              '最小可见高度': minVisibleHeight,
+              '向上最大滚动': maxUpScroll,
+              '向下最大滚动': maxDownScroll,
+              '当前滚动位置': scrollY
+            });
+          }, 300); // 等待300ms，确保展开/收起动画完成
+        });
+
+        document.querySelector('.nav-panel').addEventListener('mouseover', (e) => {
+          if (e.target.classList.contains('btn')) {
+            showDescription(e.target.dataset.description);
+          }
+        });
+
+        document.querySelector('.nav-panel').addEventListener('mouseout', (e) => {
+          if (e.target.classList.contains('btn')) {
+            hideDescription();
+          }
+        });
+
+        function showDescription(text) {
+          document.getElementById('description').innerHTML = text;
+          document.getElementById('description').classList.add('show');
+        }
+
+        function hideDescription() {
+          document.getElementById('description').classList.remove('show');
+        }
+      });
+
+      // 鼠标拖尾效果
+      function createParticle(x, y) {
+        const particle = document.createElement('div');
+        particle.className = 'mouse-particle';
+        particle.style.left = x + 'px';
+        particle.style.top = y + 'px';
+        document.body.appendChild(particle);
+
+        // 随机大小和颜色
+        const size = Math.random() * 8 + 3;
+        const hue = Math.random() * 360;
+        particle.style.width = size + 'px';
+        particle.style.height = size + 'px';
+        particle.style.background = `hsla(${hue}, 100%, 60%, 0.8)`;
+
+        // 粒子物理属性
+        const velocity = {
+          x: (Math.random() - 0.5) * 3,  // 随机水平速度
+          y: Math.random() * -2 - 1      // 初始向上的速度
+        };
+        const gravity = 0.15;            // 重力加速度
+        let posX = x;
+        let posY = y;
+        let opacity = 1;
+
+        // 动画效果
+        const animate = () => {
+          // 应用重力
+          velocity.y += gravity;
+          
+          // 更新位置
+          posX += velocity.x;
+          posY += velocity.y;
+          
+          // 更新透明度
+          opacity -= 0.02;
+
+          if (opacity <= 0) {
+            particle.remove();
+            return;
+          }
+
+          // 应用新位置和透明度
+          particle.style.transform = `translate(${posX - x}px, ${posY - y}px)`;
+          particle.style.opacity = opacity;
+          requestAnimationFrame(animate);
+        };
+        animate();
+      }
+
+      // 监听鼠标移动
+      let lastX = 0;
+      let lastY = 0;
+      document.addEventListener('mousemove', (e) => {
+        const x = e.clientX;
+        const y = e.clientY;
+        
+        // 计算鼠标移动距离
+        const distance = Math.hypot(x - lastX, y - lastY);
+        
+        // 根据移动距离创建粒子
+        if (distance > 5) {
+          createParticle(x, y);
+          lastX = x;
+          lastY = y;
+        }
+      });
+
+      // 添加时钟功能
+      const clockHands = {
+        hour: document.querySelector('.hour-hand'),
+        minute: document.querySelector('.minute-hand'),
+        second: document.querySelector('.second-hand')
+      };
+
+      const hoverTime = document.querySelector('.hover-time');
+      const dateDisplay = document.getElementById('dateDisplay');
+      const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+      function updateClock() {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+
+        // 保持原有的角度计算方式
+        const hoursAngle = ((hours % 12) * 30) + (minutes / 2);
+        const minutesAngle = minutes * 6;
+        const secondsAngle = seconds * 6;
+
+        // 使用缓存的DOM引用更新指针
+        clockHands.hour.style.transform = `rotate(${hoursAngle}deg)`;
+        clockHands.minute.style.transform = `rotate(${minutesAngle}deg)`;
+        clockHands.second.style.transform = `rotate(${secondsAngle}deg)`;
+
+        // 更新时钟上方的实时时间显示
+        if (hoverTime) {
+          const timePrefix = hours < 12 ? '上午' : (hours >= 12 && hours < 18 ? '下午' : '晚上');
+          const displayHours = hours % 12 || 12;
+          hoverTime.textContent = `${timePrefix}${displayHours}点${minutes.toString().padStart(2, '0')}分${seconds.toString().padStart(2, '0')}秒`;
+        }
+
+        // 使用requestAnimationFrame进行下一帧更新
+        requestAnimationFrame(updateClock);
+      }
+
+      // 分离日期更新逻辑，减少更新频率
+      function updateDate() {
+        if (dateDisplay) {
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1;
+          const date = now.getDate();
+          const weekDay = weekDays[now.getDay()];
+          dateDisplay.textContent = `${year}年${month}月${date}日 ${weekDay}`;
+        }
+      }
+
+      // 启动时钟和日期更新
+      requestAnimationFrame(updateClock);
+      updateDate();
+      setInterval(updateDate, 1000);  // 日期每秒更新一次即可
+    </script>
+    <script>
+      // 统一的搜索功能管理
+      document.addEventListener('DOMContentLoaded', () => {
+        // 获取所有需要的DOM元素
+        const searchEngines = document.querySelector('.search-engines');
+        const searchInput = document.querySelector('.search-input');
+        const baiduBtn = document.querySelector('.baidu');
+        const googleBtn = document.querySelector('.google');
+        const baiduLink = document.querySelector('a[href="https://www.baidu.com/"]');
+        const googleLink = document.querySelector('a[href="https://www.google.com"]');
+
+        // 初始化搜索引擎状态
+        let currentEngine = 'baidu';
+
+        // 确保所有元素都存在
+        if (searchInput) {
+          // 回车搜索功能
+          searchInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+              const query = searchInput.value.trim();
+              if (query) {
+                let searchUrl = currentEngine === 'baidu'
+                  ? `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`
+                  : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+                window.open(searchUrl, '_blank');
+                searchInput.value = '';
+              }
+            }
+          });
+
+          // 搜索引擎切换点击
+          if (searchEngines) {
+            searchEngines.addEventListener('click', () => {
+              const isUsingGoogle = searchEngines.classList.contains('using-google');
+              if (isUsingGoogle) {
+                // 切换到百度
+                searchEngines.classList.remove('using-google');
+                currentEngine = 'baidu';
+                searchInput.placeholder = '百度搜索';
+              } else {
+                // 切换到谷歌
+                searchEngines.classList.add('using-google');
+                currentEngine = 'google';
+                searchInput.placeholder = 'Google Search';
+              }
+            });
+          }
+
+          // 百度链接点击
+          if (baiduLink) {
+            baiduLink.addEventListener('click', (e) => {
+              e.preventDefault();
+              const query = searchInput.value.trim();
+              if (query) {
+                window.open(`https://www.baidu.com/s?wd=${encodeURIComponent(query)}`, '_blank');
+                searchInput.value = '';
+              } else {
+                window.open('https://www.baidu.com/', '_blank');
+              }
+              // 切换到百度搜索
+              if (searchEngines) {
+                searchEngines.classList.remove('using-google');
+                currentEngine = 'baidu';
+                searchInput.placeholder = '百度搜索';
+              }
+            });
+          }
+
+          // 谷歌链接点击
+          if (googleLink) {
+            googleLink.addEventListener('click', (e) => {
+              e.preventDefault();
+              const query = searchInput.value.trim();
+              if (query) {
+                window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+                searchInput.value = '';
+              } else {
+                window.open('https://www.google.com/', '_blank');
+              }
+              // 切换到谷歌搜索
+              if (searchEngines) {
+                searchEngines.classList.add('using-google');
+                currentEngine = 'google';
+                searchInput.placeholder = 'Google Search';
+              }
+            });
+          }
+        }
+      });
+    </script>
+    <script>
+      // 简化的图标管理类
+      class IconManager {
+        constructor() {
+          this.init();
+        }
+
+        init() {
+          // 等待DOM加载完成后初始化图标
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.handleIcons());
+          } else {
+            this.handleIcons();
+          }
+
+          // 添加右键菜单功能
+          document.addEventListener('contextmenu', (e) => {
+            if (e.target.classList.contains('btn')) {
+              e.preventDefault();
+              if (confirm('是否刷新此图标？')) {
+                this.refreshIcon(e.target);
+              }
+            }
+          });
+        }
+
+        handleIcons() {
+          const buttons = document.querySelectorAll('.btn');
+          buttons.forEach(button => {
+            // 预加载图片
+            const style = getComputedStyle(button);
+            const bgImage = style.backgroundImage;
+            if (bgImage && bgImage !== 'none') {
+              const url = bgImage.slice(4, -1).replace(/['"]/g, '');
+              const img = new Image();
+              img.src = url;
+            }
+          });
+        }
+
+        refreshIcon(button) {
+          const style = getComputedStyle(button);
+          const bgImage = style.backgroundImage;
+          if (bgImage && bgImage !== 'none') {
+            const url = bgImage.slice(4, -1).replace(/['"]/g, '');
+            // 添加时间戳来强制刷新
+            const newUrl = url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
+            button.style.backgroundImage = `url('${newUrl}')`;
+          }
+        }
+      }
+
+      // 初始化图标管理器
+      const iconManager = new IconManager();
+    </script>
+  </body>
+
+</html>
