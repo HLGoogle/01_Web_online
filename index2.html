@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户认证系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #1677ff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #4096ff;
+        }
+        .tab-buttons {
+            margin-bottom: 20px;
+        }
+        .tab-buttons button {
+            margin-right: 10px;
+        }
+        .form-container > div {
+            display: none;
+        }
+        .form-container > div.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tab-buttons">
+            <button onclick="showForm('login')">登录</button>
+            <button onclick="showForm('register')">注册</button>
+            <button onclick="showForm('recover')">找回密码</button>
+        </div>
+        
+        <div class="form-container">
+            <!-- 登录表单 -->
+            <div id="loginForm">
+                <h2>用户登录</h2>
+                <div class="form-group">
+                    <label for="loginUsername">账号：</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">密码：</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button onclick="login()">登录</button>
+            </div>
+
+            <!-- 注册表单 -->
+            <div id="registerForm">
+                <h2>用户注册</h2>
+                <div class="form-group">
+                    <label for="regUsername">账号：</label>
+                    <input type="text" id="regUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">密码：</label>
+                    <input type="password" id="regPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPasswordHint">密码找回提示：</label>
+                    <input type="text" id="regPasswordHint" required>
+                </div>
+                <button onclick="register()">注册</button>
+            </div>
+
+            <!-- 找回密码表单 -->
+            <div id="recoverForm">
+                <h2>找回密码</h2>
+                <div class="form-group">
+                    <label for="recoverUsername">账号：</label>
+                    <input type="text" id="recoverUsername" required>
+                </div>
+                <div id="hintContainer" style="margin: 10px 0;"></div>
+                <button onclick="getPasswordHint()">获取密码提示</button>
+            </div>
+        </div>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
