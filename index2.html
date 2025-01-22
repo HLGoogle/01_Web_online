@@ -349,86 +349,55 @@
             const content = document.getElementById('newContent').value;
             const token = document.getElementById('githubToken').value;
             
-            if (!title || !content || !token) {
-                alert('请填写所有字段');
+            if (!title || !content) {
+                alert('请填写标题和内容');
+                return;
+            }
+
+            if (!token) {
+                alert('请输入 GitHub Token');
                 return;
             }
 
             try {
-                // 获取当前内容
-                const currentContent = await fetchSQLContent(token);
-                console.log('当前内容:', currentContent);
-                
-                // 解析现有内容
-                let sections = [];
-                if (currentContent.trim()) {
-                    sections = JSON.parse(currentContent);
-                }
-
-                // 添加新部分
-                const newSection = {
-                    id: sections.length + 1,
-                    type: currentType,
-                    title: title,
-                    content: content
-                };
-                sections.push(newSection);
-
-                // 更新文件
-                await updateGitHubFile(JSON.stringify(sections, null, 2), token);
-                
-                // 更新页面显示
-                const typeDiv = document.getElementById(currentType.toLowerCase().replace(' ', ''));
-                if (typeDiv) {
-                    const newLink = document.createElement('a');
-                    newLink.href = '#';
-                    newLink.id = `link${newSection.id}`;
-                    newLink.textContent = title;
-                    newLink.onclick = () => showContent(`section${newSection.id}`);
-                    typeDiv.appendChild(newLink);
-                }
-
-                alert('添加成功！');
-                closeModal();
-                
-                // 立即显示新添加的内容
-                showContent(`section${newSection.id}`);
-                
-            } catch (error) {
-                console.error('添加新部分时出错:', error);
-                alert('添加失败，请检查 GitHub Token 是否正确');
-            }
-        }
-
-        async function showContent(section) {
-            try {
-                const token = document.getElementById('githubToken').value;
-                if (!token) {
-                    alert('请先输入 GitHub Token');
+                // 获取当前 SQL 内容
+                const sqlContent = await fetchSQLContent(token);
+                if (!sqlContent) {
+                    alert('获取文件内容失败');
                     return;
                 }
 
-                const content = await fetchSQLContent(token);
-                const sections = JSON.parse(content);
+                // 构建新的 INSERT 语句
+                const newInsert = `\nINSERT INTO sections (title, content, type) VALUES ('${title}', '${content}', '${currentType}');`;
                 
-                // 从 section 中提取 ID
-                const sectionId = parseInt(section.replace('section', ''));
-                const sectionData = sections.find(s => s.id === sectionId);
-
-                if (sectionData) {
-                    const contentDiv = document.getElementById('content');
-                    contentDiv.innerHTML = `
-                        <h2>${sectionData.title}</h2>
-                        <div class="content-area">${sectionData.content}</div>
-                    `;
-                    updateActiveLink(section);
-                } else {
-                    console.error('未找到对应的部分:', sectionId);
+                // 更新文件内容
+                const success = await updateGitHubFile(sqlContent + newInsert, token);
+                
+                if (success) {
+                    alert('添加成功！');
+                    location.reload(); // 刷新页面以显示新内容
                 }
             } catch (error) {
-                console.error('显示内容时出错:', error);
-                alert('获取内容失败，请检查 GitHub Token 是否正确');
+                alert('操作失败：' + (error.message || '未知错误'));
             }
+
+            closeModal();
+        }
+
+        function showContent(section) {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = `
+                <h2>${section} 的详细内容</h2>
+                <div class="content-area">
+                    <p>这是 ${section} 的详细内容，这里可以放置更多的描述性文字。</p>
+                </div>
+                <div class="links-area">
+                    <a href="#">链接一</a>
+                    <a href="#">链接二</a>
+                    <a href="#">链接三</a>
+                </div>
+            `;
+            updateActiveLink(section);
         }
 
         function showHome() {
@@ -449,56 +418,6 @@
                 document.getElementById(`link${section.charAt(section.length - 1)}`).classList.add('active');
             }
         }
-
-        // 初始化页面内容
-        async function initializeContent() {
-            try {
-                const token = document.getElementById('githubToken').value;
-                if (!token) {
-                    return; // 如果没有 token，不进行初始化
-                }
-
-                const content = await fetchSQLContent(token);
-                if (!content.trim()) {
-                    // 如果文件为空，创建初始结构
-                    await updateGitHubFile('[]', token);
-                    return;
-                }
-
-                const sections = JSON.parse(content);
-                
-                // 清空现有内容
-                const types = ['type1', 'type2', 'type3'];
-                types.forEach(type => {
-                    const typeDiv = document.getElementById(type);
-                    if (typeDiv) {
-                        typeDiv.innerHTML = '';
-                    }
-                });
-
-                // 添加所有部分
-                sections.forEach(section => {
-                    const typeDiv = document.getElementById(section.type.toLowerCase().replace(' ', ''));
-                    if (typeDiv) {
-                        const link = document.createElement('a');
-                        link.href = '#';
-                        link.id = `link${section.id}`;
-                        link.textContent = section.title;
-                        link.onclick = () => showContent(`section${section.id}`);
-                        typeDiv.appendChild(link);
-                    }
-                });
-            } catch (error) {
-                console.error('初始化内容时出错:', error);
-            }
-        }
-
-        // 在页面加载完成后初始化内容
-        window.onload = function() {
-            // 添加 GitHub Token 输入框的变化监听
-            const tokenInput = document.getElementById('githubToken');
-            tokenInput.addEventListener('change', initializeContent);
-        };
     </script>
 </body>
 </html>
