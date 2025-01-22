@@ -245,8 +245,8 @@
         async function fetchSQLContent(token) {
             try {
                 const headers = {
-                    Authorization: token,
-                    Accept: 'application/vnd.github.v3+json'
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json'
                 };
                 console.log('请求头:', headers);
 
@@ -277,8 +277,8 @@
             try {
                 // 获取当前文件信息
                 const headers = {
-                    Authorization: token,
-                    Accept: 'application/vnd.github.v3+json'
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json'
                 };
                 console.log('请求头:', headers);
 
@@ -296,8 +296,8 @@
 
                 // 更新文件
                 const updateHeaders = {
-                    Authorization: token,
-                    Accept: 'application/vnd.github.v3+json',
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 };
                 console.log('更新请求头:', updateHeaders);
