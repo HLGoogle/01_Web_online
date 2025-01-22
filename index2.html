@@ -210,6 +210,21 @@
         
         let currentType = '';
 
+        // Base64 编码，支持中文
+        function base64Encode(str) {
+            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+                function toSolidBytes(match, p1) {
+                    return String.fromCharCode('0x' + p1);
+            }));
+        }
+
+        // Base64 解码，支持中文
+        function base64Decode(str) {
+            return decodeURIComponent(atob(str).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+        }
+
         // 从 GitHub 获取 SQL 文件内容
         async function fetchSQLContent(token) {
             try {
@@ -230,7 +245,7 @@
                 }
 
                 const data = await response.json();
-                return atob(data.content);
+                return base64Decode(data.content);
             } catch (error) {
                 console.error('获取文件错误:', error);
                 throw error;
@@ -248,8 +263,12 @@
                         'X-GitHub-Api-Version': '2022-11-28'
                     }
                 }).then(res => {
-                    if (!res.ok) throw new Error('获取文件信息失败');
-                    return res.json()
+                    if (!res.ok) {
+                        const error = new Error('获取文件信息失败');
+                        error.status = res.status;
+                        throw error;
+                    }
+                    return res.json();
                 });
 
                 // 更新文件
@@ -263,7 +282,7 @@
                     },
                     body: JSON.stringify({
                         message: '更新内容',
-                        content: btoa(content),
+                        content: base64Encode(content),
                         sha: currentFile.sha
                     })
                 });
@@ -329,7 +348,7 @@
                     location.reload(); // 刷新页面以显示新内容
                 }
             } catch (error) {
-                alert('操作失败：' + error.message);
+                alert('操作失败：' + (error.message || '未知错误'));
             }
 
             closeModal();
