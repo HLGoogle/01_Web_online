@@ -7,18 +7,18 @@ CREATE TABLE sections (
 
 -- 插入示例数据
 INSERT INTO sections (title, content, type) VALUES
-('部分 1', '<div style="text-align: center;">
-    <h2>这是部分 1 的详细内容。</h2>
+('部分 122'， '<div style="text-align: center;">
+    <h2>这是部分 133 的详细内容。</h2>
     <p>文字描述区，用于介绍该部分的内容文字。</p>
     <div style="display: flex; justify-content: center; gap: 20px;">
         <a href="#">链接一</a>
         <a href="#">链接二</a>
         <a href="#">链接三</a>
     </div>
-</div>', '类型1');
+</div>'， '类型1');
 
 INSERT INTO sections (title, content, type) VALUES
-('部分 2', '<div style="text-align: center;">
+('部分 2'， '<div style="text-align: center;">
     <h2>这是部分 2 的详细内容。</h2>
     <p>文字描述区，用于介绍该部分的内容文字。</p>
     <div style="display: flex; justify-content: center; gap: 20px;">
@@ -26,10 +26,10 @@ INSERT INTO sections (title, content, type) VALUES
         <a href="#">链接二</a>
         <a href="#">链接三</a>
     </div>
-</div>', '类型1');
+</div>'， '类型1');
 
 INSERT INTO sections (title, content, type) VALUES
-('部分 3', '<div style="text-align: center;">
+('部分 3'， '<div style="text-align: center;">
     <h2>这是部分 3 的详细内容。</h2>
     <p>文字描述区，用于介绍该部分的内容文字。</p>
     <div style="display: flex; justify-content: center; gap: 20px;">
