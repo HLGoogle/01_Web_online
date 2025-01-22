@@ -27,6 +27,16 @@
             left: 0;
             top: 0;
         }
+        .sidebar h2 {
+            margin-bottom: 15px;
+            display: block;
+        }
+        .sidebar h2 a {
+            font-size: 18px;
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+        }
         .sidebar a {
             color: white;
             text-decoration: none;
@@ -94,11 +104,33 @@
         .hidden {
             display: none;
         }
+        .return-btn {
+            position: fixed;
+            right: 16px;
+            top: 18px;
+            z-index: 1000;
+            background: #1890ff;
+            color: white;
+            text-decoration: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .return-btn:hover {
+            background: #40a9ff;
+        }
     </style>
 </head>
 <body>
+    <a href="index.html" class="return-btn">返回</a>
     <div class="sidebar">
-        <h2><a href="#" onclick="showHome()">目录</a></h2>
+        <h2>
+            <a href="#" onclick="showHome()">目录</a>
+        </h2>
         <h3 class="type-header">
             <span onclick="toggleSection('type1')">类型 1</span>
         </h3>
