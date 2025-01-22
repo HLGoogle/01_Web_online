@@ -104,3 +104,5 @@ INSERT INTO sections (title, content, type) VALUES
         <a href="#">链接三</a>
     </div>
 </div>', '类型3');
+
+INSERT INTO sections (title, content, type) VALUES ('11', '11', '类型1');
