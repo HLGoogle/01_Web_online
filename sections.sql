@@ -107,3 +107,4 @@ INSERT INTO sections (title, content, type) VALUES
 
 INSERT INTO sections (title, content, type) VALUES ('11', '11', '类型1');
 INSERT INTO sections (title, content, type) VALUES ('111', '分分分', '类型1');
+INSERT INTO sections (title, content, type) VALUES ('11', '222', '类型1');
