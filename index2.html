@@ -210,19 +210,35 @@
         
         let currentType = '';
 
-        // Base64 编码，支持中文
-        function base64Encode(str) {
-            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
-                function toSolidBytes(match, p1) {
-                    return String.fromCharCode('0x' + p1);
-            }));
+        // Base64 编码，支持 UTF-8
+        function utf8_to_b64(str) {
+            try {
+                const encoder = new TextEncoder();
+                const bytes = encoder.encode(str);
+                let binary = '';
+                for (let i = 0; i < bytes.length; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                return btoa(binary);
+            } catch (e) {
+                console.error('编码错误:', e);
+                throw new Error('编码失败：' + e.message);
+            }
         }
 
-        // Base64 解码，支持中文
-        function base64Decode(str) {
-            return decodeURIComponent(atob(str).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
+        // Base64 解码，支持 UTF-8
+        function b64_to_utf8(str) {
+            try {
+                const binary = atob(str);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return new TextDecoder().decode(bytes);
+            } catch (e) {
+                console.error('解码错误:', e);
+                throw new Error('解码失败：' + e.message);
+            }
         }
 
         // 从 GitHub 获取 SQL 文件内容
@@ -245,7 +261,7 @@
                 }
 
                 const data = await response.json();
-                return base64Decode(data.content);
+                return b64_to_utf8(data.content);
             } catch (error) {
                 console.error('获取文件错误:', error);
                 throw error;
@@ -282,7 +298,7 @@
                     },
                     body: JSON.stringify({
                         message: '更新内容',
-                        content: base64Encode(content),
+                        content: utf8_to_b64(content),
                         sha: currentFile.sha
                     })
                 });
