@@ -18,7 +18,7 @@
         }
         .sidebar {
             width: 150px;
-            background: #333;
+            background: #1890ff;
             color: white;
             padding: 10px;
             overflow-y: auto;
@@ -46,10 +46,10 @@
             transition: background 0.3s;
         }
         .sidebar a:hover {
-            background: #575757;
+            background: #40a9ff;
         }
         .active {
-            background: #1890ff;
+            background: #40a9ff;
         }
         .content {
             flex: 1;
@@ -84,13 +84,30 @@
             color: white;
         }
         .type-header {
-            color: #ffcc00;
             cursor: pointer;
-            padding: 6px 0;
-            margin-top: 8px;
+            margin: 10px 0;
+            user-select: none;
+        }
+        .type-header span {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+        }
+        .type-header span::before {
+            content: '▼';
+            display: inline-block;
+            margin-right: 5px;
+            transition: transform 0.3s;
+        }
+        .type-header.collapsed span::before {
+            transform: rotate(-90deg);
+        }
+        .section-content {
+            transition: max-height 0.3s ease-out;
+            overflow: hidden;
+            max-height: 500px;
+        }
+        .section-content.hidden {
+            max-height: 0;
         }
         .add-section-btn {
             background: #1890ff;
@@ -100,9 +117,6 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
-        }
-        .hidden {
-            display: none;
         }
         .return-btn {
             position: fixed;
@@ -123,6 +137,43 @@
         .return-btn:hover {
             background: #40a9ff;
         }
+        .home-sections {
+            padding: 20px;
+        }
+        .section-group {
+            margin-bottom: 30px;
+        }
+        .section-group h3 {
+            color: #1890ff;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #1890ff;
+        }
+        .section-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .section-item {
+            padding: 15px;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .section-item:hover {
+            border-color: #1890ff;
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+        }
+        .section-item h4 {
+            color: #1890ff;
+            margin: 0 0 10px 0;
+        }
+        .section-item p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -134,7 +185,7 @@
         <h3 class="type-header">
             <span onclick="toggleSection('type1')">类型 1</span>
         </h3>
-        <div id="type1" class="hidden">
+        <div id="type1" class="section-content">
             <a href="#" onclick="showContent('section1')" id="link1">部分 1</a>
             <a href="#" onclick="showContent('section2')" id="link2">部分 2</a>
             <a href="#" onclick="showContent('section3')" id="link3">部分 3</a>
@@ -143,14 +194,14 @@
         <h3 class="type-header">
             <span onclick="toggleSection('type2')">类型 2</span>
         </h3>
-        <div id="type2" class="hidden">
+        <div id="type2" class="section-content">
             <a href="#" onclick="showContent('section5')" id="link5">部分 5</a>
             <a href="#" onclick="showContent('section6')" id="link6">部分 6</a>
         </div>
         <h3 class="type-header">
             <span onclick="toggleSection('type3')">类型 3</span>
         </h3>
-        <div id="type3" class="hidden">
+        <div id="type3" class="section-content">
             <a href="#" onclick="showContent('section7')" id="link7">部分 7</a>
             <a href="#" onclick="showContent('section8')" id="link8">部分 8</a>
             <a href="#" onclick="showContent('section9')" id="link9">部分 9</a>
@@ -181,13 +232,71 @@
 
         function showHome() {
             const contentDiv = document.getElementById('content');
-            contentDiv.innerHTML = '<h2>主页</h2><p>点击左侧目录查看详细内容</p>';
+            contentDiv.innerHTML = `
+                <h2>主页</h2>
+                <p>点击左侧目录查看详细内容</p>
+                <div class="home-sections">
+                    <div class="section-group">
+                        <h3>类型 1</h3>
+                        <div class="section-list">
+                            <div class="section-item" onclick="showContent('section1')">
+                                <h4>部分 1</h4>
+                                <p>这是部分1的简要描述，点击查看详情</p>
+                            </div>
+                            <div class="section-item" onclick="showContent('section2')">
+                                <h4>部分 2</h4>
+                                <p>这是部分2的简要描述，点击查看详情</p>
+                            </div>
+                            <div class="section-item" onclick="showContent('section3')">
+                                <h4>部分 3</h4>
+                                <p>这是部分3的简要描述，点击查看详情</p>
+                            </div>
+                            <div class="section-item" onclick="showContent('section4')">
+                                <h4>部分 4</h4>
+                                <p>这是部分4的简要描述，点击查看详情</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section-group">
+                        <h3>类型 2</h3>
+                        <div class="section-list">
+                            <div class="section-item" onclick="showContent('section5')">
+                                <h4>部分 5</h4>
+                                <p>这是部分5的简要描述，点击查看详情</p>
+                            </div>
+                            <div class="section-item" onclick="showContent('section6')">
+                                <h4>部分 6</h4>
+                                <p>这是部分6的简要描述，点击查看详情</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section-group">
+                        <h3>类型 3</h3>
+                        <div class="section-list">
+                            <div class="section-item" onclick="showContent('section7')">
+                                <h4>部分 7</h4>
+                                <p>这是部分7的简要描述，点击查看详情</p>
+                            </div>
+                            <div class="section-item" onclick="showContent('section8')">
+                                <h4>部分 8</h4>
+                                <p>这是部分8的简要描述，点击查看详情</p>
+                            </div>
+                            <div class="section-item" onclick="showContent('section9')">
+                                <h4>部分 9</h4>
+                                <p>这是部分9的简要描述，点击查看详情</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
             updateActiveLink('home');
         }
 
         function toggleSection(type) {
             const section = document.getElementById(type);
+            const header = section.previousElementSibling;
             section.classList.toggle('hidden');
+            header.classList.toggle('collapsed');
         }
 
         function updateActiveLink(section) {
@@ -197,6 +306,11 @@
                 document.getElementById(`link${section.charAt(section.length - 1)}`).classList.add('active');
             }
         }
+
+        // 页面加载完成时初始化显示主页内容
+        document.addEventListener('DOMContentLoaded', function() {
+            showHome();
+        });
     </script>
 </body>
 </html>
