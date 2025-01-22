@@ -193,21 +193,29 @@
                 <label>内容：</label>
                 <textarea id="newContent" rows="4"></textarea>
             </div>
+            <div class="form-group">
+                <label>GitHub Token：</label>
+                <input type="password" id="githubToken" placeholder="请输入你的 GitHub Token">
+            </div>
             <button class="btn btn-primary" onclick="addNewSection()">保存</button>
             <button class="btn btn-secondary" onclick="closeModal()">取消</button>
         </div>
     </div>
 
-    <script src="config.js"></script>
     <script>
+        // GitHub 仓库配置
+        const REPO_OWNER = 'HLGoogle';
+        const REPO_NAME = '01_Web_online';
+        const FILE_PATH = 'sections.sql';
+        
         let currentType = '';
 
         // 从 GitHub 获取 SQL 文件内容
-        async function fetchSQLContent() {
+        async function fetchSQLContent(token) {
             try {
-                const response = await fetch(`https://api.github.com/repos/${config.REPO_OWNER}/${config.REPO_NAME}/contents/${config.FILE_PATH}`, {
+                const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
                     headers: {
-                        'Authorization': `Bearer ${config.GITHUB_TOKEN}`,
+                        'Authorization': `Bearer ${token}`,
                         'Accept': 'application/vnd.github.v3+json',
                         'X-GitHub-Api-Version': '2022-11-28'
                     }
@@ -217,7 +225,7 @@
                     console.error('错误状态:', response.status);
                     const errorText = await response.text();
                     console.error('错误详情:', errorText);
-                    alert('获取文件失败，请检查 GitHub Token 是否正确设置');
+                    alert('获取文件失败，请检查 GitHub Token 是否正确');
                     throw new Error('获取文件失败');
                 }
 
@@ -230,12 +238,12 @@
         }
 
         // 更新 GitHub 文件
-        async function updateGitHubFile(content) {
+        async function updateGitHubFile(content, token) {
             try {
                 // 获取当前文件信息
-                const currentFile = await fetch(`https://api.github.com/repos/${config.REPO_OWNER}/${config.REPO_NAME}/contents/${config.FILE_PATH}`, {
+                const currentFile = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
                     headers: {
-                        'Authorization': `Bearer ${config.GITHUB_TOKEN}`,
+                        'Authorization': `Bearer ${token}`,
                         'Accept': 'application/vnd.github.v3+json',
                         'X-GitHub-Api-Version': '2022-11-28'
                     }
@@ -245,10 +253,10 @@
                 });
 
                 // 更新文件
-                const response = await fetch(`https://api.github.com/repos/${config.REPO_OWNER}/${config.REPO_NAME}/contents/${config.FILE_PATH}`, {
+                const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `Bearer ${config.GITHUB_TOKEN}`,
+                        'Authorization': `Bearer ${token}`,
                         'Accept': 'application/vnd.github.v3+json',
                         'X-GitHub-Api-Version': '2022-11-28',
                         'Content-Type': 'application/json',
@@ -284,35 +292,44 @@
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('newTitle').value = '';
             document.getElementById('newContent').value = '';
+            document.getElementById('githubToken').value = '';
         }
 
         async function addNewSection() {
             const title = document.getElementById('newTitle').value;
             const content = document.getElementById('newContent').value;
+            const token = document.getElementById('githubToken').value;
             
             if (!title || !content) {
                 alert('请填写标题和内容');
                 return;
             }
 
-            // 获取当前 SQL 内容
-            const sqlContent = await fetchSQLContent();
-            if (!sqlContent) {
-                alert('获取文件内容失败');
+            if (!token) {
+                alert('请输入 GitHub Token');
                 return;
             }
 
-            // 构建新的 INSERT 语句
-            const newInsert = `\nINSERT INTO sections (title, content, type) VALUES ('${title}', '${content}', '${currentType}');`;
-            
-            // 更新文件内容
-            const success = await updateGitHubFile(sqlContent + newInsert);
-            
-            if (success) {
-                alert('添加成功！');
-                location.reload(); // 刷新页面以显示新内容
-            } else {
-                alert('添加失败，请重试');
+            try {
+                // 获取当前 SQL 内容
+                const sqlContent = await fetchSQLContent(token);
+                if (!sqlContent) {
+                    alert('获取文件内容失败');
+                    return;
+                }
+
+                // 构建新的 INSERT 语句
+                const newInsert = `\nINSERT INTO sections (title, content, type) VALUES ('${title}', '${content}', '${currentType}');`;
+                
+                // 更新文件内容
+                const success = await updateGitHubFile(sqlContent + newInsert, token);
+                
+                if (success) {
+                    alert('添加成功！');
+                    location.reload(); // 刷新页面以显示新内容
+                }
+            } catch (error) {
+                alert('操作失败：' + error.message);
             }
 
             closeModal();
