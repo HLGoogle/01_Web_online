@@ -1,320 +1,286 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>分页导航</title>
+    <title>导航</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            user-select: none;  /* 默认禁止所有文本选择 */
         }
+        
         body {
-            display: flex;
-            height: 100vh;
-            background: #f5f5f5;
-            overflow: hidden;
-        }
-        .sidebar {
-            width: 112px;
-            background: linear-gradient(180deg, #003c69 0%, #25afff 100%);
-            color: white;
-            padding: 7px;
-            overflow-y: auto;
-            height: 100vh;
-            position: fixed;
-            left: 0;
-            top: 0;
-        }
-        .sidebar h2 {
-            margin-bottom: 11px;
-            display: block;
-        }
-        .sidebar h2 a {
-            font-size: 14px;
-            color: white;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .sidebar a {
-            color: white;
-            text-decoration: none;
-            display: block;
-            padding: 2px;
-            margin: 1px 0;
-            transition: background 0.3s;
-            font-size: 12px;
-        }
-        .sidebar a:hover {
-            background: #40a9ff;
-        }
-        .active {
-            background: #40a9ff;
-        }
-        .content {
-            flex: 1;
             padding: 15px;
-            background: white;
-            overflow-y: auto;
-            height: 100vh;
-            margin-left: 112px;
+            background: #c5c5c5; /* 最底层背景色 */
+        }
+
+        #content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .type-section {
             position: relative;
+            margin-bottom: 15px;
         }
-        .content-area {
-            min-height: 225px;
-        }
-        .links-area {
+
+        .type-title {
             position: absolute;
-            bottom: 30px;
+            top: -10px;
             left: 15px;
-            display: flex;
-            gap: 37px;
-            padding: 15px 0;
-        }
-        .links-area a {
-            text-decoration: none;
+            padding: 2px 12px;
+            background: #deefff;
+            border-radius: 12px;
+            font-size: 13px;
             color: #1890ff;
-            padding: 4px 11px;
-            border: 1px solid #1890ff;
-            border-radius: 4px;
-            transition: all 0.3s;
-            font-size: 12px;
+            z-index: 1;
         }
-        .links-area a:hover {
-            background: #1890ff;
-            color: white;
-        }
-        .type-header {
-            cursor: pointer;
-            margin: 7px 0;
-            user-select: none;
-        }
-        .type-header span {
-            display: flex;
-            align-items: center;
-        }
-        .type-header span::before {
-            content: '▼';
-            display: inline-block;
-            margin-right: 4px;
-            transition: transform 0.3s;
-        }
-        .type-header.collapsed span::before {
-            transform: rotate(-90deg);
-        }
-        .section-content {
-            transition: max-height 0.3s ease-out;
-            overflow: hidden;
-            max-height: 375px;
-        }
-        .section-content.hidden {
-            max-height: 0;
-        }
-        .add-section-btn {
-            background: #1890ff;
-            color: white;
-            border: none;
-            padding: 2px 6px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 10px;
-        }
-        .return-btn {
-            position: fixed;
-            right: 12px;
-            top: 14px;
-            z-index: 1000;
-            background: #1890ff;
-            color: white;
-            text-decoration: none;
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            font-size: 11px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .return-btn:hover {
-            background: #40a9ff;
-        }
-        .home-sections {
-            padding: 15px;
-        }
-        .section-group {
-            margin-bottom: 22px;
-        }
-        .section-group h3 {
-            color: #1890ff;
-            margin-bottom: 11px;
-            padding-bottom: 4px;
-            border-bottom: 2px solid #1890ff;
-            font-size: 14px;
-        }
-        .section-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(187px, 1fr));
-            gap: 15px;
-        }
-        .section-item {
-            padding: 11px;
-            border: 1px solid #e8e8e8;
+
+        .links-container {
+            background: #ffffff; /* 容器背景色 */
             border-radius: 8px;
+            padding: 15px 10px 10px 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .link-item {
+            position: relative;
+            width: 90px;
+            text-align: center;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            height: auto;
         }
-        .section-item:hover {
-            border-color: #1890ff;
-            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
-        }
-        .section-item h4 {
+
+        .link-item:hover {
+            transform: translateY(-2px);
+        }        .link-icon {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto;
+            background: #bdc5d4; /* 按钮背景色 */
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;            font-size: 22px;
+            font-family: SimHei, "Microsoft YaHei", sans-serif;
+            font-weight: normal;
             color: #1890ff;
-            margin: 0 0 7px 0;
-            font-size: 14px;
+            margin-bottom: 5px;  /* 添加底部间距 */
         }
-        .section-item p {
-            margin: 0;
+
+        .link-comment {
+            font-size: 14px;  /* 调大字体 */
+            color: #666;      /* 加深颜色 */
+        }        .note-popup {
+            display: none;
+            position: fixed;
+            width: 250px;
+            background: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            z-index: 9999;
+            text-align: left;
+            font-size: 13px;
             color: #666;
-            font-size: 11px;
+            line-height: 1.6;
+            white-space: normal;
+            word-break: break-all;
+            user-select: text;  /* 允许note面板的文本选择 */
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .note-popup::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 8px solid transparent;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .note-popup.top::before {
+            border-bottom-color: #fff;
+            top: -16px;
+        }
+
+        .note-popup.bottom::before {
+            border-top-color: #fff;
+            bottom: -16px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
-<body>
-    <a href="index.html" class="return-btn">返回</a>
-    <div class="sidebar">
-        <h2>
-            <a href="#" onclick="showHome()">目录</a>
-        </h2>
-        <h3 class="type-header">
-            <span onclick="toggleSection('type1')">类型 1</span>
-        </h3>
-        <div id="type1" class="section-content">
-            <a href="#" onclick="showContent('section1')" id="link1">部分 1</a>
-            <a href="#" onclick="showContent('section2')" id="link2">部分 2</a>
-            <a href="#" onclick="showContent('section3')" id="link3">部分 3</a>
-            <a href="#" onclick="showContent('section4')" id="link4">部分 4</a>
-        </div>
-        <h3 class="type-header">
-            <span onclick="toggleSection('type2')">类型 2</span>
-        </h3>
-        <div id="type2" class="section-content">
-            <a href="#" onclick="showContent('section5')" id="link5">部分 5</a>
-            <a href="#" onclick="showContent('section6')" id="link6">部分 6</a>
-        </div>
-        <h3 class="type-header">
-            <span onclick="toggleSection('type3')">类型 3</span>
-        </h3>
-        <div id="type3" class="section-content">
-            <a href="#" onclick="showContent('section7')" id="link7">部分 7</a>
-            <a href="#" onclick="showContent('section8')" id="link8">部分 8</a>
-            <a href="#" onclick="showContent('section9')" id="link9">部分 9</a>
-        </div>
-    </div>
-
-    <div class="content" id="content">
-        <h2>主页</h2>
-        <p>点击左侧目录查看详细内容</p>
-    </div>
-
+<body>    <div id="content"></div>
+    <div id="global-note-popup" class="note-popup"></div>
+    <script src="content.js"></script>
     <script>
-        function showContent(section) {
-            const contentDiv = document.getElementById('content');
-            contentDiv.innerHTML = `
-                <h2>${section} 的详细内容</h2>
-                <div class="content-area">
-                    <p>这是 ${section} 的详细内容，这里可以放置更多的描述性文字。</p>
-                </div>
-                <div class="links-area">
-                    <a href="#">链接一？</a>
-                    <a href="#">链接二</a>
-                    <a href="#">链接三</a>
-                </div>
-            `;
-            updateActiveLink(section);
-        }
+        window.onload = function() {
+            const content = document.getElementById('content');
+            const globalNotePopup = document.getElementById('global-note-popup');
+            let currentActiveItem = null;
+            let isMovingToNote = false;
+            
+            // 添加计算note位置的函数
+            const calculateNotePosition = (buttonRect, noteWidth) => {
+                const viewportWidth = window.innerWidth;
+                const padding = 20; // 与窗口边缘保持的最小距离
+                
+                // 初始位置（按钮右侧）
+                let left = buttonRect.right;
+                let top = buttonRect.bottom - 10;
+                
+                // 检查右边界
+                if (left + noteWidth + padding > viewportWidth) {
+                    // 如果右侧空间不足，将note显示在按钮左侧
+                    left = buttonRect.left - noteWidth;
+                    
+                    // 如果左侧空间也不足，将note水平居中显示
+                    if (left < padding) {
+                        left = viewportWidth - noteWidth - padding;
+                    }
+                }
+                
+                // 确保不会太靠左
+                left = Math.max(padding, left);
+                
+                return { left, top };
+            };
+            
+            const createLinkItem = (link) => {
+                const item = document.createElement('div');
+                item.className = 'link-item';
+                item.innerHTML = `                    <div class="link-icon">${link.icon}</div>
+                    <div class="link-comment">${link.comment}</div>
+                    ${link.note ? `<div class="note-popup">${link.note}</div>` : ''}
+                `;
+                
+                if (link.note) {
+                    item.addEventListener('mouseenter', (e) => {
+                        currentActiveItem = item;
+                        isMovingToNote = false;
+                        
+                        const rect = item.getBoundingClientRect();
+                        globalNotePopup.textContent = link.note;
+                        
+                        // 计算note面板的位置
+                        const noteWidth = 250; // note面板的宽度
+                        const position = calculateNotePosition(rect, noteWidth);
+                        
+                        globalNotePopup.style.left = `${position.left}px`;
+                        globalNotePopup.style.top = `${position.top}px`;
+                        globalNotePopup.style.display = 'block';
+                    });
 
-        function showHome() {
-            const contentDiv = document.getElementById('content');
-            contentDiv.innerHTML = `
-                <h2>主页</h2>
-                <p>点击左侧目录查看详细内容</p>
-                <div class="home-sections">
-                    <div class="section-group">
-                        <h3>类型 1</h3>
-                        <div class="section-list">
-                            <div class="section-item" onclick="showContent('section1')">
-                                <h4>部分 1</h4>
-                                <p>这是部分1的简要描述，点击查看详情</p>
-                            </div>
-                            <div class="section-item" onclick="showContent('section2')">
-                                <h4>部分 2</h4>
-                                <p>这是部分2的简要描述，点击查看详情</p>
-                            </div>
-                            <div class="section-item" onclick="showContent('section3')">
-                                <h4>部分 3</h4>
-                                <p>这是部分3的简要描述，点击查看详情</p>
-                            </div>
-                            <div class="section-item" onclick="showContent('section4')">
-                                <h4>部分 4</h4>
-                                <p>这是部分4的简要描述，点击查看详情</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="section-group">
-                        <h3>类型 2</h3>
-                        <div class="section-list">
-                            <div class="section-item" onclick="showContent('section5')">
-                                <h4>部分 5</h4>
-                                <p>这是部分5的简要描述，点击查看详情</p>
-                            </div>
-                            <div class="section-item" onclick="showContent('section6')">
-                                <h4>部分 6</h4>
-                                <p>这是部分6的简要描述，点击查看详情</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="section-group">
-                        <h3>类型 3</h3>
-                        <div class="section-list">
-                            <div class="section-item" onclick="showContent('section7')">
-                                <h4>部分 7</h4>
-                                <p>这是部分7的简要描述，点击查看详情</p>
-                            </div>
-                            <div class="section-item" onclick="showContent('section8')">
-                                <h4>部分 8</h4>
-                                <p>这是部分8的简要描述，点击查看详情</p>
-                            </div>
-                            <div class="section-item" onclick="showContent('section9')">
-                                <h4>部分 9</h4>
-                                <p>这是部分9的简要描述，点击查看详情</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            updateActiveLink('home');
-        }
+                    // 鼠标离开按钮
+                    item.addEventListener('mouseleave', (e) => {
+                        const toElement = e.relatedTarget;
 
-        function toggleSection(type) {
-            const section = document.getElementById(type);
-            const header = section.previousElementSibling;
-            section.classList.toggle('hidden');
-            header.classList.toggle('collapsed');
-        }
+                        // 如果移动到当前按钮的note面板上
+                        if (toElement === globalNotePopup && currentActiveItem === item) {
+                            isMovingToNote = true;
+                            return;
+                        }
 
-        function updateActiveLink(section) {
-            const links = document.querySelectorAll('.sidebar a');
-            links.forEach(link => link.classList.remove('active'));
-            if (section !== 'home') {
-                document.getElementById(`link${section.charAt(section.length - 1)}`).classList.add('active');
+                        // 如果移动到其他按钮上，立即隐藏面板
+                        if (toElement && toElement.closest('.link-item')) {
+                            globalNotePopup.style.display = 'none';
+                            return;
+                        }
+
+                        // 其他情况，等待短暂延迟后判断是否隐藏
+                        setTimeout(() => {
+                            if (!isMovingToNote || currentActiveItem !== item) {
+                                if (currentActiveItem === item) {
+                                    globalNotePopup.style.display = 'none';
+                                }
+                            }
+                        }, 50);
+                    });
+                }
+                
+                // 为note面板添加事件处理
+                globalNotePopup.addEventListener('mouseenter', () => {
+                    isMovingToNote = true;
+                });
+
+                globalNotePopup.addEventListener('mouseleave', (e) => {
+                    isMovingToNote = false;
+                    const toElement = e.relatedTarget;
+                    
+                    // 如果不是移动回对应的按钮，就隐藏面板
+                    if (toElement !== currentActiveItem) {
+                        globalNotePopup.style.display = 'none';
+                    }
+                });
+
+                item.addEventListener('click', (e) => {
+                    if (e.target.closest('.note-popup')) {
+                        return;
+                    }
+                    try {
+                        window.open(`http://${link.url}`, '_blank');
+                    } catch (error) {
+                        console.error('链接打开失败:', error);
+                    }
+                });
+                
+                return item;
+            };
+
+            function createSections() {
+                if (!window.linksData) {
+                    console.error('未找到链接数据');
+                    return;
+                }
+                
+                const types = [...new Set(window.linksData.map(link => link.type))];
+                const fragment = document.createDocumentFragment();
+                
+                types.forEach(type => {
+                    const section = document.createElement('section');
+                    section.className = 'type-section';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'type-title';
+                    title.textContent = type;
+                    
+                    const container = document.createElement('div');
+                    container.className = 'links-container';
+                    
+                    const links = window.linksData
+                        .filter(link => link.type === type)
+                        .map(createLinkItem);
+                        
+                    container.append(...links);
+                    section.append(title, container);
+                    fragment.appendChild(section);
+                });
+                
+                content.appendChild(fragment);
             }
-        }
 
-        // 页面加载完成时初始化显示主页内容
-        document.addEventListener('DOMContentLoaded', function() {
-            showHome();
-        });
+            createSections();
+        };
     </script>
 </body>
 </html>
