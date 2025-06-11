@@ -42,44 +42,44 @@ window.linksData = [    {
         note: "账号：hl**6 密码：27**1  \n账号：hwx182980  密码：hwx182980\n账号：188**74  密码：hl2**1 "
     } ,
     {
-        type: "宣传",        url: "https://www.01wow.com/",
+        type: "宣传",        url: "www.01wow.com/",
         icon: "01wow",
         comment: "宣传",
         note: "断开VPN才能连接\n账号：hl**6@1**com 密码：27**1   "
     } ,
              {
-        type: "宣传",        url: "http://www.wangye45.com/forum-54-1.html",
+        type: "宣传",        url: "www.wangye45.com/forum-54-1.html",
         icon: "45",
         comment: "宣传",
         note: "账号：hl**6 密码：27**1   "
     } ,
                         {
-        type: "宣传",        url: "https://www.9awar.cc/forum.php",
+        type: "宣传",        url: "www.9awar.cc/forum.php",
         icon: "9A",
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
     } ,
                                             {
-        type: "宣传",        url: "https://www.wowbbs.com/2/",
-        icon: "9A",
+        type: "宣传",        url: "www.wowbbs.com/2/",
+        icon: "BBs",
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
     } ,
                                             {
-        type: "宣传",        url: "https://www.086wow.cn",
-        icon: "9A",
+        type: "宣传",        url: "www.086wow.cn",
+        icon: "086",
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
     } ,
                                             {
-        type: "宣传",        url: "http://www.9uuc.com",
-        icon: "9A",
+        type: "宣传",        url: "www.9uuc.com",
+        icon: "9U",
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
     } ,
                                             {
         type: "宣传",        url: "www.55nets.com",
-        icon: "9A",
+        icon: "55",
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
     } ,
