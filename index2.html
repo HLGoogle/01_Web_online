@@ -180,7 +180,7 @@
                         isMovingToNote = false;
                         
                         const rect = item.getBoundingClientRect();
-                        globalNotePopup.textContent = link.note;
+                        globalNotePopup.innerHTML = link.note.replace(/\n/g, '<br>');
                         
                         // 计算note面板的位置
                         const noteWidth = 250; // note面板的宽度
