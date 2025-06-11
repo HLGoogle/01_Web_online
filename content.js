@@ -81,6 +81,6 @@ window.linksData = [    {
         type: "宣传",        url: "www.55nets.com",
         icon: "55",
         comment: "宣传",
-        note: "账号：hl**6 密码：hl2**1   "
+        note: "账号：hl**6 密码：27**1   "
     } ,
 ];
