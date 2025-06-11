@@ -36,7 +36,7 @@ window.linksData = [    {
         note: "优酷是中国领先的视频平台，提供电影、电视剧、综艺、动漫等内容。\n支持以下功能：\n- 4K超清播放\n- 多端同步播放记录\n- 个性化推荐\n- 视频离线下载\n会员可享受无广告观看等特权。"
     } ,
     {
-        type: "宣传",        url: "http://www.99nets.net/forum-36-1.html",
+        type: "宣传",        url: "www.99nets.net/forum-36-1.html",
         icon: "99",
         comment: "宣传",
         note: "账号：hl**6 密码：27**1  \n账号：hwx182980  密码：hwx182980\n账号：188**74  密码：hl2**1 "
@@ -78,7 +78,7 @@ window.linksData = [    {
         note: "账号：hl**6 密码：hl2**1   "
     } ,
                                             {
-        type: "宣传",        url: "http://www.55nets.com",
+        type: "宣传",        url: "www.55nets.com",
         icon: "9A",
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
