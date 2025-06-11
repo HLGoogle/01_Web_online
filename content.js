@@ -37,8 +37,14 @@ window.linksData = [    {
     } ,
     {
         type: "宣传",        url: "http://www.99nets.net/forum-36-1.html",
-        icon: "99",
-        comment: "学习站",
+        icon: "99nets",
+        comment: "宣传",
         note: "账号：hl2086 密码：273573221  \n账号：hwx182980  密码：hwx182980\n账号：188**74  密码：hl2**1 "
+    } ,
+    {
+        type: "宣传",        url: "https://www.01wow.com/",
+        icon: "01wow",
+        comment: "宣传",
+        note: "断开VPN才能连接\n账号：hl2086@163.com 密码：273573221   "
     } ,
 ];
