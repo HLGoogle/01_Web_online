@@ -69,13 +69,13 @@ window.linksData = [    {
         type: "宣传",        url: "www.086wow.cn",
         icon: "086",
         comment: "宣传",
-        note: "账号：hl**6 密码：hl2**1   "
+        note: "账号：hwx182980  密码：hwx182980   "
     } ,
                                             {
         type: "宣传",        url: "www.9uuc.com",
         icon: "9U",
         comment: "宣传",
-        note: "账号：hl**6 密码：hl2**1   "
+        note: "等待该论坛审核才能发帖\n账号：hwx182980  密码：hwx182980   "
     } ,
                                             {
         type: "宣传",        url: "www.55nets.com",
