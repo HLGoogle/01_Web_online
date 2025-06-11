@@ -49,7 +49,7 @@ window.linksData = [    {
     } ,
              {
         type: "宣传",        url: "http://www.wangye45.com/forum-54-1.html",
-        icon: "网页45",
+        icon: "45",
         comment: "宣传",
         note: "账号：hl**6 密码：27**1   "
     } ,
