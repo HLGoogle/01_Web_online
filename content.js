@@ -63,7 +63,7 @@ window.linksData = [    {
         type: "宣传",        url: "www.wowbbs.com/2/",
         icon: "BBs",
         comment: "宣传",
-        note: "账号：hl**6 密码：hl2**1   "
+        note: "账号：hwx182980  密码：hwx182980   "
     } ,
                                             {
         type: "宣传",        url: "www.086wow.cn",
