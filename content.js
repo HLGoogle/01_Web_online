@@ -54,7 +54,7 @@ window.linksData = [    {
         note: "账号：hl**6 密码：27**1   "
     } ,
                         {
-        type: "宣传",        url: "https://www.9awar.com",
+        type: "宣传",        url: "https://www.9awar.cc/forum.php",
         icon: "9A",
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
