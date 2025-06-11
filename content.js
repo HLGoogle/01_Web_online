@@ -59,4 +59,28 @@ window.linksData = [    {
         comment: "宣传",
         note: "账号：hl**6 密码：hl2**1   "
     } ,
+                                            {
+        type: "宣传",        url: "https://www.wowbbs.com/2/",
+        icon: "9A",
+        comment: "宣传",
+        note: "账号：hl**6 密码：hl2**1   "
+    } ,
+                                            {
+        type: "宣传",        url: "https://www.086wow.cn",
+        icon: "9A",
+        comment: "宣传",
+        note: "账号：hl**6 密码：hl2**1   "
+    } ,
+                                            {
+        type: "宣传",        url: "http://www.9uuc.com",
+        icon: "9A",
+        comment: "宣传",
+        note: "账号：hl**6 密码：hl2**1   "
+    } ,
+                                            {
+        type: "宣传",        url: "http://www.55nets.com",
+        icon: "9A",
+        comment: "宣传",
+        note: "账号：hl**6 密码：hl2**1   "
+    } ,
 ];
