@@ -47,4 +47,16 @@ window.linksData = [    {
         comment: "宣传",
         note: "断开VPN才能连接\n账号：hl**6@1**com 密码：27**1   "
     } ,
+             {
+        type: "宣传",        url: "http://www.wangye45.com/forum-54-1.html",
+        icon: "01wow",
+        comment: "宣传",
+        note: "断开VPN才能连接\n账号：hl**6@1**com 密码：27**1   "
+    } ,
+                        {
+        type: "宣传",        url: "https://www.9awar.com",
+        icon: "01wow",
+        comment: "宣传",
+        note: "断开VPN才能连接\n账号：hl**6@1**com 密码：27**1   "
+    } ,
 ];
