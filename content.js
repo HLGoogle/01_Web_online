@@ -37,9 +37,9 @@ window.linksData = [    {
     } ,
     {
         type: "宣传",        url: "http://www.99nets.net/forum-36-1.html",
-        icon: "99nets",
+        icon: "99",
         comment: "宣传",
-        note: "账号：hl2086 密码：273573221  \n账号：hwx182980  密码：hwx182980\n账号：188**74  密码：hl2**1 "
+        note: "账号：hl**6 密码：27**1  \n账号：hwx182980  密码：hwx182980\n账号：188**74  密码：hl2**1 "
     } ,
     {
         type: "宣传",        url: "https://www.01wow.com/",
@@ -49,14 +49,14 @@ window.linksData = [    {
     } ,
              {
         type: "宣传",        url: "http://www.wangye45.com/forum-54-1.html",
-        icon: "01wow",
+        icon: "网页45",
         comment: "宣传",
-        note: "断开VPN才能连接\n账号：hl**6@1**com 密码：27**1   "
+        note: "账号：hl**6 密码：27**1   "
     } ,
                         {
         type: "宣传",        url: "https://www.9awar.com",
-        icon: "01wow",
+        icon: "9A",
         comment: "宣传",
-        note: "断开VPN才能连接\n账号：hl**6@1**com 密码：27**1   "
+        note: "账号：hl**6 密码：hl2**1   "
     } ,
 ];
