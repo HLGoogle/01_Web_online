@@ -39,6 +39,6 @@ window.linksData = [    {
         type: "宣传",        url: "http://www.99nets.net/forum-36-1.html",
         icon: "99",
         comment: "学习站",
-        note: "账号：hl2086 \n密码：273573221账号：hwx182980   密码：hwx182980"
+        note: "账号：hl2086 密码：273573221<br>账号：hwx182980               密码：hwx182980"
     } ,
 ];
