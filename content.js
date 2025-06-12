@@ -73,7 +73,7 @@ window.linksData = [    {
     } ,
                                             {
         type: "宣传",        url: "http://www.shema.cc/forum.php?mod=forumdisplay&fid=37",
-        icon: "9U",
+        icon: "社马",
         comment: "宣传",
         note: "账号：hwx182980  密码：hwx182980   "
     } ,
