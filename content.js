@@ -90,6 +90,6 @@ window.linksData = [
         url: "www.shema.cc/forum.php?mod=forumdisplay&fid=37",
         icon: "社马",
         comment: "宣传",
-        note: "账号1：hwx182980  密码：hwx182980"
+        note: "账号：hwx182980  密码：hwx182980"
     }
 ];
