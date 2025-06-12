@@ -22,10 +22,10 @@ window.linksData = [
     },
     {
         type: "搜索",
-        url: "www.Google3.com",
-        icon: "谷歌",
-        comment: "国外搜索站",
-        note: "Google学术搜索专用入口，适合查找学术论文、专利、引用文献等学术资源。支持设置文献提醒，可以追踪最新研究进展。"    },
+        url: "wx.mail.qq.com/list/readtemplate?name=login_jump.html",
+        icon: "Q邮箱",
+        comment: "腾讯邮箱",
+        note: "账号：55**6 密码：Hy20**2 \n 账号：273** 密码：hl_****0         "    },
     // ====================== 媒体类 ======================
     {
         type: "媒体",
