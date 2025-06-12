@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
+<head>    <meta charset="UTF-8">
     <title>导航</title>
     <style>
         * {
@@ -67,27 +66,29 @@
             width: 50px;
             height: 50px;
             margin: 0 auto;
-   background: linear-gradient(30deg, #A0CDFF, #A0CDFF); /* 初始状态用相同颜色模拟纯色 */
-    transition: all 0.2s ease; /* 统一动画时长为0.2秒 */
+            background: linear-gradient(30deg, #A0CDFF, #A0CDFF); /* 初始状态用相同颜色模拟纯色 */
+            transition: all 0.2s ease; /* 统一动画时长为0.2秒 */
             border-radius: 12px;
             display: flex;
             align-items: center;
-            justify-content: center;            font-size: 22px;
+            justify-content: center;
+            font-size: 22px;
             font-family: SimHei, "Microsoft YaHei", sans-serif;
             font-weight: normal;
             color: #1890ff;
             margin-bottom: 5px;  /* 添加底部间距 */
-            transition: background 0.3s ease;  /* 添加过渡效果 */
         }
 
         .link-icon:hover {
-  background: linear-gradient(150deg, #c9e5ff, #96deff); /* 悬停时改变第二个颜色 */
-}
+            background: linear-gradient(150deg, #c9e5ff, #96deff); /* 悬停时改变第二个颜色 */
+        }
 
         .link-comment {
             font-size: 14px;  /* 调大字体 */
             color: #666;      /* 加深颜色 */
-        }        .note-popup {
+        }
+
+        .note-popup {
             display: none;
             position: fixed;
             width: 250px;
@@ -138,7 +139,8 @@
         }
     </style>
 </head>
-<body>    <div id="content"></div>
+<body>  
+    <div id="content"></div>
     <div id="global-note-popup" class="note-popup"></div>
     <script src="content.js"></script>
     <script>
@@ -147,6 +149,14 @@
             const globalNotePopup = document.getElementById('global-note-popup');
             let currentActiveItem = null;
             let isMovingToNote = false;
+            
+            // 添加F5强制刷新功能
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'F5') {
+                    e.preventDefault(); // 阻止默认的F5刷新行为
+                    location.reload(true); // 强制从服务器重新加载页面
+                }
+            });
             
             // 添加计算note位置的函数
             const calculateNotePosition = (buttonRect, noteWidth) => {
@@ -176,8 +186,8 @@
             
             const createLinkItem = (link) => {
                 const item = document.createElement('div');
-                item.className = 'link-item';
-                item.innerHTML = `                    <div class="link-icon">${link.icon}</div>
+                item.className = 'link-item';                item.innerHTML = `
+                    <div class="link-icon">${link.icon}</div>
                     <div class="link-comment">${link.comment}</div>
                     ${link.note ? `<div class="note-popup">${link.note}</div>` : ''}
                 `;
@@ -283,8 +293,7 @@
                     section.append(title, container);
                     fragment.appendChild(section);
                 });
-                
-                content.appendChild(fragment);
+                  content.appendChild(fragment);
             }
 
             createSections();
