@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
-<head>    <meta charset="UTF-8">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>导航</title>
     <style>
         * {
@@ -149,12 +153,17 @@
             const globalNotePopup = document.getElementById('global-note-popup');
             let currentActiveItem = null;
             let isMovingToNote = false;
-            
-            // 添加F5强制刷新功能
+              // 添加F5强制刷新功能
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'F5') {
                     e.preventDefault(); // 阻止默认的F5刷新行为
-                    location.reload(true); // 强制从服务器重新加载页面
+                    // 强制清除缓存并重新加载
+                    Promise.all([
+                        fetch(window.location.href, { cache: 'no-store' }),
+                        fetch('content.js', { cache: 'no-store' })
+                    ]).then(() => {
+                        window.location.reload(true);
+                    });
                 }
             });
             
