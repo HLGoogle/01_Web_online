@@ -49,7 +49,7 @@ window.linksData = [
     {
         type: "宣传",
         url: "www.01wow.com/",
-        icon: "01wow",
+        icon: "01",
         comment: "宣传",
         note: "断开VPN才能连接\n账号：hl**6@1**com 密码：27**1"
     },
