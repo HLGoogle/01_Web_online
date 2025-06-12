@@ -72,10 +72,10 @@ window.linksData = [    {
         note: "账号：hwx182980  密码：hwx182980   "
     } ,
                                             {
-        type: "宣传",        url: "www.9uuc.com",
+        type: "宣传",        url: "http://www.shema.cc/forum.php?mod=forumdisplay&fid=37",
         icon: "9U",
         comment: "宣传",
-        note: "等待该论坛审核才能发帖\n账号：hwx182980  密码：hwx182980   "
+        note: "账号：hwx182980  密码：hwx182980   "
     } ,
                                             {
         type: "宣传",        url: "www.55nets.com",
