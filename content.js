@@ -71,7 +71,7 @@ window.linksData = [
         url: "www.wowbbs.com/2/",
         icon: "BBs",
         comment: "宣传",
-        note: "账号：hwx182980  密码：hwx182980   "    },
+        note: "账号：hwx182980  密码：hwx182980"},
     {
         type: "宣传",
         url: "www.086wow.cn",
@@ -85,12 +85,12 @@ window.linksData = [
         url: "www.shema.cc/forum.php?mod=forumdisplay&fid=37",
         icon: "社马",
         comment: "宣传",
-        note: "账号：hwx182980  密码：hwx182980"
+        note: "账号：hwx182980密码：hwx182980"
     },
         {
         type: "宣传",
         url: "www.55nets.com",
         icon: "55",
         comment: "宣传",
-        note: "账号2：hl**6 密码：27**1   "    },
+        note: "账号：hl**6密码：27**1"},
 ];
