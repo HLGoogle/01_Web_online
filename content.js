@@ -82,7 +82,7 @@ window.linksData = [
         note: "账号：hl**6 密码：27**1   "
     } ,
                                                     {
-        type: "宣传",        url: "http://www.shema.cc/forum.php?mod=forumdisplay&fid=37",
+        type: "宣传",        url: "www.shema.cc/forum.php?mod=forumdisplay&fid=37",
         icon: "社马",
         comment: "宣传",
         note: "账号11：hwx182980  密码：hwx182980   "
