@@ -23,7 +23,7 @@ window.linksData = [
     {
         type: "搜索",
         url: "wx.mail.qq.com/list/readtemplate?name=login_jump.html",
-        icon: "Q邮箱",
+        icon: "Q邮",
         comment: "腾讯邮箱",
         note: "账号：55**6 密码：Hy20**2 \n 账号：273** 密码：hl_****0         "    },
     // ====================== 媒体类 ======================
