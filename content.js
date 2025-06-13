@@ -52,6 +52,12 @@ window.linksData = [
         icon: "Code",
         comment: "GitCode",
         note: "手机登录"},
+     {
+        type: "LUA",
+        url: "docs.qq.com/sheet/DU25WbUhhZ2VLRkpj?_t=1749786130919&nlc=1&tab=px1k72&u=94ac55904e9341ae9471839d2514bd0b",
+        icon: "QQ表",
+        comment: "腾讯微云表格",
+        note: "手机登录"},
     // ====================== 宣传类 ======================
     {
         type: "宣传",
