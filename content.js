@@ -64,6 +64,18 @@ window.linksData = [
         icon: "有爱",
         comment: "有爱交流论坛",
         note: "账号：hl2**6 密码：27**1"},
+ {
+        type: "LUA",
+        url: "https://wiki.luatos.com/_static/luatos-emulator/lua.html?--%0A--%0d%0a",
+        icon: "Lua",
+        comment: "Lua在线编辑器",
+        note: "Lua在线编辑器一"},
+ {
+        type: "LUA",
+        url: "https://www.jyshare.com/compile/66/",
+        icon: "Lua",
+        comment: "Lua在线编辑器",
+        note: "Lua在线编辑器二"},
      {
         type: "LUA",
         url: "docs.qq.com/sheet/DU25WbUhhZ2VLRkpj?_t=1749786130919&nlc=1&tab=px1k72&u=94ac55904e9341ae9471839d2514bd0b",
@@ -76,7 +88,6 @@ window.linksData = [
         icon: "宏",
         comment: "腾讯微云分享",
         note: "账号：55**6 密码：Hy20**2 \n 账号：273** 密码：hl_****0"},
-    
     // ====================== 宣传类 ======================
     {
         type: "宣传",
@@ -117,7 +128,6 @@ window.linksData = [
         comment: "宣传",
         note: "账号：hwx182980  密码：hwx182980"
     },
-
     {
         type: "宣传",
         url: "www.shema.cc/forum.php?mod=forumdisplay&fid=37",
