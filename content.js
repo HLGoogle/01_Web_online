@@ -54,6 +54,18 @@ window.linksData = [
         note: "手机登录"},
      {
         type: "LUA",
+        url: "https://www.luacn.net/plugin.php?id=dsu_paulsign:sign",
+        icon: "Lua",
+        comment: "Lua交流论坛",
+        note: "账号：hl2**6 密码：27**1 \n 账号：Q55**6登录"},
+ {
+        type: "LUA",
+        url: "https://uiwow.com/",
+        icon: "有爱",
+        comment: "有爱交流论坛",
+        note: "账号：hl2**6 密码：27**1"},
+     {
+        type: "LUA",
         url: "docs.qq.com/sheet/DU25WbUhhZ2VLRkpj?_t=1749786130919&nlc=1&tab=px1k72&u=94ac55904e9341ae9471839d2514bd0b",
         icon: "QQ表",
         comment: "腾讯微云表格",
