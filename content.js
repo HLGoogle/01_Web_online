@@ -39,6 +39,19 @@ window.linksData = [
         icon: "优酷",
         comment: "视频站",
         note: "优酷是中国领先的视频平台，提供电影、电视剧、综艺、动漫等内容。\n支持以下功能：\n- 4K超清播放\n- 多端同步播放记录\n- 个性化推荐\n- 视频离线下载\n会员可享受无广告观看等特权。"    },
+    // ====================== 代码类 ======================
+    {
+        type: "LUA",
+        url: "github.com/",
+        icon: "Github",
+        comment: "Github",
+        note: "账号hl27**@Gmail.com密码：hl2**1\n账号55**@qq.com密码：hl2**1"},
+        {
+        type: "LUA",
+        url: "https://gitcode.com/hl2086/Bee",
+        icon: "GitCode",
+        comment: "GitCode",
+        note: "手机登录"},
     // ====================== 宣传类 ======================
     {
         type: "宣传",
