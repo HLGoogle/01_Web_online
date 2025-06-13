@@ -43,13 +43,13 @@ window.linksData = [
     {
         type: "LUA",
         url: "github.com/",
-        icon: "Github",
+        icon: "Hub",
         comment: "Github",
         note: "账号hl27**@Gmail.com密码：hl2**1\n账号55**@qq.com密码：hl2**1"},
         {
         type: "LUA",
         url: "https://gitcode.com/hl2086/Bee",
-        icon: "GitCode",
+        icon: "Code",
         comment: "GitCode",
         note: "手机登录"},
     // ====================== 宣传类 ======================
