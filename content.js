@@ -58,6 +58,13 @@ window.linksData = [
         icon: "QQ表",
         comment: "腾讯微云表格",
         note: "账号：55**6 密码：Hy20**2 \n 账号：273** 密码：hl_****0"},
+   {
+        type: "LUA",
+        url: "https://share.weiyun.com/syL4dkC6",
+        icon: "宏",
+        comment: "腾讯微云分享",
+        note: "账号：55**6 密码：Hy20**2 \n 账号：273** 密码：hl_****0"},
+    
     // ====================== 宣传类 ======================
     {
         type: "宣传",
