@@ -247,7 +247,7 @@
                         return;
                     }
                     try {
-                        window.open(`http://${link.url}`, '_blank');
+                        window.open(link.url.startsWith('http') ? link.url : `http://${link.url}`, '_blank');
                     } catch (error) {
                         console.error('链接打开失败:', error);
                     }
