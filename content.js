@@ -11,7 +11,7 @@ window.linksData = [
         icon: "谷歌",
         url: "www.google.com",
         comment: "搜索引擎",
-        note: "这是Google搜索的详细说明。可以包含使用技巧、常用搜索语法等重要信息。这段文字可以很长，支持复制，方便记录重要内容。"
+        note: "hl27**1@gmail.com密码:Mos*_**3这是Google搜索的详细说明。可以包含使用技巧、常用搜索语法等重要信息。这段文字可以很长，支持复制，方便记录重要内容。"
     },
     {
         type: "搜索",
@@ -25,7 +25,13 @@ window.linksData = [
         url: "wx.mail.qq.com/list/readtemplate?name=login_jump.html",
         icon: "Q邮",
         comment: "腾讯邮箱",
-        note: "账号：55**6 密码：Hy20**2 \n 账号：273** 密码：hl_****0         "    },
+        note: "账号：55**6 密码：Hy20**2 \n 账号：273** 密码：hl_****0  "    },
+        {
+        type: "搜索",
+        url: "https://mail.163.com/",
+        icon: "网易",
+        comment: "网易邮箱",
+        note: "账号：hl**6 密码：Hl27***1    "  },
     // ====================== 媒体类 ======================
     {
         type: "媒体",
@@ -120,20 +126,20 @@ window.linksData = [
         url: "www.wowbbs.com/2/",
         icon: "BBs",
         comment: "宣传",
-        note: "账号：hwx182980  密码：hwx182980"},
+        note: "账号：hwx18*0  密码：hwx18*0"},
     {
         type: "宣传",
         url: "www.086wow.cn",
         icon: "086",
         comment: "宣传",
-        note: "账号：hwx182980  密码：hwx182980"
+        note: "账号：hwx18*0  密码：hwx18*0"
     },
     {
         type: "宣传",
         url: "www.shema.cc/forum.php?mod=forumdisplay&fid=37",
         icon: "社马",
         comment: "宣传",
-        note: "账号：hwx182980密码：hwx182980"
+        note: "账号：hwx18*0密码：hwx18*0"
     },
         {
         type: "宣传",
