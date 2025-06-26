@@ -32,6 +32,12 @@ window.linksData = [
         icon: "网易",
         comment: "网易邮箱",
         note: "账号：hl**6 密码：Hl27***1    "  },
+     {
+        type: "搜索",
+        url: "https://claude.ai/new",
+        icon: "Claude",
+        comment: "Claude",
+        note: "claude官方地址   "  },
  {
         type: "搜索",
         url: "https://page.hl2086.dpdns.org/index2",
