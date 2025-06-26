@@ -61,7 +61,7 @@ window.linksData = [
         url: "github.com/",
         icon: "Hub",
         comment: "Github",
-        note: "账号hl27**@Gmail.com密码：hl2**1\n 账号55**@qq.com密码：hl2**1\n 账号27**@qq.com密码：Mosh**_123"},
+        note: "账号hl27**@Gmail.com密码：hl2**1\n 账号55**@qq.com密码：hl2**1\n 账号27**@qq.com密码：Mos*_123"},
         {
         type: "LUA",
         url: "https://gitcode.com/hl2086/Bee",
