@@ -32,6 +32,16 @@ window.linksData = [
         icon: "网易",
         comment: "网易邮箱",
         note: "账号：hl**6 密码：Hl27***1    "  },
+ {
+        type: "搜索",
+        url: "https://page.hl2086.dpdns.org/index2",
+        icon: "Dao",
+        comment: "Dao",
+        note: "Navigation   "  },
+
+
+
+    
     // ====================== 媒体类 ======================
     {
         type: "媒体",
@@ -51,7 +61,7 @@ window.linksData = [
         url: "github.com/",
         icon: "Hub",
         comment: "Github",
-        note: "账号hl27**@Gmail.com密码：hl2**1\n账号55**@qq.com密码：hl2**1"},
+        note: "账号hl27**@Gmail.com密码：hl2**1\n 账号55**@qq.com密码：hl2**1\n 账号27**@qq.com密码：Mosh**_123"},
         {
         type: "LUA",
         url: "https://gitcode.com/hl2086/Bee",
