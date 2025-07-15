@@ -44,6 +44,12 @@ window.linksData = [
         icon: "Dao",
         comment: "Dao",
         note: "Navigation   "  },
+     {
+        type: "搜索",
+        url: "https://5592086.dpdns.org/67397310-d13a-29fd-2f50-2dcc31d64b39",
+        icon: "VPN",
+        comment: "VPN",
+        note: "自建VPN  "  },
 
 
 
