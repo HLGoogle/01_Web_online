@@ -54,7 +54,7 @@ window.linksData = [
         type: "搜索",
         url: "https://dash.domain.digitalplat.org/",
         icon: "主页",
-        comment: "免费个人主页总站",
+        comment: "个人主页总站",
         note: " 账号：hl27***1@gmail.com 密码：Hy2***12 \n 账号：hl**86  密码：Hy2***12 "},
     
      {
