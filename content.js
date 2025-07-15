@@ -44,6 +44,19 @@ window.linksData = [
         icon: "Dao",
         comment: "Dao",
         note: "Navigation   "  },
+    {
+        type: "搜索",
+        url: "https://dash.cloudflare.com/",
+        icon: "CF",
+        comment: "cloudflare",
+        note: " 账号：hl27***1@gmail.com 密码：Mosh***_123 \n 账号：hl2***6@outlook.com  密码：hl_27***1 "},
+    {
+        type: "搜索",
+        url: "https://dash.domain.digitalplat.org/",
+        icon: "主页",
+        comment: "免费个人主页总站",
+        note: " 账号：hl27***1@gmail.com 密码：Hy2***12 \n 账号：hl**86  密码：Hy2***12 "},
+    
      {
         type: "搜索",
         url: "https://5592086.dpdns.org/67397310-d13a-29fd-2f50-2dcc31d64b39",
