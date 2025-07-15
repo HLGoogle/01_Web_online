@@ -49,13 +49,13 @@ window.linksData = [
         url: "https://dash.cloudflare.com/",
         icon: "CF",
         comment: "cloudflare",
-        note: " 账号：hl27***1@gmail.com 密码：Mosh***_123 \n 账号：hl2***6@outlook.com  密码：hl_27***1 "},
+        note: "账号：hl27***1@gmail.com 密码：Mosh***_123\n账号：hl2***6@outlook.com 密码：hl_27***1 "},
     {
         type: "搜索",
         url: "https://dash.domain.digitalplat.org/",
         icon: "主页",
         comment: "个人主页总站",
-        note: " 账号：hl27***1@gmail.com 密码：Hy2***12 "},
+        note: "账号：hl27***1@gmail.com 密码：Hy2***12 "},
     
      {
         type: "搜索",
