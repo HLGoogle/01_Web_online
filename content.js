@@ -15,7 +15,7 @@ window.linksData = [
     },
     {
         type: "搜索",
-        url: "fanyi.youdao.com/",        
+        url: "fanyi.youdao.com/#/TextTranslate",        
         icon: "有道",
         comment: "网易翻译",
         note: "有道翻译是网易公司开发的一款翻译软件，其最大特色在于翻译引擎是基于搜索引擎，网络释义的，也就是说它所翻译的词释义都是来自网络。"
@@ -183,3 +183,4 @@ window.linksData = [
         comment: "宣传",
         note: "账号：hl**6密码：27**1"},
 ];
+
