@@ -117,6 +117,27 @@ window.linksData = [
         icon: "Lua",
         comment: "Lua在线编辑器",
         note: "Lua在线编辑器二"},
+ {
+        type: "LUA",
+        url: "https://db.nfuwow.com/80/",
+        icon: "80库",
+        comment: "NFU wlk数据库",
+        note: "Lua在线编辑器二"},
+ {
+        type: "LUA",
+        url: "https://80.wowdb.cc/",
+        icon: "80库",
+        comment: "CC wlk数据库",
+        note: "Lua在线编辑器二"},
+
+
+
+
+
+
+
+
+    
      {
         type: "LUA",
         url: "docs.qq.com/sheet/DU25WbUhhZ2VLRkpj?_t=1749786130919&nlc=1&tab=px1k72&u=94ac55904e9341ae9471839d2514bd0b",
@@ -183,4 +204,5 @@ window.linksData = [
         comment: "宣传",
         note: "账号：hl**6密码：27**1"},
 ];
+
 
