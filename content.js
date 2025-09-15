@@ -41,7 +41,7 @@ window.linksData = [
  {
         type: "搜索",
         url: "https://page.hl2086.dpdns.org/index2",
-        icon: "导航2",
+        icon: "导航",
         comment: "导航2",
         note: "导航条二"  },
     {
@@ -204,6 +204,7 @@ window.linksData = [
         comment: "宣传",
         note: "账号：hl**6密码：27**1"},
 ];
+
 
 
 
