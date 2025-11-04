@@ -63,7 +63,12 @@ window.linksData = [
         icon: "VPN",
         comment: "VPN",
         note: "自建VPN  "  },
-
+    {
+        type: "搜索",
+        url: "https://grok.com/",
+        icon: "Gork",
+        comment: "Gork Ai",
+        note: "Gork Ai "  },
 
 
     
@@ -204,6 +209,7 @@ window.linksData = [
         comment: "宣传",
         note: "账号：hl**6密码：27**1"},
 ];
+
 
 
 
