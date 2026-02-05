@@ -109,7 +109,23 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
         .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #333; text-align: center; }
+        
         .form-group { margin-bottom: 12px; }
+        
+        /* --- 设置面板专用优化 (新增部分) --- */
+        /* 1. 为设置面板的每个设置项添加分隔线和更大的间距 */
+        #settings-modal .form-group {
+            border-bottom: 1px dashed #e0e0e0; /* 优雅的虚线分隔 */
+            padding-bottom: 20px;              /* 内容与分隔线的距离 */
+            margin-bottom: 20px;               /* 分隔线与下一项的距离 */
+        }
+        /* 2. 最后一个设置项不需要底部分隔线，保持整洁 */
+        #settings-modal .form-group:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 10px;
+        }
+
         .form-label { display: block; margin-bottom: 5px; font-size: 12px; color: #666; }
         .form-input, .form-textarea {
             width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;
@@ -203,7 +219,7 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">分类排序 (英文逗号分隔)</label>
+                <label class="form-label">分类排序 (中英文逗号分隔)</label>
                 <input type="text" id="setting-category-order" class="form-input" placeholder="例如: 常用, 搜索, 媒体">
                 <div class="slider-desc">未列出的分类将自动排在后面。</div>
             </div>
