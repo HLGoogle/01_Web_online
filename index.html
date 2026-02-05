@@ -14,7 +14,7 @@
             font-family: "Microsoft YaHei", sans-serif;
         }
 
-        /* --- 1. 登录前：圆形浮动按钮 (修复层级与点击问题) --- */
+        /* --- 1. 登录前：圆形浮动按钮 (已修复层级问题) --- */
         .visitor-update-btn {
             position: fixed;
             top: 25px;
@@ -27,8 +27,9 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 1500; /* 确保在最上层 */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            /* 关键修改：z-index 必须大于 modal-overlay 的 2000 */
+            z-index: 2500; 
             transition: all 0.3s ease;
             border: 2px solid #1890ff;
             animation: float-btn 3s ease-in-out infinite;
@@ -42,7 +43,7 @@
         }
         .visitor-update-btn:hover {
             transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(24, 144, 255, 0.3);
+            box-shadow: 0 6px 20px rgba(24, 144, 255, 0.4);
         }
         @keyframes float-btn {
             0%, 100% { transform: translateY(0); }
@@ -95,7 +96,8 @@
         /* --- 3. 登录弹窗完整样式 --- */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 2000;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); 
+            z-index: 2000; /* 这里的层级是2000，按钮必须比这个高 */
             justify-content: center; align-items: center;
         }
         .modal-box { 
@@ -188,7 +190,7 @@
 </head>
 <body class="edit-mode-off">
 
-    <!-- 1. 登录前显示的圆形按钮 (已添加到这里) -->
+    <!-- 1. 登录前显示的圆形按钮 (已修复层级，可以点击了) -->
     <div class="visitor-update-btn" onclick="window.open('https://wow80.eu.cc', '_blank')">
         <span>查看<br>更新</span>
     </div>
@@ -202,7 +204,7 @@
             <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
             <button class="menu-btn btn-settings" onclick="openSettingsModal()">⚙️ 全局设置</button>
             
-            <!-- 3. 登录后的更新记录按钮 (地址已修改) -->
+            <!-- 3. 登录后的更新记录按钮 -->
             <button class="menu-btn btn-updates" onclick="window.open('https://wow80.eu.cc', '_blank')">📝 更新记录</button>
             
             <button class="menu-btn btn-logout" onclick="logout()">退出登录</button>
