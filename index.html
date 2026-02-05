@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>私有云导航</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
@@ -14,34 +15,59 @@
 
         /* --- 顶部栏 --- */
         .top-bar {
-            position: absolute;
-            top: 10px;
-            right: 20px;
+            position: sticky;
+            top: 0;
             z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(5px);
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .logout-btn {
-            padding: 5px 15px;
-            background: rgba(255,255,255,0.5);
-            border: 1px solid #fff;
+        .user-info { font-size: 14px; color: #333; font-weight: bold; }
+        
+        .btn-group button {
+            padding: 6px 12px;
+            border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
-            color: #333;
+            margin-left: 10px;
+            transition: all 0.2s;
         }
-        .logout-btn:hover { background: #fff; }
+        .btn-primary { background: #1890ff; color: white; }
+        .btn-primary:hover { background: #40a9ff; }
+        .btn-danger { background: #ff4d4f; color: white; }
+        .btn-danger:hover { background: #ff7875; }
+        .btn-toggle { background: #52c41a; color: white; }
+        
+        /* 管理模式下的样式控制 */
+        body.edit-mode .edit-controls { display: flex; }
+        .edit-controls { display: none; gap: 5px; position: absolute; top: -8px; right: -8px; }
+        
+        .edit-btn-mini {
+            width: 20px; height: 20px; border-radius: 50%; border: none; color: white;
+            font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .edit-icon-btn { background: #1890ff; }
+        .del-icon-btn { background: #ff4d4f; }
 
         /* --- 导航内容区 --- */
-        #content { max-width: 1200px; margin: 0 auto; display: none; /* 默认隐藏，登录后显示 */ }
-
-        .type-section { position: relative; margin-bottom: 25px; }
+        #content { max-width: 1200px; margin: 0 auto; display: none; }
+        .type-section { position: relative; margin-bottom: 35px; }
+        
         .type-title {
             position: absolute;
-            top: -12px;
+            top: -14px;
             left: 15px;
-            padding: 2px 12px;
+            padding: 4px 15px;
             background: #deefff;
-            border-radius: 12px;
-            font-size: 13px;
+            border-radius: 15px;
+            font-size: 14px;
             color: #1890ff;
             z-index: 1;
             font-weight: bold;
@@ -51,10 +77,10 @@
         .links-container {
             background: #ffffff;
             border-radius: 8px;
-            padding: 20px 10px 15px 10px;
-            box-shadow: 5px 5px 10px rgba(0,0,0,0.1);
+            padding: 25px 15px 15px 15px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.05);
             display: flex;
-            gap: 15px;
+            gap: 20px;
             flex-wrap: wrap;
         }
 
@@ -69,12 +95,27 @@
         }
         .link-item:hover { transform: translateY(-3px); }
 
+        /* 虚线添加按钮 */
+        .add-item-placeholder {
+            width: 90px; height: 80px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            display: none; /* 仅管理模式显示 */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #aaa;
+            font-size: 12px;
+        }
+        .add-item-placeholder:hover { border-color: #1890ff; color: #1890ff; }
+        body.edit-mode .add-item-placeholder { display: flex; }
+
         .link-icon {
             width: 50px;
             height: 50px;
             margin: 0 auto 8px auto;
             background: linear-gradient(30deg, #A0CDFF, #A0CDFF);
-            transition: all 0.2s ease;
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -84,282 +125,307 @@
             overflow: hidden;
             font-weight: bold;
         }
-        .link-icon:hover { background: linear-gradient(150deg, #c9e5ff, #96deff); }
         .link-comment { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* --- 笔记弹窗 --- */
+        /* --- 弹窗样式 --- */
         .note-popup {
-            display: none;
-            position: fixed;
-            width: 280px;
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 9999;
-            text-align: left;
-            font-size: 13px;
-            color: #444;
-            line-height: 1.6;
-            white-space: pre-wrap; /* 保留换行 */
-            word-break: break-all;
-            user-select: text; /* 允许复制 */
-            border: 1px solid #eee;
+            display: none; position: fixed; width: 280px; background: #fff; padding: 15px;
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999;
+            text-align: left; font-size: 13px; color: #444; line-height: 1.6;
+            white-space: pre-wrap; word-break: break-all; user-select: text; border: 1px solid #eee;
         }
 
-        /* --- 登录/注册 模态框 --- */
-        #auth-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 2000;
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 2000;
+            justify-content: center; align-items: center;
         }
-        .auth-box {
-            background: white; padding: 30px; border-radius: 10px; width: 320px;
+        .modal-box {
+            background: white; padding: 25px; border-radius: 10px; width: 350px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
-        .auth-box h2 { text-align: center; margin-bottom: 20px; color: #333; }
-        .auth-input {
-            width: 100%; padding: 12px; margin-bottom: 15px;
-            border: 1px solid #ddd; border-radius: 6px; outline: none;
+        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #333; text-align: center; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-label { display: block; margin-bottom: 5px; font-size: 12px; color: #666; }
+        .form-input, .form-textarea {
+            width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 14px; outline: none; transition: border 0.2s;
         }
-        .auth-btn {
-            width: 100%; padding: 12px; background: #1890ff; color: white;
-            border: none; border-radius: 6px; cursor: pointer; font-size: 16px;
-        }
-        .auth-btn:hover { background: #096dd9; }
-        .auth-switch {
-            margin-top: 15px; text-align: center; font-size: 12px; color: #666;
-        }
-        .auth-switch span { color: #1890ff; cursor: pointer; margin: 0 5px; }
+        .form-input:focus, .form-textarea:focus { border-color: #1890ff; }
+        .form-textarea { height: 80px; resize: vertical; }
+
+        .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
     </style>
 </head>
 <body>
 
     <div class="top-bar" id="top-bar" style="display:none;">
-        <span id="welcome-msg" style="margin-right:10px; font-size:12px; color:#555;"></span>
-        <button class="logout-btn" onclick="logout()">退出登录</button>
+        <div class="user-info">
+            <span id="welcome-msg"></span>
+        </div>
+        <div class="btn-group">
+            <button class="btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
+            <button class="btn-primary" onclick="openLinkModal()" id="add-btn" style="display:none;">+ 新增链接</button>
+            <button class="btn-danger" onclick="logout()">退出</button>
+        </div>
     </div>
 
     <div id="content"></div>
 
     <div id="global-note-popup" class="note-popup"></div>
 
-    <div id="auth-modal">
-        <div class="auth-box">
-            <h2 id="modal-title">登录</h2>
-            <input type="text" id="username" class="auth-input" placeholder="用户名">
-            <input type="password" id="password" class="auth-input" placeholder="密码">
-            
-            <input type="text" id="reset-code" class="auth-input" placeholder="设置一个安全重置码 (找回密码用)" style="display:none;">
-            <input type="password" id="new-password" class="auth-input" placeholder="新密码" style="display:none;">
-
-            <button class="auth-btn" id="submit-btn" onclick="handleAuth()">进入导航</button>
-
-            <div class="auth-switch">
-                <span onclick="switchMode('login')">登录</span> | 
-                <span onclick="switchMode('register')">注册账号</span> | 
-                <span onclick="switchMode('reset')">忘记密码?</span>
+    <div id="auth-modal" class="modal-overlay" style="display:flex;">
+        <div class="modal-box">
+            <div class="modal-title" id="auth-title">登录私有云导航</div>
+            <div class="form-group">
+                <input type="text" id="auth-username" class="form-input" placeholder="用户名">
             </div>
-            <p id="error-msg" style="color:red; font-size:12px; text-align:center; margin-top:10px;"></p>
+            <div class="form-group">
+                <input type="password" id="auth-password" class="form-input" placeholder="密码">
+            </div>
+            <div class="form-group" id="group-reset-code" style="display:none;">
+                <input type="text" id="auth-reset-code" class="form-input" placeholder="设置重置码 (非常重要!)">
+            </div>
+            <div class="form-group" id="group-new-pwd" style="display:none;">
+                <input type="password" id="auth-new-pwd" class="form-input" placeholder="新密码">
+            </div>
+
+            <button class="form-input btn-primary" id="auth-submit-btn" onclick="handleAuth()">进入导航</button>
+            
+            <div style="margin-top:15px; text-align:center; font-size:12px; color:#666;">
+                <span onclick="switchAuthMode('login')" style="cursor:pointer; color:#1890ff;">登录</span> | 
+                <span onclick="switchAuthMode('register')" style="cursor:pointer; color:#1890ff;">注册</span> | 
+                <span onclick="switchAuthMode('reset')" style="cursor:pointer; color:#1890ff;">忘记密码</span>
+            </div>
+            <p id="auth-msg" style="color:red; font-size:12px; text-align:center; margin-top:10px;"></p>
+        </div>
+    </div>
+
+    <div id="link-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title" id="link-modal-title">添加链接</div>
+            <input type="hidden" id="link-id">
+            
+            <div class="form-group">
+                <label class="form-label">分类 (如: 搜索, 媒体)</label>
+                <input type="text" id="link-type" class="form-input" placeholder="例如: 常用工具">
+            </div>
+            <div class="form-group">
+                <label class="form-label">网站链接 (URL)</label>
+                <input type="text" id="link-url" class="form-input" placeholder="https://...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">图标文字 (建议2-4字)</label>
+                <input type="text" id="link-icon" class="form-input" placeholder="例如: 百度">
+            </div>
+            <div class="form-group">
+                <label class="form-label">描述 (显示在图标下方)</label>
+                <input type="text" id="link-comment" class="form-input" placeholder="例如: 搜索引擎">
+            </div>
+            <div class="form-group">
+                <label class="form-label">私密笔记 (账号密码等，仅自己可见)</label>
+                <textarea id="link-note" class="form-textarea" placeholder="在此处记录账号密码..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">排序 (数字越小越靠前)</label>
+                <input type="number" id="link-sort" class="form-input" value="0">
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-danger" onclick="closeLinkModal()">取消</button>
+                <button class="btn-primary" onclick="submitLink()">保存</button>
+            </div>
         </div>
     </div>
 
     <script>
-        let currentMode = 'login'; // login, register, reset
+        // --- 全局变量 ---
         const API_AUTH = '/api/auth';
         const API_LINKS = '/api/links';
+        let authMode = 'login';
+        let allLinks = []; // 本地缓存链接数据
+        let isEditMode = false;
 
-        // --- 1. 身份验证逻辑 ---
-        
-        // 页面加载时检查是否已登录
+        // --- 初始化 ---
         window.onload = function() {
             const token = localStorage.getItem('nav_token');
             if (token) {
                 document.getElementById('auth-modal').style.display = 'none';
-                loadLinks(); // 加载数据
-                showWelcome();
+                loadLinks();
+                showUI();
             }
         };
 
-        function showWelcome() {
+        function showUI() {
             const user = localStorage.getItem('nav_user');
-            document.getElementById('top-bar').style.display = 'block';
+            document.getElementById('top-bar').style.display = 'flex';
             document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
         }
 
-        function switchMode(mode) {
-            currentMode = mode;
-            const title = document.getElementById('modal-title');
-            const btn = document.getElementById('submit-btn');
-            const resetCodeInput = document.getElementById('reset-code');
-            const passwordInput = document.getElementById('password');
-            const newPasswordInput = document.getElementById('new-password');
-            const errorMsg = document.getElementById('error-msg');
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('edit-mode-btn');
+            const addBtn = document.getElementById('add-btn');
+            
+            if (isEditMode) {
+                document.body.classList.add('edit-mode');
+                btn.textContent = '退出管理';
+                btn.style.background = '#ffc107'; // 黄色
+                btn.style.color = '#333';
+                addBtn.style.display = 'inline-block';
+            } else {
+                document.body.classList.remove('edit-mode');
+                btn.textContent = '开启管理';
+                btn.style.background = '#52c41a'; // 绿色
+                btn.style.color = 'white';
+                addBtn.style.display = 'none';
+            }
+        }
 
-            errorMsg.textContent = '';
+        // --- 1. 认证逻辑 (登录/注册) ---
+        function switchAuthMode(mode) {
+            authMode = mode;
+            const title = document.getElementById('auth-title');
+            const resetGroup = document.getElementById('group-reset-code');
+            const pwdGroup = document.getElementById('group-new-pwd'); // 重置密码用
+            const oldPwdGroup = document.getElementById('auth-password').parentElement; // 登录注册用
+            const btn = document.getElementById('auth-submit-btn');
+
+            document.getElementById('auth-msg').textContent = '';
             
             if (mode === 'login') {
                 title.textContent = '登录';
                 btn.textContent = '进入导航';
-                resetCodeInput.style.display = 'none';
-                passwordInput.style.display = 'block';
-                newPasswordInput.style.display = 'none';
+                resetGroup.style.display = 'none';
+                pwdGroup.style.display = 'none';
+                oldPwdGroup.style.display = 'block';
             } else if (mode === 'register') {
-                title.textContent = '注册账号';
+                title.textContent = '注册新账号';
                 btn.textContent = '立即注册';
-                resetCodeInput.style.display = 'block';
-                resetCodeInput.placeholder = '设置重置码 (非常重要，请记住!)';
-                passwordInput.style.display = 'block';
-                newPasswordInput.style.display = 'none';
+                resetGroup.style.display = 'block';
+                document.getElementById('auth-reset-code').placeholder = '设置重置码 (重要!)';
+                pwdGroup.style.display = 'none';
+                oldPwdGroup.style.display = 'block';
             } else if (mode === 'reset') {
                 title.textContent = '重置密码';
                 btn.textContent = '确认重置';
-                passwordInput.style.display = 'none'; // 隐藏旧密码框
-                resetCodeInput.style.display = 'block';
-                resetCodeInput.placeholder = '输入您的重置码';
-                newPasswordInput.style.display = 'block';
+                oldPwdGroup.style.display = 'none'; // 隐藏原密码框
+                resetGroup.style.display = 'block';
+                document.getElementById('auth-reset-code').placeholder = '输入您的重置码';
+                pwdGroup.style.display = 'block';
             }
         }
 
         async function handleAuth() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const resetCode = document.getElementById('reset-code').value.trim();
-            const newPassword = document.getElementById('new-password').value.trim();
-            const btn = document.getElementById('submit-btn');
-            const errorMsg = document.getElementById('error-msg');
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const resetCode = document.getElementById('auth-reset-code').value.trim();
+            const newPwd = document.getElementById('auth-new-pwd').value.trim();
+            const msg = document.getElementById('auth-msg');
 
-            if (!username) return errorMsg.textContent = '请输入用户名';
+            if (!username) return msg.textContent = '请输入用户名';
 
-            const payload = { action: currentMode, username };
+            const payload = { action: authMode, username };
             
-            if (currentMode === 'login') {
-                if (!password) return errorMsg.textContent = '请输入密码';
+            if (authMode === 'login') {
+                if(!password) return msg.textContent = '请输入密码';
                 payload.password = password;
-            } else if (currentMode === 'register') {
-                if (!password || !resetCode) return errorMsg.textContent = '请填写完整信息';
+            } else if (authMode === 'register') {
+                if(!password || !resetCode) return msg.textContent = '请填写完整';
                 payload.password = password;
                 payload.reset_code = resetCode;
-            } else if (currentMode === 'reset') {
-                if (!resetCode || !newPassword) return errorMsg.textContent = '请填写重置码和新密码';
+            } else if (authMode === 'reset') {
+                if(!resetCode || !newPwd) return msg.textContent = '请填写重置码和新密码';
                 payload.reset_code = resetCode;
-                payload.new_password = newPassword;
+                payload.new_password = newPwd;
             }
-
-            btn.disabled = true;
-            btn.textContent = '处理中...';
 
             try {
                 const res = await fetch(API_AUTH, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    if (currentMode === 'login') {
+                    if (authMode === 'login') {
                         localStorage.setItem('nav_token', data.token);
                         localStorage.setItem('nav_user', data.username);
                         document.getElementById('auth-modal').style.display = 'none';
                         loadLinks();
-                        showWelcome();
-                    } else if (currentMode === 'register') {
-                        alert('注册成功！请登录');
-                        switchMode('login');
-                    } else if (currentMode === 'reset') {
-                        alert('密码重置成功！请使用新密码登录');
-                        switchMode('login');
+                        showUI();
+                    } else if (authMode === 'register') {
+                        alert('注册成功，请登录');
+                        switchAuthMode('login');
+                    } else if (authMode === 'reset') {
+                        alert('重置成功，请登录');
+                        switchAuthMode('login');
                     }
                 } else {
-                    errorMsg.textContent = data.error || '操作失败';
+                    msg.textContent = data.error || '操作失败';
                 }
-            } catch (err) {
-                errorMsg.textContent = '网络错误，请检查连接';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = currentMode === 'login' ? '进入导航' : (currentMode === 'register' ? '立即注册' : '确认重置');
+            } catch (e) {
+                msg.textContent = '网络错误';
             }
         }
 
         function logout() {
             localStorage.removeItem('nav_token');
-            localStorage.removeItem('nav_user');
             location.reload();
         }
 
-        // --- 2. 数据加载与渲染逻辑 ---
-
+        // --- 2. 核心数据逻辑 ---
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
-            if (!token) return;
-
-            try {
-                const res = await fetch(API_LINKS, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (res.status === 401 || res.status === 403) {
-                    alert('登录已过期，请重新登录');
-                    logout();
-                    return;
-                }
-
-                const linksData = await res.json();
-                renderLinks(linksData);
-            } catch (err) {
-                console.error('加载失败', err);
-                document.getElementById('content').innerHTML = '<p style="text-align:center;padding:20px;">数据加载失败</p>';
-                document.getElementById('content').style.display = 'block';
-            }
+            const res = await fetch(API_LINKS, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.status === 401) { logout(); return; }
+            
+            allLinks = await res.json();
+            renderLinks();
         }
 
-        function renderLinks(linksData) {
+        function renderLinks() {
             const content = document.getElementById('content');
-            content.innerHTML = ''; // 清空
+            content.innerHTML = '';
             
-            if (!linksData || linksData.length === 0) {
-                content.innerHTML = '<p style="text-align:center;padding:50px;color:#666;">暂无数据，请去数据库添加内容</p>';
-                content.style.display = 'block';
-                return;
+            // 提取分类
+            const types = [...new Set(allLinks.map(l => l.type))];
+            if (types.length === 0 && allLinks.length === 0) {
+                 content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击上方 "开启管理" -> "新增链接" 开始使用</div>';
+                 content.style.display = 'block';
+                 return;
             }
-
-            // 提取所有分类 (去重)
-            // 假设数据库返回的数据已经按 sort_order 排序
-            // 我们需要保持这个顺序提取 type
-            const types = [];
-            linksData.forEach(link => {
-                if (!types.includes(link.type)) {
-                    types.push(link.type);
-                }
-            });
-
-            const fragment = document.createDocumentFragment();
 
             types.forEach(type => {
                 const section = document.createElement('section');
                 section.className = 'type-section';
-                
-                const title = document.createElement('div');
-                title.className = 'type-title';
-                title.textContent = type;
+                section.innerHTML = `<div class="type-title">${type}</div>`;
                 
                 const container = document.createElement('div');
                 container.className = 'links-container';
                 
-                // 筛选属于当前分类的链接
-                const groupLinks = linksData.filter(link => link.type === type);
-                
+                // 渲染该分类下的链接
+                const groupLinks = allLinks.filter(l => l.type === type);
                 groupLinks.forEach(link => {
                     container.appendChild(createLinkElement(link));
                 });
 
-                section.append(title, container);
-                fragment.appendChild(section);
-            });
+                // 每个分类后面加一个快速添加按钮(虚线框)
+                const addPlaceholder = document.createElement('div');
+                addPlaceholder.className = 'add-item-placeholder';
+                addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加</span>';
+                addPlaceholder.onclick = () => openLinkModal(null, type); // 预填分类
+                container.appendChild(addPlaceholder);
 
-            content.appendChild(fragment);
+                section.appendChild(container);
+                content.appendChild(section);
+            });
+            
             content.style.display = 'block';
         }
 
@@ -367,65 +433,154 @@
             const item = document.createElement('div');
             item.className = 'link-item';
             
-            // 图标处理：如果是 http 开头则显示图片，否则显示文字
-            let iconContent = '';
-            if (link.icon.startsWith('http')) {
-                iconContent = `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">`;
-            } else {
-                iconContent = link.icon;
-            }
+            // 图标内容
+            let iconHtml = link.icon.startsWith('http') 
+                ? `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">`
+                : link.icon;
 
             item.innerHTML = `
-                <div class="link-icon">${iconContent}</div>
+                <div class="edit-controls">
+                    <button class="edit-btn-mini edit-icon-btn" onclick="event.stopPropagation();openLinkModal(${link.id})">✎</button>
+                    <button class="edit-btn-mini del-icon-btn" onclick="event.stopPropagation();deleteLink(${link.id})">×</button>
+                </div>
+                <div class="link-icon">${iconHtml}</div>
                 <div class="link-comment">${link.comment || link.icon}</div>
             `;
 
             // 点击跳转
             item.onclick = () => {
+                if (isEditMode) return; // 编辑模式下点击不跳转
                 let url = link.url;
                 if (!url.startsWith('http')) url = 'http://' + url;
                 window.open(url, '_blank');
             };
 
-            // 笔记悬浮处理
+            // 悬停笔记 (复用之前的逻辑)
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
-                
                 item.onmouseenter = (e) => {
+                    if(isEditMode) return; 
                     const rect = item.getBoundingClientRect();
-                    popup.textContent = link.note; // 使用 textContent 防止 XSS，或者用 innerHTML (如果需要换行)
-                    popup.innerHTML = link.note.replace(/\n/g, '<br>'); // 支持换行
+                    popup.textContent = link.note;
+                    popup.innerHTML = link.note.replace(/\n/g, '<br>');
                     
-                    // 简单的定位逻辑
                     let left = rect.right + 10;
-                    let top = rect.top;
+                    if (left + 280 > window.innerWidth) left = rect.left - 290;
                     
-                    // 边界检查：如果右边放不下，放左边
-                    if (left + 280 > window.innerWidth) {
-                        left = rect.left - 290;
-                    }
-
                     popup.style.left = left + 'px';
-                    popup.style.top = top + 'px';
+                    popup.style.top = rect.top + 'px';
                     popup.style.display = 'block';
                 };
-
-                item.onmouseleave = (e) => {
-                    // 简单的延迟隐藏，给用户一点时间移动鼠标
-                    setTimeout(() => {
-                        if (!popup.matches(':hover')) {
-                            popup.style.display = 'none';
-                        }
-                    }, 100);
-                };
-                
-                // 鼠标离开 popup 时隐藏
-                popup.onmouseleave = () => {
-                    popup.style.display = 'none';
-                };
+                item.onmouseleave = () => popup.style.display = 'none';
             }
 
             return item;
+        }
+
+        // --- 3. 增删改逻辑 ---
+        
+        function openLinkModal(id = null, prefillType = '') {
+            const modal = document.getElementById('link-modal');
+            const title = document.getElementById('link-modal-title');
+            
+            // 清空表单
+            document.getElementById('link-id').value = '';
+            document.getElementById('link-type').value = prefillType;
+            document.getElementById('link-url').value = '';
+            document.getElementById('link-icon').value = '';
+            document.getElementById('link-comment').value = '';
+            document.getElementById('link-note').value = '';
+            document.getElementById('link-sort').value = '0';
+
+            if (id) {
+                // 编辑模式：填充数据
+                const link = allLinks.find(l => l.id === id);
+                if (link) {
+                    title.textContent = '编辑链接';
+                    document.getElementById('link-id').value = link.id;
+                    document.getElementById('link-type').value = link.type;
+                    document.getElementById('link-url').value = link.url;
+                    document.getElementById('link-icon').value = link.icon;
+                    document.getElementById('link-comment').value = link.comment;
+                    document.getElementById('link-note').value = link.note;
+                    document.getElementById('link-sort').value = link.sort_order;
+                }
+            } else {
+                title.textContent = '添加新链接';
+            }
+            
+            modal.style.display = 'flex';
+        }
+
+        function closeLinkModal() {
+            document.getElementById('link-modal').style.display = 'none';
+        }
+
+        async function submitLink() {
+            const id = document.getElementById('link-id').value;
+            const type = document.getElementById('link-type').value.trim();
+            const url = document.getElementById('link-url').value.trim();
+            const icon = document.getElementById('link-icon').value.trim();
+            
+            if (!type || !url || !icon) {
+                alert('分类、链接和图标不能为空');
+                return;
+            }
+
+            const payload = {
+                type, url, icon,
+                comment: document.getElementById('link-comment').value.trim(),
+                note: document.getElementById('link-note').value.trim(),
+                sort_order: parseInt(document.getElementById('link-sort').value) || 0
+            };
+
+            const method = id ? 'PUT' : 'POST';
+            if (id) payload.id = id;
+
+            try {
+                const token = localStorage.getItem('nav_token');
+                const res = await fetch(API_LINKS, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    closeLinkModal();
+                    loadLinks(); // 刷新列表
+                } else {
+                    alert('保存失败');
+                }
+            } catch (e) {
+                alert('网络错误');
+            }
+        }
+
+        async function deleteLink(id) {
+            if (!confirm('确定要删除这个链接吗？')) return;
+            
+            try {
+                const token = localStorage.getItem('nav_token');
+                const res = await fetch(API_LINKS, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ id })
+                });
+                
+                if (res.ok) {
+                    loadLinks();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (e) {
+                alert('网络错误');
+            }
         }
     </script>
 </body>
