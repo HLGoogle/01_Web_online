@@ -51,6 +51,10 @@
         .btn-settings { background: #f9f0ff; color: #722ed1; }
         .btn-settings:hover { background: #efdbff; }
 
+        /* 新增：更新记录按钮样式 */
+        .btn-updates { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .btn-updates:hover { background: #f4ffb8; }
+
         .btn-logout { background: transparent; color: #999; border: 1px solid #eee; margin-top: 5px;}
         .btn-logout:hover { background: #fff1f0; color: #ff4d4f; border-color: #ffccc7; }
 
@@ -112,14 +116,12 @@
         
         .form-group { margin-bottom: 12px; }
         
-        /* --- 设置面板专用优化 (新增部分) --- */
-        /* 1. 为设置面板的每个设置项添加分隔线和更大的间距 */
+        /* --- 设置面板专用优化 --- */
         #settings-modal .form-group {
-            border-bottom: 1px dashed #e0e0e0; /* 优雅的虚线分隔 */
-            padding-bottom: 20px;              /* 内容与分隔线的距离 */
-            margin-bottom: 20px;               /* 分隔线与下一项的距离 */
+            border-bottom: 1px dashed #e0e0e0;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
         }
-        /* 2. 最后一个设置项不需要底部分隔线，保持整洁 */
         #settings-modal .form-group:last-of-type {
             border-bottom: none;
             padding-bottom: 0;
@@ -162,6 +164,9 @@
             <div class="user-info-box" id="welcome-msg">Hi, User</div>
             <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
             <button class="menu-btn btn-settings" onclick="openSettingsModal()">⚙️ 全局设置</button>
+            
+            <button class="menu-btn btn-updates" onclick="window.open('https://www.baidu.com', '_blank')">📝 更新记录</button>
+            
             <button class="menu-btn btn-logout" onclick="logout()">退出登录</button>
         </div>
     </div>
@@ -206,7 +211,6 @@
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-title">全局设置</div>
-            
             <div class="form-group">
                 <label class="form-label">鼠标吸附灵敏度 (1-100)</label>
                 <div class="slider-container">
@@ -217,13 +221,11 @@
                 </div>
                 <div class="slider-desc">数值越大，越容易触发笔记。</div>
             </div>
-
             <div class="form-group">
                 <label class="form-label">分类排序 (中英文逗号分隔)</label>
                 <input type="text" id="setting-category-order" class="form-input" placeholder="例如: 常用, 搜索, 媒体">
                 <div class="slider-desc">未列出的分类将自动排在后面。</div>
             </div>
-
             <div class="modal-footer">
                 <button class="btn-danger" onclick="document.getElementById('settings-modal').style.display='none'">取消</button>
                 <button class="btn-primary" onclick="saveSettings()">保存配置</button>
@@ -232,7 +234,7 @@
     </div>
 
     <script>
-        // --- 全局鼠标追踪 ---
+        // JS 逻辑部分保持原样
         const mouseTrack = { x: 0, y: 0, t: 0, vx: 0, speed: 0 };
         document.addEventListener('mousemove', e => {
             const now = performance.now();
@@ -252,11 +254,8 @@
         let authMode = 'login';
         let allLinks = [];
         let isEditMode = false;
-        
-        // 默认设置 (新增 categoryOrder)
         let userSettings = { sensitivity: 50, categoryOrder: "" };
 
-        // --- 初始化 ---
         window.onload = function() {
             const token = localStorage.getItem('nav_token');
             if (token) {
@@ -276,14 +275,10 @@
             document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
         }
 
-        // --- 设置逻辑 ---
         function openSettingsModal() {
-            // 填充灵敏度
             document.getElementById('setting-sensitivity').value = userSettings.sensitivity || 50;
             document.getElementById('sensitivity-val').textContent = userSettings.sensitivity || 50;
-            // 填充分类排序
             document.getElementById('setting-category-order').value = userSettings.categoryOrder || "";
-            
             document.getElementById('settings-modal').style.display = 'flex';
         }
 
@@ -292,12 +287,9 @@
         async function saveSettings() {
             const newSense = parseInt(document.getElementById('setting-sensitivity').value);
             const newOrder = document.getElementById('setting-category-order').value.trim();
-            
             userSettings.sensitivity = newSense;
             userSettings.categoryOrder = newOrder;
-            
             localStorage.setItem('nav_settings', JSON.stringify(userSettings));
-            
             try {
                 const token = localStorage.getItem('nav_token');
                 const res = await fetch(API_USER, {
@@ -308,41 +300,26 @@
                 if(res.ok) {
                     alert('设置已保存');
                     document.getElementById('settings-modal').style.display = 'none';
-                    loadLinks(); // 重新渲染以应用新排序
+                    loadLinks();
                 } else { alert('保存失败'); }
             } catch(e) { alert('网络错误'); }
         }
 
-        // --- 核心渲染逻辑 (已升级) ---
         function renderLinks() {
             const content = document.getElementById('content'); content.innerHTML = '';
-            
-            // 1. 获取所有存在的分类
             let types = [...new Set(allLinks.map(l => l.type))];
-            
-            // 2. 读取用户自定义排序设置
             const orderStr = userSettings.categoryOrder || "";
-            // 支持中文逗号和英文逗号
             const priorityList = orderStr.split(/[,，]/).map(s => s.trim()).filter(s => s);
-
-            // 3. 执行分类排序
             if (priorityList.length > 0) {
                 types.sort((a, b) => {
                     const indexA = priorityList.indexOf(a);
                     const indexB = priorityList.indexOf(b);
-                    
-                    // 两个都在名单里：按名单顺序
                     if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                    // A在名单里：A前
                     if (indexA !== -1) return -1;
-                    // B在名单里：B前
                     if (indexB !== -1) return 1;
-                    // 都不在名单里：保持原样 (也就是排在名单之后)
                     return 0; 
                 });
             }
-
-            // 4. 空数据处理
             if (types.length === 0 && allLinks.length === 0) {
                  if(isEditMode) types.push('默认分类'); 
                  else {
@@ -350,16 +327,12 @@
                      content.style.display = 'block'; return;
                  }
             }
-
-            // 5. 循环渲染 (内部链接 allLinks 已经由后端按 sort_order 排序，这里无需再排)
             types.forEach(type => {
                 const section = document.createElement('section'); section.className = 'type-section';
                 section.innerHTML = `<div class="type-title">${type}</div>`;
                 const container = document.createElement('div'); container.className = 'links-container';
-                
                 const groupLinks = allLinks.filter(l => l.type === type);
                 groupLinks.forEach(link => { container.appendChild(createLinkElement(link)); });
-
                 if (isEditMode) {
                     const addPlaceholder = document.createElement('div'); addPlaceholder.className = 'add-item-placeholder';
                     addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加</span>';
@@ -371,7 +344,6 @@
             content.style.display = 'block';
         }
 
-        // --- 现有通用功能 (保持不变) ---
         function toggleEditMode() {
             isEditMode = !isEditMode;
             const btn = document.getElementById('edit-mode-btn');
@@ -388,7 +360,6 @@
             const oldPwdGroup = document.getElementById('auth-password').parentElement;
             const btn = document.getElementById('auth-submit-btn');
             document.getElementById('auth-msg').textContent = '';
-            
             if (mode === 'login') {
                 title.textContent = '登录'; btn.textContent = '进入导航';
                 resetGroup.style.display = 'none'; pwdGroup.style.display = 'none'; oldPwdGroup.style.display = 'block';
@@ -409,10 +380,8 @@
             const resetCode = document.getElementById('auth-reset-code').value.trim();
             const newPwd = document.getElementById('auth-new-pwd').value.trim();
             const msg = document.getElementById('auth-msg');
-
             if (!username) return msg.textContent = '请输入用户名';
             const payload = { action: authMode, username };
-            
             if (authMode === 'login') {
                 if(!password) return msg.textContent = '请输入密码'; payload.password = password;
             } else if (authMode === 'register') {
@@ -422,7 +391,6 @@
                 if(!resetCode || !newPwd) return msg.textContent = '请填写重置码和新密码';
                 payload.reset_code = resetCode; payload.new_password = newPwd;
             }
-
             try {
                 const res = await fetch(API_AUTH, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 const data = await res.json();
@@ -442,9 +410,7 @@
             } catch (e) { msg.textContent = '网络错误'; }
         }
 
-        function logout() { 
-            localStorage.removeItem('nav_token'); localStorage.removeItem('nav_settings'); location.reload(); 
-        }
+        function logout() { localStorage.removeItem('nav_token'); localStorage.removeItem('nav_settings'); location.reload(); }
 
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
@@ -457,7 +423,6 @@
         function createLinkElement(link) {
             const item = document.createElement('div'); item.className = 'link-item';
             let iconHtml = link.icon.startsWith('http') ? `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">` : link.icon;
-
             item.innerHTML = `
                 <div class="edit-controls">
                     <button class="edit-btn-mini edit-icon-btn" onclick="event.stopPropagation();openLinkModal(${link.id})">✎</button>
@@ -466,13 +431,11 @@
                 <div class="link-icon">${iconHtml}</div>
                 <div class="link-comment">${link.comment || link.icon}</div>
             `;
-
             item.onclick = () => {
                 if (isEditMode) return;
                 let url = link.url; if (!url.startsWith('http')) url = 'http://' + url;
                 window.open(url, '_blank');
             };
-
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = (e) => {
@@ -485,7 +448,6 @@
                     popup.style.display = 'block';
                     popup.dataset.side = (left > rect.left) ? 'right' : 'left';
                 };
-
                 item.onmouseleave = () => {
                     const side = popup.dataset.side; 
                     const isMovingTowards = (side === 'right' && mouseTrack.vx > 0.1) || (side === 'left' && mouseTrack.vx < -0.1);
