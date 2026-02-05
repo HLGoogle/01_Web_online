@@ -15,41 +15,26 @@
         }
 
         /* --- 顶部悬浮控制台 --- */
-        .top-widget {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
+        .top-widget { position: fixed; top: 20px; right: 20px; z-index: 1000; }
         .widget-trigger {
-            width: 36px; height: 36px;
-            background: rgba(255, 255, 255, 0.4);
-            backdrop-filter: blur(5px);
-            border-radius: 50%;
+            width: 36px; height: 36px; background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(5px); border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
-            font-size: 16px; color: #555;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: all 0.3s ease; font-size: 16px; color: #555;
             border: 1px solid rgba(255,255,255,0.5);
         }
-        .top-widget:hover .widget-trigger {
-            opacity: 0; pointer-events: none;
-        }
+        .top-widget:hover .widget-trigger { opacity: 0; pointer-events: none; }
         .widget-menu {
             position: absolute; top: 0; right: 0; width: 140px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 12px; padding: 12px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.15);
             opacity: 0; transform: scale(0.8) translate(10px, -10px);
             transform-origin: top right; pointer-events: none;
             transition: all 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
             display: flex; flex-direction: column; gap: 8px;
         }
-        .top-widget:hover .widget-menu {
-            opacity: 1; transform: scale(1) translate(0, 0); pointer-events: auto;
-        }
+        .top-widget:hover .widget-menu { opacity: 1; transform: scale(1) translate(0, 0); pointer-events: auto; }
         .user-info-box {
             font-size: 13px; font-weight: bold; color: #333;
             padding-bottom: 8px; border-bottom: 1px solid #eee;
@@ -62,6 +47,10 @@
         .btn-toggle { background: #f0f5ff; color: #1890ff; }
         .btn-toggle:hover { background: #d6e4ff; }
         body.edit-mode .btn-toggle { background: #fff7e6; color: #fa8c16; }
+        
+        .btn-settings { background: #f9f0ff; color: #722ed1; }
+        .btn-settings:hover { background: #efdbff; }
+
         .btn-logout { background: transparent; color: #999; border: 1px solid #eee; margin-top: 5px;}
         .btn-logout:hover { background: #fff1f0; color: #ff4d4f; border-color: #ffccc7; }
 
@@ -75,15 +64,12 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .links-container {
-            background: #ffffff; border-radius: 8px;
-            padding: 25px 15px 15px 15px;
-            box-shadow: 5px 5px 15px rgba(0,0,0,0.05);
-            display: flex; gap: 20px; flex-wrap: wrap;
+            background: #ffffff; border-radius: 8px; padding: 25px 15px 15px 15px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.05); display: flex; gap: 20px; flex-wrap: wrap;
         }
         .link-item {
             position: relative; width: 90px; text-align: center;
-            cursor: pointer; transition: transform 0.2s;
-            display: flex; flex-direction: column;
+            cursor: pointer; transition: transform 0.2s; display: flex; flex-direction: column;
         }
         .link-item:hover { transform: translateY(-3px); }
 
@@ -96,8 +82,6 @@
         }
         .edit-icon-btn { background: #1890ff; }
         .del-icon-btn { background: #ff4d4f; }
-
-        /* 添加按钮占位符 */
         .add-item-placeholder {
             width: 90px; height: 80px; border: 2px dashed #ddd; border-radius: 8px;
             display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -139,7 +123,13 @@
         .btn-danger:hover { background: #ff7875; }
         .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
 
-        /* --- 笔记悬浮弹窗 (z-index极高) --- */
+        /* 设置滑块样式 */
+        .slider-container { display: flex; align-items: center; gap: 10px; }
+        .slider-range { flex: 1; cursor: pointer; }
+        .slider-value { font-size: 14px; color: #1890ff; font-weight: bold; width: 30px; text-align: right; }
+        .slider-desc { font-size: 12px; color: #999; margin-top: 5px; line-height: 1.4; }
+
+        /* 笔记悬浮弹窗 */
         .note-popup {
             display: none; position: fixed; width: 280px; background: #fff; padding: 15px;
             border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999;
@@ -155,6 +145,7 @@
         <div class="widget-menu">
             <div class="user-info-box" id="welcome-msg">Hi, User</div>
             <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
+            <button class="menu-btn btn-settings" onclick="openSettingsModal()">⚙️ 全局设置</button>
             <button class="menu-btn btn-logout" onclick="logout()">退出登录</button>
         </div>
     </div>
@@ -196,36 +187,69 @@
         </div>
     </div>
 
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">全局设置</div>
+            
+            <div class="form-group">
+                <label class="form-label">鼠标吸附灵敏度 (1-100)</label>
+                <div class="slider-container">
+                    <span style="font-size:12px;color:#666;">迟钝</span>
+                    <input type="range" id="setting-sensitivity" class="slider-range" min="1" max="100" value="50" oninput="updateSliderVal(this.value)">
+                    <span style="font-size:12px;color:#666;">灵敏</span>
+                    <span id="sensitivity-val" class="slider-value">50</span>
+                </div>
+                <div class="slider-desc">
+                    数值越大，鼠标稍微向右移动就能留住笔记（适合手快党）。<br>
+                    数值越小，需要更快速向右甩鼠标才能留住笔记。
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-danger" onclick="document.getElementById('settings-modal').style.display='none'">取消</button>
+                <button class="btn-primary" onclick="saveSettings()">保存配置</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- 核心优化：全局鼠标速度追踪 ---
         const mouseTrack = { x: 0, y: 0, t: 0, vx: 0, speed: 0 };
         document.addEventListener('mousemove', e => {
             const now = performance.now();
             const dt = now - mouseTrack.t;
-            if (dt > 15) { // 限制采样率，节省性能
+            if (dt > 15) { 
                 const dx = e.clientX - mouseTrack.x;
                 const dy = e.clientY - mouseTrack.y;
-                mouseTrack.vx = dx / dt; // 水平速度 (px/ms) >0 向右, <0 向左
+                mouseTrack.vx = dx / dt; // 水平速度 (px/ms)
                 mouseTrack.speed = Math.sqrt(dx*dx + dy*dy) / dt; // 总速率
-                
-                mouseTrack.x = e.clientX;
-                mouseTrack.y = e.clientY;
-                mouseTrack.t = now;
+                mouseTrack.x = e.clientX; mouseTrack.y = e.clientY; mouseTrack.t = now;
             }
         });
 
         // --- 全局变量 ---
         const API_AUTH = '/api/auth';
         const API_LINKS = '/api/links';
+        const API_USER = '/api/user'; // 新增接口
         let authMode = 'login';
         let allLinks = [];
         let isEditMode = false;
+        
+        // 默认设置
+        let userSettings = { sensitivity: 50 };
 
         // --- 初始化 ---
         window.onload = function() {
             const token = localStorage.getItem('nav_token');
             if (token) {
                 document.getElementById('auth-modal').style.display = 'none';
+                
+                // 加载本地缓存的设置
+                const cachedSettings = localStorage.getItem('nav_settings');
+                if (cachedSettings) {
+                    try { userSettings = JSON.parse(cachedSettings); } catch(e){}
+                }
+                
                 loadLinks();
                 showUI();
             }
@@ -237,20 +261,55 @@
             document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
         }
 
+        // --- 设置相关逻辑 (新增) ---
+        function openSettingsModal() {
+            document.getElementById('setting-sensitivity').value = userSettings.sensitivity;
+            document.getElementById('sensitivity-val').textContent = userSettings.sensitivity;
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        function updateSliderVal(val) {
+            document.getElementById('sensitivity-val').textContent = val;
+        }
+
+        async function saveSettings() {
+            const newSense = parseInt(document.getElementById('setting-sensitivity').value);
+            userSettings.sensitivity = newSense;
+            
+            // 1. 更新本地缓存
+            localStorage.setItem('nav_settings', JSON.stringify(userSettings));
+            
+            // 2. 同步到云端
+            try {
+                const token = localStorage.getItem('nav_token');
+                const res = await fetch(API_USER, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ settings: userSettings })
+                });
+                if(res.ok) {
+                    alert('设置已保存并同步云端');
+                    document.getElementById('settings-modal').style.display = 'none';
+                } else {
+                    alert('保存失败');
+                }
+            } catch(e) {
+                alert('网络错误');
+            }
+        }
+
+        // --- 现有功能 ---
         function toggleEditMode() {
             isEditMode = !isEditMode;
             const btn = document.getElementById('edit-mode-btn');
             if (isEditMode) {
-                document.body.classList.add('edit-mode');
-                btn.textContent = '退出管理';
+                document.body.classList.add('edit-mode'); btn.textContent = '退出管理';
             } else {
-                document.body.classList.remove('edit-mode');
-                btn.textContent = '开启管理';
+                document.body.classList.remove('edit-mode'); btn.textContent = '开启管理';
             }
-            renderLinks(); // 重新渲染以显示/隐藏添加按钮
+            renderLinks();
         }
 
-        // --- 1. 认证逻辑 ---
         function switchAuthMode(mode) {
             authMode = mode;
             const title = document.getElementById('auth-title');
@@ -299,7 +358,15 @@
                 const data = await res.json();
                 if (data.success) {
                     if (authMode === 'login') {
-                        localStorage.setItem('nav_token', data.token); localStorage.setItem('nav_user', data.username);
+                        localStorage.setItem('nav_token', data.token); 
+                        localStorage.setItem('nav_user', data.username);
+                        
+                        // 保存云端返回的设置
+                        if (data.settings) {
+                            localStorage.setItem('nav_settings', data.settings);
+                            try { userSettings = JSON.parse(data.settings); } catch(e){}
+                        }
+                        
                         document.getElementById('auth-modal').style.display = 'none'; loadLinks(); showUI();
                     } else if (authMode === 'register' || authMode === 'reset') {
                         alert('操作成功，请登录'); switchAuthMode('login');
@@ -308,9 +375,12 @@
             } catch (e) { msg.textContent = '网络错误'; }
         }
 
-        function logout() { localStorage.removeItem('nav_token'); location.reload(); }
+        function logout() { 
+            localStorage.removeItem('nav_token'); 
+            localStorage.removeItem('nav_settings'); // 清除本地设置缓存
+            location.reload(); 
+        }
 
-        // --- 2. 核心数据逻辑 ---
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
             const res = await fetch(API_LINKS, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -320,19 +390,14 @@
         }
 
         function renderLinks() {
-            const content = document.getElementById('content');
-            content.innerHTML = '';
+            const content = document.getElementById('content'); content.innerHTML = '';
             const types = [...new Set(allLinks.map(l => l.type))];
             
-            // 如果空数据或管理模式下
             if (types.length === 0 && allLinks.length === 0) {
-                 if(isEditMode) {
-                     // 显示一个空的分类供添加
-                     types.push('默认分类'); 
-                 } else {
+                 if(isEditMode) types.push('默认分类'); 
+                 else {
                      content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击右上角 "⚙️" -> "开启管理" -> 添加数据</div>';
-                     content.style.display = 'block';
-                     return;
+                     content.style.display = 'block'; return;
                  }
             }
 
@@ -340,7 +405,6 @@
                 const section = document.createElement('section'); section.className = 'type-section';
                 section.innerHTML = `<div class="type-title">${type}</div>`;
                 const container = document.createElement('div'); container.className = 'links-container';
-                
                 const groupLinks = allLinks.filter(l => l.type === type);
                 groupLinks.forEach(link => { container.appendChild(createLinkElement(link)); });
 
@@ -355,7 +419,6 @@
             content.style.display = 'block';
         }
 
-        // --- 3. 元素创建与交互 (核心优化点) ---
         function createLinkElement(link) {
             const item = document.createElement('div'); item.className = 'link-item';
             let iconHtml = link.icon.startsWith('http') ? `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">` : link.icon;
@@ -375,49 +438,35 @@
                 window.open(url, '_blank');
             };
 
-            // 悬停笔记逻辑
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
-                
                 item.onmouseenter = (e) => {
                     if(isEditMode) return;
-                    
-                    popup.textContent = link.note;
-                    popup.innerHTML = link.note.replace(/\n/g, '<br>');
+                    popup.textContent = link.note; popup.innerHTML = link.note.replace(/\n/g, '<br>');
                     const rect = item.getBoundingClientRect();
-                    
-                    // 智能定位
                     let left = rect.right + 10;
                     if (left + 280 > window.innerWidth) left = rect.left - 290;
-                    
-                    popup.style.left = left + 'px';
-                    popup.style.top = rect.top + 'px';
+                    popup.style.left = left + 'px'; popup.style.top = rect.top + 'px';
                     popup.style.display = 'block';
-                    
-                    // 记录笔记是在左边还是右边 (供 leave 判断方向)
                     popup.dataset.side = (left > rect.left) ? 'right' : 'left';
                 };
 
-                // ★★★ 核心：基于速度和方向的消失逻辑 ★★★
+                // ★★★ 核心：动态灵敏度逻辑 ★★★
                 item.onmouseleave = () => {
-                    // 获取笔记所在方位
                     const side = popup.dataset.side; 
+                    const isMovingTowards = (side === 'right' && mouseTrack.vx > 0.1) || (side === 'left' && mouseTrack.vx < -0.1);
                     
-                    // 判断鼠标是否“正在冲向”笔记
-                    // 条件：笔记在右且鼠标向右移(vx>0.1) 或 笔记在左且鼠标向左移(vx<-0.1)
-                    const isMovingTowards = (side === 'right' && mouseTrack.vx > 0.1) || 
-                                            (side === 'left' && mouseTrack.vx < -0.1);
-                    
-                    // 判断是否“快速” (0.4 px/ms = 400px/s)
-                    const isFast = mouseTrack.speed > 0.4;
+                    // 动态计算阈值: 
+                    // 灵敏度(1-100). 100 -> 阈值极低(0.1, 容易触发). 1 -> 阈值高(1.0, 难触发)
+                    // 公式: threshold = 1.0 - (sensitivity / 100) * 0.9
+                    // 例: 灵敏度50 -> 1.0 - 0.5*0.9 = 0.55 px/ms
+                    const currentSense = userSettings.sensitivity || 50;
+                    const threshold = 1.0 - (currentSense / 100) * 0.9;
 
-                    // 决策延时时长
-                    // 快且方向对 -> 600ms (宽限期)
-                    // 慢或方向错 -> 50ms (立即消失)
-                    const delay = (isMovingTowards && isFast) ? 600 : 50;
+                    const isFastEnough = mouseTrack.speed > threshold;
+                    const delay = (isMovingTowards && isFastEnough) ? 600 : 50;
 
                     setTimeout(() => {
-                        // 最终检查：鼠标是否真的进入了 popup 或回到了 item
                         if (!popup.matches(':hover') && !item.matches(':hover')) {
                             popup.style.display = 'none';
                         }
@@ -427,7 +476,7 @@
             return item;
         }
 
-        // --- 4. 增删改 ---
+        // --- 增删改通用 ---
         function openLinkModal(id = null, prefillType = '') {
             const modal = document.getElementById('link-modal');
             const title = document.getElementById('link-modal-title');
@@ -435,7 +484,6 @@
             document.getElementById('link-url').value = ''; document.getElementById('link-icon').value = '';
             document.getElementById('link-comment').value = ''; document.getElementById('link-note').value = '';
             document.getElementById('link-sort').value = '0';
-
             if (id) {
                 const link = allLinks.find(l => l.id === id);
                 if (link) {
@@ -450,27 +498,21 @@
         }
 
         function closeLinkModal() { document.getElementById('link-modal').style.display = 'none'; }
-
         async function submitLink() {
             const id = document.getElementById('link-id').value;
             const payload = {
-                type: document.getElementById('link-type').value.trim(),
-                url: document.getElementById('link-url').value.trim(),
-                icon: document.getElementById('link-icon').value.trim(),
-                comment: document.getElementById('link-comment').value.trim(),
-                note: document.getElementById('link-note').value.trim(),
-                sort_order: parseInt(document.getElementById('link-sort').value) || 0
+                type: document.getElementById('link-type').value.trim(), url: document.getElementById('link-url').value.trim(),
+                icon: document.getElementById('link-icon').value.trim(), comment: document.getElementById('link-comment').value.trim(),
+                note: document.getElementById('link-note').value.trim(), sort_order: parseInt(document.getElementById('link-sort').value) || 0
             };
             if (!payload.type || !payload.url || !payload.icon) { alert('分类、链接和图标必填'); return; }
             if (id) payload.id = id;
-
             try {
                 const token = localStorage.getItem('nav_token');
                 const res = await fetch(API_LINKS, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
                 if (res.ok) { closeLinkModal(); loadLinks(); } else { alert('保存失败'); }
             } catch (e) { alert('网络错误'); }
         }
-
         async function deleteLink(id) {
             if (!confirm('确定删除？')) return;
             try {
