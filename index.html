@@ -123,7 +123,7 @@
         .btn-danger:hover { background: #ff7875; }
         .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
 
-        /* 设置滑块样式 */
+        /* 设置面板样式 */
         .slider-container { display: flex; align-items: center; gap: 10px; }
         .slider-range { flex: 1; cursor: pointer; }
         .slider-value { font-size: 14px; color: #1890ff; font-weight: bold; width: 30px; text-align: right; }
@@ -199,10 +199,13 @@
                     <span style="font-size:12px;color:#666;">灵敏</span>
                     <span id="sensitivity-val" class="slider-value">50</span>
                 </div>
-                <div class="slider-desc">
-                    数值越大，鼠标稍微向右移动就能留住笔记（适合手快党）。<br>
-                    数值越小，需要更快速向右甩鼠标才能留住笔记。
-                </div>
+                <div class="slider-desc">数值越大，越容易触发笔记。</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">分类排序 (中英文逗号分隔)</label>
+                <input type="text" id="setting-category-order" class="form-input" placeholder="例如: 常用, 搜索, 媒体">
+                <div class="slider-desc">未列出的分类将自动排在后面。</div>
             </div>
 
             <div class="modal-footer">
@@ -213,7 +216,7 @@
     </div>
 
     <script>
-        // --- 核心优化：全局鼠标速度追踪 ---
+        // --- 全局鼠标追踪 ---
         const mouseTrack = { x: 0, y: 0, t: 0, vx: 0, speed: 0 };
         document.addEventListener('mousemove', e => {
             const now = performance.now();
@@ -221,35 +224,31 @@
             if (dt > 15) { 
                 const dx = e.clientX - mouseTrack.x;
                 const dy = e.clientY - mouseTrack.y;
-                mouseTrack.vx = dx / dt; // 水平速度 (px/ms)
-                mouseTrack.speed = Math.sqrt(dx*dx + dy*dy) / dt; // 总速率
+                mouseTrack.vx = dx / dt; 
+                mouseTrack.speed = Math.sqrt(dx*dx + dy*dy) / dt; 
                 mouseTrack.x = e.clientX; mouseTrack.y = e.clientY; mouseTrack.t = now;
             }
         });
 
-        // --- 全局变量 ---
         const API_AUTH = '/api/auth';
         const API_LINKS = '/api/links';
-        const API_USER = '/api/user'; // 新增接口
+        const API_USER = '/api/user';
         let authMode = 'login';
         let allLinks = [];
         let isEditMode = false;
         
-        // 默认设置
-        let userSettings = { sensitivity: 50 };
+        // 默认设置 (新增 categoryOrder)
+        let userSettings = { sensitivity: 50, categoryOrder: "" };
 
         // --- 初始化 ---
         window.onload = function() {
             const token = localStorage.getItem('nav_token');
             if (token) {
                 document.getElementById('auth-modal').style.display = 'none';
-                
-                // 加载本地缓存的设置
                 const cachedSettings = localStorage.getItem('nav_settings');
                 if (cachedSettings) {
                     try { userSettings = JSON.parse(cachedSettings); } catch(e){}
                 }
-                
                 loadLinks();
                 showUI();
             }
@@ -261,25 +260,28 @@
             document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
         }
 
-        // --- 设置相关逻辑 (新增) ---
+        // --- 设置逻辑 ---
         function openSettingsModal() {
-            document.getElementById('setting-sensitivity').value = userSettings.sensitivity;
-            document.getElementById('sensitivity-val').textContent = userSettings.sensitivity;
+            // 填充灵敏度
+            document.getElementById('setting-sensitivity').value = userSettings.sensitivity || 50;
+            document.getElementById('sensitivity-val').textContent = userSettings.sensitivity || 50;
+            // 填充分类排序
+            document.getElementById('setting-category-order').value = userSettings.categoryOrder || "";
+            
             document.getElementById('settings-modal').style.display = 'flex';
         }
 
-        function updateSliderVal(val) {
-            document.getElementById('sensitivity-val').textContent = val;
-        }
+        function updateSliderVal(val) { document.getElementById('sensitivity-val').textContent = val; }
 
         async function saveSettings() {
             const newSense = parseInt(document.getElementById('setting-sensitivity').value);
-            userSettings.sensitivity = newSense;
+            const newOrder = document.getElementById('setting-category-order').value.trim();
             
-            // 1. 更新本地缓存
+            userSettings.sensitivity = newSense;
+            userSettings.categoryOrder = newOrder;
+            
             localStorage.setItem('nav_settings', JSON.stringify(userSettings));
             
-            // 2. 同步到云端
             try {
                 const token = localStorage.getItem('nav_token');
                 const res = await fetch(API_USER, {
@@ -288,25 +290,77 @@
                     body: JSON.stringify({ settings: userSettings })
                 });
                 if(res.ok) {
-                    alert('设置已保存并同步云端');
+                    alert('设置已保存');
                     document.getElementById('settings-modal').style.display = 'none';
-                } else {
-                    alert('保存失败');
-                }
-            } catch(e) {
-                alert('网络错误');
-            }
+                    loadLinks(); // 重新渲染以应用新排序
+                } else { alert('保存失败'); }
+            } catch(e) { alert('网络错误'); }
         }
 
-        // --- 现有功能 ---
+        // --- 核心渲染逻辑 (已升级) ---
+        function renderLinks() {
+            const content = document.getElementById('content'); content.innerHTML = '';
+            
+            // 1. 获取所有存在的分类
+            let types = [...new Set(allLinks.map(l => l.type))];
+            
+            // 2. 读取用户自定义排序设置
+            const orderStr = userSettings.categoryOrder || "";
+            // 支持中文逗号和英文逗号
+            const priorityList = orderStr.split(/[,，]/).map(s => s.trim()).filter(s => s);
+
+            // 3. 执行分类排序
+            if (priorityList.length > 0) {
+                types.sort((a, b) => {
+                    const indexA = priorityList.indexOf(a);
+                    const indexB = priorityList.indexOf(b);
+                    
+                    // 两个都在名单里：按名单顺序
+                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                    // A在名单里：A前
+                    if (indexA !== -1) return -1;
+                    // B在名单里：B前
+                    if (indexB !== -1) return 1;
+                    // 都不在名单里：保持原样 (也就是排在名单之后)
+                    return 0; 
+                });
+            }
+
+            // 4. 空数据处理
+            if (types.length === 0 && allLinks.length === 0) {
+                 if(isEditMode) types.push('默认分类'); 
+                 else {
+                     content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击右上角 "⚙️" -> "开启管理" -> 添加数据</div>';
+                     content.style.display = 'block'; return;
+                 }
+            }
+
+            // 5. 循环渲染 (内部链接 allLinks 已经由后端按 sort_order 排序，这里无需再排)
+            types.forEach(type => {
+                const section = document.createElement('section'); section.className = 'type-section';
+                section.innerHTML = `<div class="type-title">${type}</div>`;
+                const container = document.createElement('div'); container.className = 'links-container';
+                
+                const groupLinks = allLinks.filter(l => l.type === type);
+                groupLinks.forEach(link => { container.appendChild(createLinkElement(link)); });
+
+                if (isEditMode) {
+                    const addPlaceholder = document.createElement('div'); addPlaceholder.className = 'add-item-placeholder';
+                    addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加</span>';
+                    addPlaceholder.onclick = () => openLinkModal(null, type);
+                    container.appendChild(addPlaceholder);
+                }
+                section.appendChild(container); content.appendChild(section);
+            });
+            content.style.display = 'block';
+        }
+
+        // --- 现有通用功能 (保持不变) ---
         function toggleEditMode() {
             isEditMode = !isEditMode;
             const btn = document.getElementById('edit-mode-btn');
-            if (isEditMode) {
-                document.body.classList.add('edit-mode'); btn.textContent = '退出管理';
-            } else {
-                document.body.classList.remove('edit-mode'); btn.textContent = '开启管理';
-            }
+            if (isEditMode) { document.body.classList.add('edit-mode'); btn.textContent = '退出管理'; } 
+            else { document.body.classList.remove('edit-mode'); btn.textContent = '开启管理'; }
             renderLinks();
         }
 
@@ -360,13 +414,10 @@
                     if (authMode === 'login') {
                         localStorage.setItem('nav_token', data.token); 
                         localStorage.setItem('nav_user', data.username);
-                        
-                        // 保存云端返回的设置
                         if (data.settings) {
                             localStorage.setItem('nav_settings', data.settings);
                             try { userSettings = JSON.parse(data.settings); } catch(e){}
                         }
-                        
                         document.getElementById('auth-modal').style.display = 'none'; loadLinks(); showUI();
                     } else if (authMode === 'register' || authMode === 'reset') {
                         alert('操作成功，请登录'); switchAuthMode('login');
@@ -376,9 +427,7 @@
         }
 
         function logout() { 
-            localStorage.removeItem('nav_token'); 
-            localStorage.removeItem('nav_settings'); // 清除本地设置缓存
-            location.reload(); 
+            localStorage.removeItem('nav_token'); localStorage.removeItem('nav_settings'); location.reload(); 
         }
 
         async function loadLinks() {
@@ -387,36 +436,6 @@
             if (res.status === 401) { logout(); return; }
             allLinks = await res.json();
             renderLinks();
-        }
-
-        function renderLinks() {
-            const content = document.getElementById('content'); content.innerHTML = '';
-            const types = [...new Set(allLinks.map(l => l.type))];
-            
-            if (types.length === 0 && allLinks.length === 0) {
-                 if(isEditMode) types.push('默认分类'); 
-                 else {
-                     content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击右上角 "⚙️" -> "开启管理" -> 添加数据</div>';
-                     content.style.display = 'block'; return;
-                 }
-            }
-
-            types.forEach(type => {
-                const section = document.createElement('section'); section.className = 'type-section';
-                section.innerHTML = `<div class="type-title">${type}</div>`;
-                const container = document.createElement('div'); container.className = 'links-container';
-                const groupLinks = allLinks.filter(l => l.type === type);
-                groupLinks.forEach(link => { container.appendChild(createLinkElement(link)); });
-
-                if (isEditMode) {
-                    const addPlaceholder = document.createElement('div'); addPlaceholder.className = 'add-item-placeholder';
-                    addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加</span>';
-                    addPlaceholder.onclick = () => openLinkModal(null, type);
-                    container.appendChild(addPlaceholder);
-                }
-                section.appendChild(container); content.appendChild(section);
-            });
-            content.style.display = 'block';
         }
 
         function createLinkElement(link) {
@@ -451,21 +470,13 @@
                     popup.dataset.side = (left > rect.left) ? 'right' : 'left';
                 };
 
-                // ★★★ 核心：动态灵敏度逻辑 ★★★
                 item.onmouseleave = () => {
                     const side = popup.dataset.side; 
                     const isMovingTowards = (side === 'right' && mouseTrack.vx > 0.1) || (side === 'left' && mouseTrack.vx < -0.1);
-                    
-                    // 动态计算阈值: 
-                    // 灵敏度(1-100). 100 -> 阈值极低(0.1, 容易触发). 1 -> 阈值高(1.0, 难触发)
-                    // 公式: threshold = 1.0 - (sensitivity / 100) * 0.9
-                    // 例: 灵敏度50 -> 1.0 - 0.5*0.9 = 0.55 px/ms
                     const currentSense = userSettings.sensitivity || 50;
                     const threshold = 1.0 - (currentSense / 100) * 0.9;
-
                     const isFastEnough = mouseTrack.speed > threshold;
                     const delay = (isMovingTowards && isFastEnough) ? 600 : 50;
-
                     setTimeout(() => {
                         if (!popup.matches(':hover') && !item.matches(':hover')) {
                             popup.style.display = 'none';
@@ -476,7 +487,6 @@
             return item;
         }
 
-        // --- 增删改通用 ---
         function openLinkModal(id = null, prefillType = '') {
             const modal = document.getElementById('link-modal');
             const title = document.getElementById('link-modal-title');
