@@ -40,7 +40,7 @@
             border: 1px solid rgba(255,255,255,0.5);
         }
         
-        /* 悬停时触发器隐藏（为了平滑过渡到菜单） */
+        /* 悬停时触发器隐藏 */
         .top-widget:hover .widget-trigger {
             background: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
@@ -48,19 +48,18 @@
             pointer-events: none;
         }
 
-        /* 菜单面板（默认隐藏） */
+        /* 菜单面板 */
         .widget-menu {
             position: absolute;
             top: 0;
             right: 0;
-            width: 160px;
+            width: 140px; /* 稍微调窄一点，更精致 */
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 12px;
-            padding: 15px;
+            padding: 12px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.15);
             
-            /* 动画效果 */
             opacity: 0;
             transform: scale(0.8) translate(10px, -10px);
             transform-origin: top right;
@@ -69,17 +68,16 @@
             
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
-        /* 悬停整个区域时显示菜单 */
+        /* 悬停显示菜单 */
         .top-widget:hover .widget-menu {
             opacity: 1;
             transform: scale(1) translate(0, 0);
             pointer-events: auto;
         }
 
-        /* 菜单内部元素样式 */
         .user-info-box {
             font-size: 13px;
             font-weight: bold;
@@ -101,15 +99,11 @@
             text-align: center;
         }
         
-        /* 菜单按钮颜色 */
         .btn-toggle { background: #f0f5ff; color: #1890ff; }
         .btn-toggle:hover { background: #d6e4ff; }
         
-        /* 管理模式开启状态下的样式 */
+        /* 管理模式开启状态 */
         body.edit-mode .btn-toggle { background: #fff7e6; color: #fa8c16; }
-        
-        .btn-add { background: #f6ffed; color: #52c41a; display: none; } /* 默认隐藏 */
-        .btn-add:hover { background: #d9f7be; }
         
         .btn-logout { background: transparent; color: #999; border: 1px solid #eee; margin-top: 5px;}
         .btn-logout:hover { background: #fff1f0; color: #ff4d4f; border-color: #ffccc7; }
@@ -164,7 +158,7 @@
         .edit-icon-btn { background: #1890ff; }
         .del-icon-btn { background: #ff4d4f; }
 
-        /* 虚线添加按钮 (管理模式显示) */
+        /* 虚线添加按钮 (仅在管理模式显示) */
         .add-item-placeholder {
             width: 90px; height: 80px;
             border: 2px dashed #ddd;
@@ -196,7 +190,7 @@
         }
         .link-comment { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* --- 通用弹窗样式 (模态框) --- */
+        /* --- 弹窗样式 --- */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 2000;
@@ -217,7 +211,6 @@
         .form-input:focus, .form-textarea:focus { border-color: #1890ff; }
         .form-textarea { height: 80px; resize: vertical; }
 
-        /* 通用按钮样式 (用于模态框) */
         .btn-primary { background: #1890ff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
         .btn-primary:hover { background: #40a9ff; }
         .btn-danger { background: #ff4d4f; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
@@ -243,9 +236,7 @@
         
         <div class="widget-menu">
             <div class="user-info-box" id="welcome-msg">Hi, User</div>
-            
             <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
-            <button class="menu-btn btn-add" onclick="openLinkModal()" id="add-btn">+ 新增链接</button>
             <button class="menu-btn btn-logout" onclick="logout()">退出登录</button>
         </div>
     </div>
@@ -323,7 +314,7 @@
         const API_AUTH = '/api/auth';
         const API_LINKS = '/api/links';
         let authMode = 'login';
-        let allLinks = []; // 本地缓存链接数据
+        let allLinks = [];
         let isEditMode = false;
 
         // --- 初始化 ---
@@ -338,7 +329,6 @@
 
         function showUI() {
             const user = localStorage.getItem('nav_user');
-            // 改为 block 以显示悬浮球
             document.getElementById('top-bar').style.display = 'block';
             document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
         }
@@ -346,27 +336,23 @@
         function toggleEditMode() {
             isEditMode = !isEditMode;
             const btn = document.getElementById('edit-mode-btn');
-            const addBtn = document.getElementById('add-btn');
             
             if (isEditMode) {
                 document.body.classList.add('edit-mode');
                 btn.textContent = '退出管理';
-                // 按钮显示逻辑 (block 适合垂直菜单)
-                addBtn.style.display = 'block';
             } else {
                 document.body.classList.remove('edit-mode');
                 btn.textContent = '开启管理';
-                addBtn.style.display = 'none';
             }
         }
 
-        // --- 1. 认证逻辑 (登录/注册) ---
+        // --- 1. 认证逻辑 ---
         function switchAuthMode(mode) {
             authMode = mode;
             const title = document.getElementById('auth-title');
             const resetGroup = document.getElementById('group-reset-code');
-            const pwdGroup = document.getElementById('group-new-pwd'); // 重置密码用
-            const oldPwdGroup = document.getElementById('auth-password').parentElement; // 登录注册用
+            const pwdGroup = document.getElementById('group-new-pwd');
+            const oldPwdGroup = document.getElementById('auth-password').parentElement;
             const btn = document.getElementById('auth-submit-btn');
 
             document.getElementById('auth-msg').textContent = '';
@@ -387,7 +373,7 @@
             } else if (mode === 'reset') {
                 title.textContent = '重置密码';
                 btn.textContent = '确认重置';
-                oldPwdGroup.style.display = 'none'; // 隐藏原密码框
+                oldPwdGroup.style.display = 'none';
                 resetGroup.style.display = 'block';
                 document.getElementById('auth-reset-code').placeholder = '输入您的重置码';
                 pwdGroup.style.display = 'block';
@@ -470,11 +456,27 @@
             const content = document.getElementById('content');
             content.innerHTML = '';
             
-            // 提取分类
             const types = [...new Set(allLinks.map(l => l.type))];
             if (types.length === 0 && allLinks.length === 0) {
-                 content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击右上角 "⚙️" -> "开启管理" -> "新增链接" 开始使用</div>';
+                 content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击右上角 "⚙️" -> "开启管理" -> 点击下方虚线框 "添加"</div>';
                  content.style.display = 'block';
+                 // 即便没有数据，如果是管理模式，也应该显示一个默认的添加按钮
+                 if(isEditMode) {
+                     const section = document.createElement('section');
+                     section.className = 'type-section';
+                     section.innerHTML = `<div class="type-title">新建分类</div>`;
+                     const container = document.createElement('div');
+                     container.className = 'links-container';
+                     
+                     const addPlaceholder = document.createElement('div');
+                     addPlaceholder.className = 'add-item-placeholder';
+                     addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加</span>';
+                     addPlaceholder.onclick = () => openLinkModal(); 
+                     container.appendChild(addPlaceholder);
+                     
+                     section.appendChild(container);
+                     content.appendChild(section);
+                 }
                  return;
             }
 
@@ -486,17 +488,16 @@
                 const container = document.createElement('div');
                 container.className = 'links-container';
                 
-                // 渲染该分类下的链接
                 const groupLinks = allLinks.filter(l => l.type === type);
                 groupLinks.forEach(link => {
                     container.appendChild(createLinkElement(link));
                 });
 
-                // 每个分类后面加一个快速添加按钮(虚线框)
+                // 虚线添加按钮
                 const addPlaceholder = document.createElement('div');
                 addPlaceholder.className = 'add-item-placeholder';
                 addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加</span>';
-                addPlaceholder.onclick = () => openLinkModal(null, type); // 预填分类
+                addPlaceholder.onclick = () => openLinkModal(null, type);
                 container.appendChild(addPlaceholder);
 
                 section.appendChild(container);
@@ -510,7 +511,6 @@
             const item = document.createElement('div');
             item.className = 'link-item';
             
-            // 图标内容
             let iconHtml = link.icon.startsWith('http') 
                 ? `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">`
                 : link.icon;
@@ -524,15 +524,13 @@
                 <div class="link-comment">${link.comment || link.icon}</div>
             `;
 
-            // 点击跳转
             item.onclick = () => {
-                if (isEditMode) return; // 编辑模式下点击不跳转
+                if (isEditMode) return;
                 let url = link.url;
                 if (!url.startsWith('http')) url = 'http://' + url;
                 window.open(url, '_blank');
             };
 
-            // 悬停笔记
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = (e) => {
@@ -560,7 +558,6 @@
             const modal = document.getElementById('link-modal');
             const title = document.getElementById('link-modal-title');
             
-            // 清空表单
             document.getElementById('link-id').value = '';
             document.getElementById('link-type').value = prefillType;
             document.getElementById('link-url').value = '';
@@ -570,7 +567,6 @@
             document.getElementById('link-sort').value = '0';
 
             if (id) {
-                // 编辑模式：填充数据
                 const link = allLinks.find(l => l.id === id);
                 if (link) {
                     title.textContent = '编辑链接';
@@ -627,7 +623,7 @@
                 
                 if (res.ok) {
                     closeLinkModal();
-                    loadLinks(); // 刷新列表
+                    loadLinks();
                 } else {
                     alert('保存失败');
                 }
