@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>私有云导航</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body {
+            padding: 15px;
+            background: linear-gradient(to bottom, #a0a0a0, #c5c5c5, #e5e5e5);
+            min-height: 100vh;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        /* --- 顶部栏 --- */
+        .top-bar {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            z-index: 100;
+        }
+        .logout-btn {
+            padding: 5px 15px;
+            background: rgba(255,255,255,0.5);
+            border: 1px solid #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #333;
+        }
+        .logout-btn:hover { background: #fff; }
+
+        /* --- 导航内容区 --- */
+        #content { max-width: 1200px; margin: 0 auto; display: none; /* 默认隐藏，登录后显示 */ }
+
+        .type-section { position: relative; margin-bottom: 25px; }
+        .type-title {
+            position: absolute;
+            top: -12px;
+            left: 15px;
+            padding: 2px 12px;
+            background: #deefff;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #1890ff;
+            z-index: 1;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .links-container {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px 10px 15px 10px;
+            box-shadow: 5px 5px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .link-item {
+            position: relative;
+            width: 90px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+        .link-item:hover { transform: translateY(-3px); }
+
+        .link-icon {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 8px auto;
+            background: linear-gradient(30deg, #A0CDFF, #A0CDFF);
+            transition: all 0.2s ease;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #1890ff;
+            overflow: hidden;
+            font-weight: bold;
+        }
+        .link-icon:hover { background: linear-gradient(150deg, #c9e5ff, #96deff); }
+        .link-comment { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* --- 笔记弹窗 --- */
+        .note-popup {
+            display: none;
+            position: fixed;
+            width: 280px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 9999;
+            text-align: left;
+            font-size: 13px;
+            color: #444;
+            line-height: 1.6;
+            white-space: pre-wrap; /* 保留换行 */
+            word-break: break-all;
+            user-select: text; /* 允许复制 */
+            border: 1px solid #eee;
+        }
+
+        /* --- 登录/注册 模态框 --- */
+        #auth-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 2000;
+        }
+        .auth-box {
+            background: white; padding: 30px; border-radius: 10px; width: 320px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .auth-box h2 { text-align: center; margin-bottom: 20px; color: #333; }
+        .auth-input {
+            width: 100%; padding: 12px; margin-bottom: 15px;
+            border: 1px solid #ddd; border-radius: 6px; outline: none;
+        }
+        .auth-btn {
+            width: 100%; padding: 12px; background: #1890ff; color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 16px;
+        }
+        .auth-btn:hover { background: #096dd9; }
+        .auth-switch {
+            margin-top: 15px; text-align: center; font-size: 12px; color: #666;
+        }
+        .auth-switch span { color: #1890ff; cursor: pointer; margin: 0 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar" id="top-bar" style="display:none;">
+        <span id="welcome-msg" style="margin-right:10px; font-size:12px; color:#555;"></span>
+        <button class="logout-btn" onclick="logout()">退出登录</button>
+    </div>
+
+    <div id="content"></div>
+
+    <div id="global-note-popup" class="note-popup"></div>
+
+    <div id="auth-modal">
+        <div class="auth-box">
+            <h2 id="modal-title">登录</h2>
+            <input type="text" id="username" class="auth-input" placeholder="用户名">
+            <input type="password" id="password" class="auth-input" placeholder="密码">
+            
+            <input type="text" id="reset-code" class="auth-input" placeholder="设置一个安全重置码 (找回密码用)" style="display:none;">
+            <input type="password" id="new-password" class="auth-input" placeholder="新密码" style="display:none;">
+
+            <button class="auth-btn" id="submit-btn" onclick="handleAuth()">进入导航</button>
+
+            <div class="auth-switch">
+                <span onclick="switchMode('login')">登录</span> | 
+                <span onclick="switchMode('register')">注册账号</span> | 
+                <span onclick="switchMode('reset')">忘记密码?</span>
+            </div>
+            <p id="error-msg" style="color:red; font-size:12px; text-align:center; margin-top:10px;"></p>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'login'; // login, register, reset
+        const API_AUTH = '/api/auth';
+        const API_LINKS = '/api/links';
+
+        // --- 1. 身份验证逻辑 ---
+        
+        // 页面加载时检查是否已登录
+        window.onload = function() {
+            const token = localStorage.getItem('nav_token');
+            if (token) {
+                document.getElementById('auth-modal').style.display = 'none';
+                loadLinks(); // 加载数据
+                showWelcome();
+            }
+        };
+
+        function showWelcome() {
+            const user = localStorage.getItem('nav_user');
+            document.getElementById('top-bar').style.display = 'block';
+            document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const title = document.getElementById('modal-title');
+            const btn = document.getElementById('submit-btn');
+            const resetCodeInput = document.getElementById('reset-code');
+            const passwordInput = document.getElementById('password');
+            const newPasswordInput = document.getElementById('new-password');
+            const errorMsg = document.getElementById('error-msg');
+
+            errorMsg.textContent = '';
+            
+            if (mode === 'login') {
+                title.textContent = '登录';
+                btn.textContent = '进入导航';
+                resetCodeInput.style.display = 'none';
+                passwordInput.style.display = 'block';
+                newPasswordInput.style.display = 'none';
+            } else if (mode === 'register') {
+                title.textContent = '注册账号';
+                btn.textContent = '立即注册';
+                resetCodeInput.style.display = 'block';
+                resetCodeInput.placeholder = '设置重置码 (非常重要，请记住!)';
+                passwordInput.style.display = 'block';
+                newPasswordInput.style.display = 'none';
+            } else if (mode === 'reset') {
+                title.textContent = '重置密码';
+                btn.textContent = '确认重置';
+                passwordInput.style.display = 'none'; // 隐藏旧密码框
+                resetCodeInput.style.display = 'block';
+                resetCodeInput.placeholder = '输入您的重置码';
+                newPasswordInput.style.display = 'block';
+            }
+        }
+
+        async function handleAuth() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const resetCode = document.getElementById('reset-code').value.trim();
+            const newPassword = document.getElementById('new-password').value.trim();
+            const btn = document.getElementById('submit-btn');
+            const errorMsg = document.getElementById('error-msg');
+
+            if (!username) return errorMsg.textContent = '请输入用户名';
+
+            const payload = { action: currentMode, username };
+            
+            if (currentMode === 'login') {
+                if (!password) return errorMsg.textContent = '请输入密码';
+                payload.password = password;
+            } else if (currentMode === 'register') {
+                if (!password || !resetCode) return errorMsg.textContent = '请填写完整信息';
+                payload.password = password;
+                payload.reset_code = resetCode;
+            } else if (currentMode === 'reset') {
+                if (!resetCode || !newPassword) return errorMsg.textContent = '请填写重置码和新密码';
+                payload.reset_code = resetCode;
+                payload.new_password = newPassword;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '处理中...';
+
+            try {
+                const res = await fetch(API_AUTH, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    if (currentMode === 'login') {
+                        localStorage.setItem('nav_token', data.token);
+                        localStorage.setItem('nav_user', data.username);
+                        document.getElementById('auth-modal').style.display = 'none';
+                        loadLinks();
+                        showWelcome();
+                    } else if (currentMode === 'register') {
+                        alert('注册成功！请登录');
+                        switchMode('login');
+                    } else if (currentMode === 'reset') {
+                        alert('密码重置成功！请使用新密码登录');
+                        switchMode('login');
+                    }
+                } else {
+                    errorMsg.textContent = data.error || '操作失败';
+                }
+            } catch (err) {
+                errorMsg.textContent = '网络错误，请检查连接';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = currentMode === 'login' ? '进入导航' : (currentMode === 'register' ? '立即注册' : '确认重置');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('nav_token');
+            localStorage.removeItem('nav_user');
+            location.reload();
+        }
+
+        // --- 2. 数据加载与渲染逻辑 ---
+
+        async function loadLinks() {
+            const token = localStorage.getItem('nav_token');
+            if (!token) return;
+
+            try {
+                const res = await fetch(API_LINKS, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.status === 401 || res.status === 403) {
+                    alert('登录已过期，请重新登录');
+                    logout();
+                    return;
+                }
+
+                const linksData = await res.json();
+                renderLinks(linksData);
+            } catch (err) {
+                console.error('加载失败', err);
+                document.getElementById('content').innerHTML = '<p style="text-align:center;padding:20px;">数据加载失败</p>';
+                document.getElementById('content').style.display = 'block';
+            }
+        }
+
+        function renderLinks(linksData) {
+            const content = document.getElementById('content');
+            content.innerHTML = ''; // 清空
+            
+            if (!linksData || linksData.length === 0) {
+                content.innerHTML = '<p style="text-align:center;padding:50px;color:#666;">暂无数据，请去数据库添加内容</p>';
+                content.style.display = 'block';
+                return;
+            }
+
+            // 提取所有分类 (去重)
+            // 假设数据库返回的数据已经按 sort_order 排序
+            // 我们需要保持这个顺序提取 type
+            const types = [];
+            linksData.forEach(link => {
+                if (!types.includes(link.type)) {
+                    types.push(link.type);
+                }
+            });
+
+            const fragment = document.createDocumentFragment();
+
+            types.forEach(type => {
+                const section = document.createElement('section');
+                section.className = 'type-section';
+                
+                const title = document.createElement('div');
+                title.className = 'type-title';
+                title.textContent = type;
+                
+                const container = document.createElement('div');
+                container.className = 'links-container';
+                
+                // 筛选属于当前分类的链接
+                const groupLinks = linksData.filter(link => link.type === type);
+                
+                groupLinks.forEach(link => {
+                    container.appendChild(createLinkElement(link));
+                });
+
+                section.append(title, container);
+                fragment.appendChild(section);
+            });
+
+            content.appendChild(fragment);
+            content.style.display = 'block';
+        }
+
+        function createLinkElement(link) {
+            const item = document.createElement('div');
+            item.className = 'link-item';
+            
+            // 图标处理：如果是 http 开头则显示图片，否则显示文字
+            let iconContent = '';
+            if (link.icon.startsWith('http')) {
+                iconContent = `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">`;
+            } else {
+                iconContent = link.icon;
+            }
+
+            item.innerHTML = `
+                <div class="link-icon">${iconContent}</div>
+                <div class="link-comment">${link.comment || link.icon}</div>
+            `;
+
+            // 点击跳转
+            item.onclick = () => {
+                let url = link.url;
+                if (!url.startsWith('http')) url = 'http://' + url;
+                window.open(url, '_blank');
+            };
+
+            // 笔记悬浮处理
+            if (link.note) {
+                const popup = document.getElementById('global-note-popup');
+                
+                item.onmouseenter = (e) => {
+                    const rect = item.getBoundingClientRect();
+                    popup.textContent = link.note; // 使用 textContent 防止 XSS，或者用 innerHTML (如果需要换行)
+                    popup.innerHTML = link.note.replace(/\n/g, '<br>'); // 支持换行
+                    
+                    // 简单的定位逻辑
+                    let left = rect.right + 10;
+                    let top = rect.top;
+                    
+                    // 边界检查：如果右边放不下，放左边
+                    if (left + 280 > window.innerWidth) {
+                        left = rect.left - 290;
+                    }
+
+                    popup.style.left = left + 'px';
+                    popup.style.top = top + 'px';
+                    popup.style.display = 'block';
+                };
+
+                item.onmouseleave = (e) => {
+                    // 简单的延迟隐藏，给用户一点时间移动鼠标
+                    setTimeout(() => {
+                        if (!popup.matches(':hover')) {
+                            popup.style.display = 'none';
+                        }
+                    }, 100);
+                };
+                
+                // 鼠标离开 popup 时隐藏
+                popup.onmouseleave = () => {
+                    popup.style.display = 'none';
+                };
+            }
+
+            return item;
+        }
+    </script>
+</body>
+</html>
