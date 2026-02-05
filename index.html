@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>私有云导航</title>
     <style>
+        /* --- 全局基础样式 --- */
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body {
             padding: 15px;
@@ -13,50 +14,107 @@
             font-family: "Microsoft YaHei", sans-serif;
         }
 
-        /* --- 顶部栏 --- */
-        .top-bar {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(5px);
-            padding: 10px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        /* --- 极致精简版顶部悬浮控制台 --- */
+        .top-widget {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
         }
-        .user-info { font-size: 14px; color: #333; font-weight: bold; }
+
+        /* 触发器（常态显示的小图标） */
+        .widget-trigger {
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(5px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            font-size: 16px;
+            color: #555;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
         
-        .btn-group button {
-            padding: 6px 12px;
+        /* 悬停时触发器隐藏（为了平滑过渡到菜单） */
+        .top-widget:hover .widget-trigger {
+            background: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 菜单面板（默认隐藏） */
+        .widget-menu {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 160px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            
+            /* 动画效果 */
+            opacity: 0;
+            transform: scale(0.8) translate(10px, -10px);
+            transform-origin: top right;
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
+            
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 悬停整个区域时显示菜单 */
+        .top-widget:hover .widget-menu {
+            opacity: 1;
+            transform: scale(1) translate(0, 0);
+            pointer-events: auto;
+        }
+
+        /* 菜单内部元素样式 */
+        .user-info-box {
+            font-size: 13px;
+            font-weight: bold;
+            color: #333;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 2px;
+            text-align: center;
+        }
+
+        .menu-btn {
+            width: 100%;
+            padding: 8px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            margin-left: 10px;
-            transition: all 0.2s;
+            transition: background 0.2s;
+            text-align: center;
         }
-        .btn-primary { background: #1890ff; color: white; }
-        .btn-primary:hover { background: #40a9ff; }
-        .btn-danger { background: #ff4d4f; color: white; }
-        .btn-danger:hover { background: #ff7875; }
-        .btn-toggle { background: #52c41a; color: white; }
         
-        /* 管理模式下的样式控制 */
-        body.edit-mode .edit-controls { display: flex; }
-        .edit-controls { display: none; gap: 5px; position: absolute; top: -8px; right: -8px; }
+        /* 菜单按钮颜色 */
+        .btn-toggle { background: #f0f5ff; color: #1890ff; }
+        .btn-toggle:hover { background: #d6e4ff; }
         
-        .edit-btn-mini {
-            width: 20px; height: 20px; border-radius: 50%; border: none; color: white;
-            font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
-        .edit-icon-btn { background: #1890ff; }
-        .del-icon-btn { background: #ff4d4f; }
+        /* 管理模式开启状态下的样式 */
+        body.edit-mode .btn-toggle { background: #fff7e6; color: #fa8c16; }
+        
+        .btn-add { background: #f6ffed; color: #52c41a; display: none; } /* 默认隐藏 */
+        .btn-add:hover { background: #d9f7be; }
+        
+        .btn-logout { background: transparent; color: #999; border: 1px solid #eee; margin-top: 5px;}
+        .btn-logout:hover { background: #fff1f0; color: #ff4d4f; border-color: #ffccc7; }
 
-        /* --- 导航内容区 --- */
+        /* --- 导航内容区样式 --- */
         #content { max-width: 1200px; margin: 0 auto; display: none; }
         .type-section { position: relative; margin-bottom: 35px; }
         
@@ -95,12 +153,23 @@
         }
         .link-item:hover { transform: translateY(-3px); }
 
-        /* 虚线添加按钮 */
+        /* 管理模式下的编辑控件 */
+        body.edit-mode .edit-controls { display: flex; }
+        .edit-controls { display: none; gap: 5px; position: absolute; top: -8px; right: -8px; z-index: 10; }
+        
+        .edit-btn-mini {
+            width: 20px; height: 20px; border-radius: 50%; border: none; color: white;
+            font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .edit-icon-btn { background: #1890ff; }
+        .del-icon-btn { background: #ff4d4f; }
+
+        /* 虚线添加按钮 (管理模式显示) */
         .add-item-placeholder {
             width: 90px; height: 80px;
             border: 2px dashed #ddd;
             border-radius: 8px;
-            display: none; /* 仅管理模式显示 */
+            display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -127,14 +196,7 @@
         }
         .link-comment { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* --- 弹窗样式 --- */
-        .note-popup {
-            display: none; position: fixed; width: 280px; background: #fff; padding: 15px;
-            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999;
-            text-align: left; font-size: 13px; color: #444; line-height: 1.6;
-            white-space: pre-wrap; word-break: break-all; user-select: text; border: 1px solid #eee;
-        }
-
+        /* --- 通用弹窗样式 (模态框) --- */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 2000;
@@ -155,19 +217,36 @@
         .form-input:focus, .form-textarea:focus { border-color: #1890ff; }
         .form-textarea { height: 80px; resize: vertical; }
 
+        /* 通用按钮样式 (用于模态框) */
+        .btn-primary { background: #1890ff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        .btn-primary:hover { background: #40a9ff; }
+        .btn-danger { background: #ff4d4f; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        .btn-danger:hover { background: #ff7875; }
+
         .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+
+        /* --- 笔记悬浮弹窗 --- */
+        .note-popup {
+            display: none; position: fixed; width: 280px; background: #fff; padding: 15px;
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999;
+            text-align: left; font-size: 13px; color: #444; line-height: 1.6;
+            white-space: pre-wrap; word-break: break-all; user-select: text; border: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
 
-    <div class="top-bar" id="top-bar" style="display:none;">
-        <div class="user-info">
-            <span id="welcome-msg"></span>
+    <div class="top-widget" id="top-bar" style="display:none;">
+        <div class="widget-trigger">
+            <span style="font-size: 18px;">⚙️</span>
         </div>
-        <div class="btn-group">
-            <button class="btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
-            <button class="btn-primary" onclick="openLinkModal()" id="add-btn" style="display:none;">+ 新增链接</button>
-            <button class="btn-danger" onclick="logout()">退出</button>
+        
+        <div class="widget-menu">
+            <div class="user-info-box" id="welcome-msg">Hi, User</div>
+            
+            <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
+            <button class="menu-btn btn-add" onclick="openLinkModal()" id="add-btn">+ 新增链接</button>
+            <button class="menu-btn btn-logout" onclick="logout()">退出登录</button>
         </div>
     </div>
 
@@ -259,7 +338,8 @@
 
         function showUI() {
             const user = localStorage.getItem('nav_user');
-            document.getElementById('top-bar').style.display = 'flex';
+            // 改为 block 以显示悬浮球
+            document.getElementById('top-bar').style.display = 'block';
             document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
         }
 
@@ -271,14 +351,11 @@
             if (isEditMode) {
                 document.body.classList.add('edit-mode');
                 btn.textContent = '退出管理';
-                btn.style.background = '#ffc107'; // 黄色
-                btn.style.color = '#333';
-                addBtn.style.display = 'inline-block';
+                // 按钮显示逻辑 (block 适合垂直菜单)
+                addBtn.style.display = 'block';
             } else {
                 document.body.classList.remove('edit-mode');
                 btn.textContent = '开启管理';
-                btn.style.background = '#52c41a'; // 绿色
-                btn.style.color = 'white';
                 addBtn.style.display = 'none';
             }
         }
@@ -396,7 +473,7 @@
             // 提取分类
             const types = [...new Set(allLinks.map(l => l.type))];
             if (types.length === 0 && allLinks.length === 0) {
-                 content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击上方 "开启管理" -> "新增链接" 开始使用</div>';
+                 content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击右上角 "⚙️" -> "开启管理" -> "新增链接" 开始使用</div>';
                  content.style.display = 'block';
                  return;
             }
@@ -455,7 +532,7 @@
                 window.open(url, '_blank');
             };
 
-            // 悬停笔记 (复用之前的逻辑)
+            // 悬停笔记
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = (e) => {
