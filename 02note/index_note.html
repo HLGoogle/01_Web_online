@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02note | 简单策划笔记本</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+        .input-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            resize: vertical;
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            outline: none;
+            margin-bottom: 10px;
+        }
+        textarea:focus {
+            border-color: #007bff;
+        }
+        button#saveButton {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        button#saveButton:hover {
+            background-color: #0056b3;
+        }
+        #notesList {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .note {
+            padding: 20px;
+            padding-bottom: 55px; 
+            background-color: #fff;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid #efefef;
+        }
+        .note.pinned {
+            border-left: 5px solid #007bff;
+            background-color: #f0f7ff;
+        }
+        .note-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.6;
+            color: #444;
+            min-height: 1.2em;
+        }
+        /* 行内编辑框样式 */
+        .inline-edit-area {
+            width: 100%;
+            min-height: 100px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            font-size: 16px;
+            line-height: 1.6;
+            font-family: inherit;
+            background-color: #fff;
+            outline: none;
+        }
+        .note-number {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #cbd5e0;
+            font-size: 11px;
+            font-family: monospace;
+        }
+        .actions {
+            position: absolute;
+            right: 15px;
+            bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .pin-toggle-label {
+            font-size: 13px;
+            color: #007bff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            user-select: none;
+        }
+        .btn-small {
+            border: 1px solid transparent;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .edit-btn {
+            background-color: transparent;
+            color: #007bff;
+            border-color: #007bff;
+        }
+        .edit-btn:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+        /* 编辑状态特有按钮 */
+        .save-edit-btn {
+            background-color: #52c41a;
+            color: white;
+        }
+        .cancel-edit-btn {
+            background-color: #f0f0f0;
+            color: #666;
+        }
+        .delete-btn {
+            background-color: transparent;
+            color: #ff4d4f;
+            border-color: #ff4d4f;
+        }
+        .delete-btn:hover {
+            background-color: #ff4d4f;
+            color: #fff;
+        }
+        .note > button {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>下一季策划</h1>
+    
+    <div class="input-section">
+        <textarea id="content" rows="4" placeholder="今天想记录点什么？"></textarea>
+        <button id="saveButton">保存到云端</button>
+    </div>
+
+    <div id="notesList"></div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
