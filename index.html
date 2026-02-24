@@ -3,301 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workspace | 专属云导航</title>
-    <!-- 引入高级现代字体 -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>私有云导航</title>
     <style>
-        /* =========================================
-           高级感全局变量 (Apple/Vercel 设计规范)
-           ========================================= */
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --primary-light: #eff6ff;
-            --bg-base: #f1f5f9;
-            --text-title: #0f172a;
-            --text-main: #334155;
-            --text-muted: #64748b;
-            --border-color: rgba(226, 232, 240, 0.8);
-            
-            --radius-sm: 8px;
-            --radius-md: 14px;
-            --radius-lg: 20px;
-            --radius-xl: 28px;
-            
-            --shadow-subtle: 0 2px 10px rgba(0, 0, 0, 0.02);
-            --shadow-float: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -5px rgba(0, 0, 0, 0.04);
-            --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            
-            --glass-bg: rgba(255, 255, 255, 0.65);
-            --glass-panel: rgba(255, 255, 255, 0.85);
-            --glass-blur: blur(24px);
-        }
-
+        /* --- 全局基础样式 --- */
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        
         body {
-            /* 极简柔和的环境光背景 */
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(circle at 15% 50%, rgba(219, 234, 254, 0.5), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(243, 232, 255, 0.5), transparent 25%);
-            background-attachment: fixed;
+            padding: 15px;
+            background: linear-gradient(to bottom, #a0a0a0, #c5c5c5, #e5e5e5);
             min-height: 100vh;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-            color: var(--text-main);
-            padding: 40px 20px;
-            -webkit-font-smoothing: antialiased;
+            font-family: "Microsoft YaHei", sans-serif;
         }
 
-        /* =========================================
-           1. 登录前：圆形浮动按钮 (果冻弹簧特效)
-           ========================================= */
+        /* --- 1. 登录前：圆形浮动按钮 (已修复层级问题) --- */
         .visitor-update-btn {
-            position: fixed; top: 32px; right: 32px;
-            width: 60px; height: 60px;
-            background: var(--glass-panel); backdrop-filter: var(--glass-blur);
-            -webkit-backdrop-filter: var(--glass-blur);
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 2500; 
-            border: 1px solid rgba(255,255,255,0.9);
-            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.15);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* 弹性动画 */
-            animation: floating 4s ease-in-out infinite;
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            width: 70px;
+            height: 70px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            /* 关键修改：z-index 必须大于 modal-overlay 的 2000 */
+            z-index: 2500; 
+            transition: all 0.3s ease;
+            border: 2px solid #1890ff;
+            animation: float-btn 3s ease-in-out infinite;
         }
         .visitor-update-btn span {
-            color: var(--primary); font-size: 12px; font-weight: 700; text-align: center; line-height: 1.2;
+            color: #1890ff;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.3;
         }
         .visitor-update-btn:hover {
-            transform: translateY(-4px) scale(1.1);
-            box-shadow: 0 12px 35px rgba(37, 99, 235, 0.25);
-            background: #ffffff;
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(24, 144, 255, 0.4);
         }
-        @keyframes floating {
+        @keyframes float-btn {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
+            50% { transform: translateY(-8px); }
         }
+        /* 核心逻辑：登录成功后隐藏此按钮 */
         body.logged-in .visitor-update-btn { display: none !important; }
 
-        /* =========================================
-           2. 顶部控制台 (iOS 药丸控制中心风格)
-           ========================================= */
-        .top-widget { position: fixed; top: 24px; right: 24px; z-index: 1000; display: none; }
+        /* --- 2. 顶部控制台 (登录后显示) --- */
+        .top-widget { position: fixed; top: 20px; right: 20px; z-index: 1000; display: none; }
         body.logged-in .top-widget { display: block; }
         
         .widget-trigger {
-            width: 48px; height: 48px; background: var(--glass-panel);
-            backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; box-shadow: var(--shadow-float);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(255,255,255,0.8); font-size: 20px;
+            width: 36px; height: 36px; background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(5px); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.5);
         }
-        .top-widget:hover .widget-trigger { opacity: 0; pointer-events: none; transform: scale(0.8); }
+        .top-widget:hover .widget-trigger { opacity: 0; pointer-events: none; }
         
         .widget-menu {
-            position: absolute; top: 0; right: 0; width: 170px;
-            background: var(--glass-panel); backdrop-filter: var(--glass-blur);
-            -webkit-backdrop-filter: var(--glass-blur);
-            border: 1px solid rgba(255,255,255,0.8);
-            border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-modal);
-            opacity: 0; transform: scale(0.9) translateY(-10px) translateX(10px);
+            position: absolute; top: 0; right: 0; width: 140px;
+            background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            opacity: 0; transform: scale(0.8) translate(10px, -10px);
             transform-origin: top right; pointer-events: none;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transition: all 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
             display: flex; flex-direction: column; gap: 8px;
         }
-        .top-widget:hover .widget-menu { opacity: 1; transform: scale(1) translateY(0) translateX(0); pointer-events: auto; }
+        .top-widget:hover .widget-menu { opacity: 1; transform: scale(1) translate(0, 0); pointer-events: auto; }
 
         .user-info-box {
-            font-size: 14px; font-weight: 700; color: var(--text-title);
-            padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.06);
-            text-align: center; margin-bottom: 4px; letter-spacing: 0.5px;
+            font-size: 13px; font-weight: bold; color: #333;
+            padding-bottom: 8px; border-bottom: 1px solid #eee;
+            margin-bottom: 2px; text-align: center;
         }
 
         .menu-btn {
-            width: 100%; padding: 10px 12px; border: none; border-radius: var(--radius-sm);
-            cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 8px; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 12px; transition: background 0.2s; text-align: center;
         }
-        .btn-toggle { background: var(--primary-light); color: var(--primary); }
-        .btn-toggle:hover { background: #dbeafe; transform: scale(1.02); }
-        .btn-settings { background: #f3e8ff; color: #7e22ce; }
-        .btn-settings:hover { background: #e9d5ff; transform: scale(1.02); }
-        .btn-updates { background: #dcfce7; color: #15803d; }
-        .btn-updates:hover { background: #bbf7d0; transform: scale(1.02); }
-        .btn-logout { background: transparent; color: #ef4444; margin-top: 4px; }
-        .btn-logout:hover { background: #fef2f2; }
+        .btn-toggle { background: #f0f5ff; color: #1890ff; }
+        .btn-settings { background: #f9f0ff; color: #722ed1; }
+        .btn-updates { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .btn-updates:hover { background: #f4ffb8; }
+        .btn-logout { background: transparent; color: #999; border: 1px solid #eee; margin-top: 5px; }
+        .btn-logout:hover { background: #fff1f0; color: #ff4d4f; border-color: #ffccc7; }
 
-        /* =========================================
-           3. 核心内容区排版 (Bento Box 便当盒面板)
-           ========================================= */
-        #content { max-width: 1100px; margin: 0 auto; display: none; padding-top: 10px; }
-        
-        .type-section { 
-            margin-bottom: 40px; 
-            background: var(--glass-panel);
-            backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-            border-radius: var(--radius-xl);
-            padding: 32px;
-            border: 1px solid rgba(255, 255, 255, 0.9);
-            box-shadow: var(--shadow-subtle), inset 0 1px 0 rgba(255,255,255,1);
-        }
-        
-        .type-title {
-            font-size: 20px; font-weight: 700; color: var(--text-title); 
-            margin-bottom: 24px; display: flex; align-items: center; gap: 12px;
-            letter-spacing: 0.5px;
-        }
-        .type-title::before {
-            content: ''; display: block; width: 10px; height: 10px;
-            border-radius: 50%; background: var(--primary);
-            box-shadow: 0 0 12px rgba(37, 99, 235, 0.6); /* 发光点缀 */
-        }
-        
-        .links-container {
-            display: grid; 
-            /* 响应式横向卡片网格 */
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
-            gap: 16px; 
-        }
-        
-        /* --- 横向链接卡片设计 (极其精致的微交互) --- */
-        .link-item {
-            display: flex; align-items: center; gap: 14px;
-            background: rgba(255, 255, 255, 0.6);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 14px; cursor: pointer; position: relative;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-        .link-item:hover { 
-            transform: translateY(-3px); 
-            background: #ffffff;
-            border-color: rgba(255, 255, 255, 1);
-            box-shadow: var(--shadow-float);
-        }
-        
-        .link-icon {
-            width: 46px; height: 46px; flex-shrink: 0;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            border-radius: 12px; /* 高级 Squircle 弧度 */
-            display: flex; align-items: center; justify-content: center;
-            font-size: 16px; font-weight: 700; color: var(--primary);
-            overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-            border: 1px solid #ffffff;
-        }
-        .link-icon img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .link-comment { 
-            font-size: 14px; font-weight: 600; color: var(--text-title); 
-            flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-            text-align: left;
-        }
-
-        /* --- 编辑模式控件 --- */
-        body.edit-mode .edit-controls { display: flex; }
-        .edit-controls { 
-            display: none; gap: 6px; position: absolute; top: -10px; right: -10px; z-index: 10; 
-        }
-        .edit-btn-mini {
-            width: 26px; height: 26px; border-radius: 50%; border: none; color: white;
-            font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .edit-btn-mini:hover { transform: scale(1.15); }
-        .edit-icon-btn { background: var(--text-title); }
-        .del-icon-btn { background: #ef4444; }
-        
-        /* 虚线添加框 */
-        .add-item-placeholder {
-            display: none; align-items: center; justify-content: center; gap: 8px;
-            background: transparent; border: 2px dashed #cbd5e1;
-            border-radius: var(--radius-md); padding: 14px; cursor: pointer; 
-            color: var(--text-muted); font-size: 14px; font-weight: 600;
-            transition: all 0.2s; min-height: 76px;
-        }
-        .add-item-placeholder:hover { 
-            border-color: var(--primary); color: var(--primary); 
-            background: rgba(37, 99, 235, 0.04); 
-        }
-        body.edit-mode .add-item-placeholder { display: flex; }
-
-        /* =========================================
-           4. 模态弹窗体系 (高级毛玻璃悬浮窗)
-           ========================================= */
+        /* --- 3. 登录弹窗完整样式 --- */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); 
-            -webkit-backdrop-filter: blur(8px);
-            z-index: 2000; justify-content: center; align-items: center;
-            opacity: 0; animation: fadeIn 0.3s forwards;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); 
+            z-index: 2000; /* 这里的层级是2000，按钮必须比这个高 */
+            justify-content: center; align-items: center;
         }
-        @keyframes fadeIn { to { opacity: 1; } }
-        
         .modal-box { 
-            background: var(--glass-panel); backdrop-filter: var(--glass-blur);
-            -webkit-backdrop-filter: var(--glass-blur);
-            padding: 36px; border-radius: var(--radius-xl); 
-            width: 90%; max-width: 420px; 
-            box-shadow: var(--shadow-modal), inset 0 1px 0 rgba(255,255,255,0.8); 
-            transform: translateY(20px) scale(0.95); 
-            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            border: 1px solid rgba(255,255,255,0.6);
+            background: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            width: 350px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
         }
-        @keyframes slideUp { to { transform: translateY(0) scale(1); } }
-
-        .modal-title { font-size: 24px; font-weight: 700; margin-bottom: 28px; color: var(--text-title); text-align: center; }
-        
-        .form-group { margin-bottom: 20px; }
-        .form-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
-        .form-input, .form-textarea { 
-            width: 100%; padding: 14px 16px; border: 1px solid #cbd5e1; 
-            border-radius: var(--radius-sm); font-size: 14px; background: rgba(255,255,255,0.8);
-            outline: none; transition: all 0.2s; color: var(--text-title); font-family: inherit;
+        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #333; text-align: center; }
+        .form-group { margin-bottom: 12px; }
+        .form-input { 
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
+            font-size: 14px; outline: none; 
         }
-        .form-input:focus, .form-textarea:focus { 
-            background: #ffffff; border-color: var(--primary); 
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); 
+        .form-textarea {
+            width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 14px; outline: none; transition: border 0.2s; height: 80px; resize: vertical;
         }
-        .form-textarea { height: 100px; resize: vertical; }
+        .form-label { display: block; margin-bottom: 5px; font-size: 12px; color: #666; }
 
         .btn-primary { 
-            background: var(--text-title); color: white; border: none; cursor: pointer; 
-            font-weight: 600; width: 100%; padding: 14px; border-radius: var(--radius-sm); 
-            transition: all 0.2s; font-size: 15px; margin-top: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: #1890ff; color: white; border: none; cursor: pointer; 
+            font-weight: bold; width: 100%; padding: 10px; border-radius: 4px; 
         }
-        .btn-primary:hover { background: #000000; transform: translateY(-1px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
-        .btn-danger { 
-            background: transparent; color: var(--text-main); border: 1px solid #cbd5e1; 
-            padding: 12px 24px; border-radius: var(--radius-sm); cursor: pointer; 
-            transition: 0.2s; font-weight: 600;
+        .btn-primary:hover { background: #40a9ff; }
+        .btn-danger { background: #ff4d4f; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+
+        /* 设置面板 */
+        #settings-modal .form-group {
+            border-bottom: 1px dashed #e0e0e0; padding-bottom: 20px; margin-bottom: 20px;
         }
-        .btn-danger:hover { background: #f1f5f9; color: #0f172a; }
+        #settings-modal .form-group:last-of-type { border: none; }
+        .slider-container { display: flex; align-items: center; gap: 10px; }
+        .slider-range { flex: 1; cursor: pointer; }
+        .slider-desc { font-size: 12px; color: #999; margin-top: 5px; }
+        .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
 
-        .slider-container { display: flex; align-items: center; gap: 12px; margin-top: 8px;}
-        .slider-range { flex: 1; accent-color: var(--primary); cursor: pointer; }
-        .slider-desc { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
-        .modal-footer { margin-top: 32px; display: flex; justify-content: flex-end; gap: 12px; }
+        /* 内容区展示 */
+        #content { max-width: 1200px; margin: 0 auto; display: none; padding-top: 20px; }
+        .type-section { position: relative; margin-bottom: 35px; }
+        .type-title {
+            position: absolute; top: -14px; left: 15px; padding: 4px 15px;
+            background: #deefff; border-radius: 15px; font-size: 14px;
+            color: #1890ff; z-index: 1; font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .links-container {
+            background: #ffffff; border-radius: 8px; padding: 25px 15px 15px 15px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.05); display: flex; gap: 20px; flex-wrap: wrap;
+        }
+        .link-item {
+            position: relative; width: 90px; text-align: center;
+            cursor: pointer; transition: transform 0.2s; display: flex; flex-direction: column;
+        }
+        .link-item:hover { transform: translateY(-3px); }
+        .link-icon {
+            width: 50px; height: 50px; margin: 0 auto 8px auto;
+            background: linear-gradient(30deg, #A0CDFF, #A0CDFF);
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: #1890ff; overflow: hidden; font-weight: bold;
+        }
+        .link-comment { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* =========================================
-           5. 笔记悬浮弹窗 (高级工具提示)
-           ========================================= */
+        /* 编辑控件 */
+        body.edit-mode .edit-controls { display: flex; }
+        .edit-controls { display: none; gap: 5px; position: absolute; top: -8px; right: -8px; z-index: 10; }
+        .edit-btn-mini {
+            width: 20px; height: 20px; border-radius: 50%; border: none; color: white;
+            font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .edit-icon-btn { background: #1890ff; }
+        .del-icon-btn { background: #ff4d4f; }
+        .add-item-placeholder {
+            width: 90px; height: 80px; border: 2px dashed #ddd; border-radius: 8px;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; color: #aaa; font-size: 12px;
+        }
+        .add-item-placeholder:hover { border-color: #1890ff; color: #1890ff; }
+        body.edit-mode .add-item-placeholder { display: flex; }
+
+        /* 笔记悬浮弹窗 */
         .note-popup {
-            display: none; position: fixed; width: 320px; 
-            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            padding: 18px 24px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.25); 
-            z-index: 9999; text-align: left; font-size: 14px; color: #f8fafc; line-height: 1.6;
-            white-space: pre-wrap; word-break: break-all; user-select: text; border: 1px solid rgba(255,255,255,0.1);
-            animation: fadeInTool 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            display: none; position: fixed; width: 280px; background: #fff; padding: 15px;
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999;
+            text-align: left; font-size: 13px; color: #444; line-height: 1.6;
+            white-space: pre-wrap; word-break: break-all; user-select: text; border: 1px solid #eee;
         }
-        @keyframes fadeInTool { from { opacity: 0; transform: translateY(8px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-
     </style>
 </head>
 <body class="edit-mode-off">
 
-    <!-- 1. 登录前显示的圆形按钮 -->
+    <!-- 1. 登录前显示的圆形按钮 (已修复层级，可以点击了) -->
     <div class="visitor-update-btn" onclick="window.open('/02note/note.html', '_blank')">
         <span>下一季<br>策划</span>
     </div>
@@ -308,126 +201,92 @@
         <div class="widget-menu">
             <div class="user-info-box" id="welcome-msg">Hi, User</div>
             
-            <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">🪄 开启管理</button>
+            <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
             <button class="menu-btn btn-settings" onclick="openSettingsModal()">⚙️ 全局设置</button>
             
+            <!-- 3. 登录后的更新记录按钮 -->
             <button class="menu-btn btn-updates" onclick="window.open('/02note/note.html', '_blank')">📝 下一季策划</button>
-            
-            <button class="menu-btn" style="background: #fff7e6; color: #d97706; margin-top: 5px;" onclick="window.open('https://run.wow80.eu.cc/', '_blank')">
-                🎮 丛林跑酷
-            </button>
-            <button class="menu-btn" style="background: #e0f2fe; color: #0284c7; margin-top: 5px;" onclick="window.open('https://www.baidu.com', '_blank')">
-                ⚔️ 网页传奇
-            </button>
-            
+            <button class="menu-btn" style="background: #fff7e6; color: #fa8c16; margin-top: 5px;" onclick="window.open('https://run.wow80.eu.cc/', '_blank')">
+    👾 丛林跑酷</button>
+
+<button class="menu-btn" style="background: #e6fffb; color: #13c2c2; margin-top: 5px;" onclick="window.open('https://www.baidu.com', '_blank')">
+    ⚔️ 网页传奇</button>
             <button class="menu-btn btn-logout" onclick="logout()">退出登录</button>
         </div>
     </div>
 
-    <!-- 3. 核心内容渲染区 -->
     <div id="content"></div>
     <div id="global-note-popup" class="note-popup"></div>
 
-    <!-- 4. 登录/注册弹窗 -->
+    <!-- 4. 完整的登录/注册弹窗 -->
     <div id="auth-modal" class="modal-overlay" style="display:flex;">
         <div class="modal-box">
-            <div class="modal-title" id="auth-title">Welcome Back</div>
+            <div class="modal-title" id="auth-title">私有云导航</div>
             
-            <div class="form-group">
-                <input type="text" id="auth-username" class="form-input" placeholder="输入您的用户名">
-            </div>
-            <div class="form-group" id="group-password">
-                <input type="password" id="auth-password" class="form-input" placeholder="输入密码">
-            </div>
+            <div class="form-group"><input type="text" id="auth-username" class="form-input" placeholder="用户名"></div>
+            <div class="form-group" id="group-password"><input type="password" id="auth-password" class="form-input" placeholder="密码"></div>
             
-            <div class="form-group" id="group-reset-code" style="display:none;">
-                <input type="text" id="auth-reset-code" class="form-input" placeholder="设置重置码 (非常重要!)">
-            </div>
-            <div class="form-group" id="group-new-pwd" style="display:none;">
-                <input type="password" id="auth-new-pwd" class="form-input" placeholder="新密码">
-            </div>
+            <!-- 注册/重置专用字段 -->
+            <div class="form-group" id="group-reset-code" style="display:none;"><input type="text" id="auth-reset-code" class="form-input" placeholder="设置重置码 (非常重要!)"></div>
+            <div class="form-group" id="group-new-pwd" style="display:none;"><input type="password" id="auth-new-pwd" class="form-input" placeholder="新密码"></div>
             
-            <button class="btn-primary" id="auth-submit-btn" onclick="handleAuth()">进入导航</button>
+            <button class="form-input btn-primary" id="auth-submit-btn" onclick="handleAuth()">进入导航</button>
             
-            <div style="margin-top:24px; text-align:center; font-size:13px; color:var(--text-muted); font-weight:500;">
-                <span onclick="switchAuthMode('login')" style="cursor:pointer; color:var(--primary); padding: 0 5px;">登录</span> &middot; 
-                <span onclick="switchAuthMode('register')" style="cursor:pointer; color:var(--primary); padding: 0 5px;">注册</span> &middot; 
-                <span onclick="switchAuthMode('reset')" style="cursor:pointer; color:var(--primary); padding: 0 5px;">忘记密码</span>
+            <div style="margin-top:15px; text-align:center; font-size:12px; color:#666;">
+                <span onclick="switchAuthMode('login')" style="cursor:pointer; color:#1890ff; padding: 0 5px;">登录</span> | 
+                <span onclick="switchAuthMode('register')" style="cursor:pointer; color:#1890ff; padding: 0 5px;">注册</span> | 
+                <span onclick="switchAuthMode('reset')" style="cursor:pointer; color:#1890ff; padding: 0 5px;">忘记密码</span>
             </div>
-            <p id="auth-msg" style="color:#ef4444; font-size:13px; text-align:center; margin-top:12px; font-weight:600;"></p>
+            <p id="auth-msg" style="color:red; font-size:12px; text-align:center; margin-top:10px;"></p>
         </div>
     </div>
 
-    <!-- 5. 链接编辑弹窗 -->
+    <!-- 链接编辑弹窗 -->
     <div id="link-modal" class="modal-overlay">
-        <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-box">
             <div class="modal-title" id="link-modal-title">添加链接</div>
             <input type="hidden" id="link-id">
-            
-            <div class="form-group">
-                <label class="form-label">分类名</label>
-                <input type="text" id="link-type" class="form-input" placeholder="例如: 常用工具">
-            </div>
-            <div class="form-group">
-                <label class="form-label">网址链接</label>
-                <input type="text" id="link-url" class="form-input" placeholder="https://...">
-            </div>
-            <div style="display: flex; gap: 16px;">
-                <div class="form-group" style="flex: 1;">
-                    <label class="form-label">展示名称</label>
-                    <input type="text" id="link-comment" class="form-input" placeholder="如: Google">
-                </div>
-                <div class="form-group" style="flex: 1;">
-                    <label class="form-label">图标 / 首字</label>
-                    <input type="text" id="link-icon" class="form-input" placeholder="单字或图片URL">
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">备忘录 (私密笔记)</label>
-                <textarea id="link-note" class="form-textarea" placeholder="在此处记录账号密码或小抄..."></textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label">排序权重</label>
-                <input type="number" id="link-sort" class="form-input" value="0">
-            </div>
-            
+            <div class="form-group"><label class="form-label">分类</label><input type="text" id="link-type" class="form-input" placeholder="例如: 常用工具"></div>
+            <div class="form-group"><label class="form-label">链接</label><input type="text" id="link-url" class="form-input" placeholder="https://..."></div>
+            <div class="form-group"><label class="form-label">图标</label><input type="text" id="link-icon" class="form-input" placeholder="例如: 百度"></div>
+            <div class="form-group"><label class="form-label">描述</label><input type="text" id="link-comment" class="form-input" placeholder="例如: 搜索引擎"></div>
+            <div class="form-group"><label class="form-label">私密笔记</label><textarea id="link-note" class="form-textarea" placeholder="在此处记录账号密码..."></textarea></div>
+            <div class="form-group"><label class="form-label">排序</label><input type="number" id="link-sort" class="form-input" value="0"></div>
             <div class="modal-footer">
                 <button class="btn-danger" onclick="closeLinkModal()">取消</button>
-                <button class="btn-primary" style="width: auto; padding: 12px 32px; margin-top: 0;" onclick="submitLink()">保存</button>
+                <button class="btn-primary" style="width: auto; padding: 8px 15px;" onclick="submitLink()">保存</button>
             </div>
         </div>
     </div>
 
-    <!-- 6. 全局设置弹窗 -->
+    <!-- 全局设置弹窗 -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box">
-            <div class="modal-title">偏好设置</div>
-            <div class="form-group" style="border-bottom: 1px solid var(--border-color); padding-bottom: 24px; margin-bottom: 24px;">
-                <label class="form-label">悬浮窗灵敏度</label>
+            <div class="modal-title">全局设置</div>
+            <div class="form-group">
+                <label class="form-label">鼠标吸附灵敏度 (1-100)</label>
                 <div class="slider-container">
-                    <span style="font-size:12px;color:var(--text-muted);font-weight:600;">稳重</span>
+                    <span style="font-size:12px;color:#666;">迟钝</span>
                     <input type="range" id="setting-sensitivity" class="slider-range" min="1" max="100" value="50" oninput="updateSliderVal(this.value)">
-                    <span style="font-size:12px;color:var(--text-muted);font-weight:600;">灵敏</span>
-                    <span id="sensitivity-val" style="font-size:15px; font-weight:700; color:var(--text-title); margin-left:12px; min-width:28px;">50</span>
+                    <span style="font-size:12px;color:#666;">灵敏</span>
+                    <span id="sensitivity-val" class="slider-value">50</span>
                 </div>
-                <div class="slider-desc">数值越大，鼠标越容易触发笔记弹窗。</div>
+                <div class="slider-desc">数值越大，越容易触发笔记。</div>
             </div>
             <div class="form-group">
-                <label class="form-label">自定义分类排序</label>
+                <label class="form-label">分类排序 (中英文逗号分隔)</label>
                 <input type="text" id="setting-category-order" class="form-input" placeholder="例如: 常用, 搜索, 媒体">
-                <div class="slider-desc">输入中英文逗号分隔，未列出的分类将自动排在后方。</div>
+                <div class="slider-desc">未列出的分类将自动排在后面。</div>
             </div>
             <div class="modal-footer">
-                <button class="btn-danger" onclick="document.getElementById('settings-modal').style.display='none'">关闭</button>
-                <button class="btn-primary" style="width: auto; padding: 12px 32px; margin-top: 0;" onclick="saveSettings()">应用配置</button>
+                <button class="btn-danger" onclick="document.getElementById('settings-modal').style.display='none'">取消</button>
+                <button class="btn-primary" style="width: auto; padding: 8px 15px;" onclick="saveSettings()">保存配置</button>
             </div>
         </div>
     </div>
 
-    <!-- =========================================
-         后台逻辑 JS (完全保留原有逻辑不变)
-         ========================================= -->
     <script>
+        // JS 逻辑
         const mouseTrack = { x: 0, y: 0, t: 0, vx: 0, speed: 0 };
         document.addEventListener('mousemove', e => {
             const now = performance.now();
@@ -460,17 +319,20 @@
                 loadLinks();
                 showUI();
             } else {
+                // 确保未登录时圆形按钮显示
                 document.getElementById('auth-modal').style.display = 'flex';
             }
         };
 
         function showUI() {
             const user = localStorage.getItem('nav_user');
+            // 关键：登录成功后添加 logged-in 类，隐藏圆形按钮
             document.body.classList.add('logged-in'); 
             document.getElementById('top-bar').style.display = 'block';
             document.getElementById('welcome-msg').textContent = `Hi, ${user}`;
         }
 
+        // 切换登录、注册、重置模式
         function switchAuthMode(mode) {
             authMode = mode;
             const title = document.getElementById('auth-title');
@@ -481,10 +343,10 @@
             document.getElementById('auth-msg').textContent = '';
             
             if (mode === 'login') {
-                title.textContent = 'Welcome Back'; btn.textContent = '进入导航';
+                title.textContent = '登录'; btn.textContent = '进入导航';
                 resetGroup.style.display = 'none'; pwdGroup.style.display = 'none'; oldPwdGroup.style.display = 'block';
             } else if (mode === 'register') {
-                title.textContent = '创建新账号'; btn.textContent = '立即注册';
+                title.textContent = '注册账号'; btn.textContent = '立即注册';
                 resetGroup.style.display = 'block'; document.getElementById('auth-reset-code').placeholder = '设置重置码 (重要!)';
                 pwdGroup.style.display = 'none'; oldPwdGroup.style.display = 'block';
             } else if (mode === 'reset') {
@@ -517,6 +379,7 @@
                     body: JSON.stringify({ settings: userSettings })
                 });
                 if(res.ok) {
+                    alert('设置已保存');
                     document.getElementById('settings-modal').style.display = 'none';
                     loadLinks();
                 } else { alert('保存失败'); }
@@ -541,7 +404,7 @@
             if (types.length === 0 && allLinks.length === 0) {
                  if(isEditMode) types.push('默认分类'); 
                  else {
-                     content.innerHTML = '<div style="text-align:center;padding:100px;color:var(--text-muted);font-weight:600;font-size:16px;">点击右上角 "⚙️" -> "🪄 开启管理" -> 添加数据</div>';
+                     content.innerHTML = '<div style="text-align:center;padding:50px;color:#666;">点击右上角 "⚙️" -> "开启管理" -> 添加数据</div>';
                      content.style.display = 'block'; return;
                  }
             }
@@ -551,10 +414,9 @@
                 const container = document.createElement('div'); container.className = 'links-container';
                 const groupLinks = allLinks.filter(l => l.type === type);
                 groupLinks.forEach(link => { container.appendChild(createLinkElement(link)); });
-                
                 if (isEditMode) {
                     const addPlaceholder = document.createElement('div'); addPlaceholder.className = 'add-item-placeholder';
-                    addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加卡片</span>';
+                    addPlaceholder.innerHTML = '<span style="font-size:20px;">+</span><span>添加</span>';
                     addPlaceholder.onclick = () => openLinkModal(null, type);
                     container.appendChild(addPlaceholder);
                 }
@@ -566,8 +428,8 @@
         function toggleEditMode() {
             isEditMode = !isEditMode;
             const btn = document.getElementById('edit-mode-btn');
-            if (isEditMode) { document.body.classList.add('edit-mode'); btn.textContent = '❌ 退出管理'; } 
-            else { document.body.classList.remove('edit-mode'); btn.textContent = '🪄 开启管理'; }
+            if (isEditMode) { document.body.classList.add('edit-mode'); btn.textContent = '退出管理'; } 
+            else { document.body.classList.remove('edit-mode'); btn.textContent = '开启管理'; }
             renderLinks();
         }
 
@@ -582,7 +444,7 @@
             if (authMode === 'login') {
                 if(!password) return msg.textContent = '请输入密码'; payload.password = password;
             } else if (authMode === 'register') {
-                if(!password || !resetCode) return msg.textContent = '请填写完整信息';
+                if(!password || !resetCode) return msg.textContent = '请填写完整';
                 payload.password = password; payload.reset_code = resetCode;
             } else if (authMode === 'reset') {
                 if(!resetCode || !newPwd) return msg.textContent = '请填写重置码和新密码';
@@ -601,7 +463,7 @@
                         }
                         document.getElementById('auth-modal').style.display = 'none'; loadLinks(); showUI();
                     } else if (authMode === 'register' || authMode === 'reset') {
-                        alert('操作成功，请重新登录'); switchAuthMode('login');
+                        alert('操作成功，请登录'); switchAuthMode('login');
                     }
                 } else { msg.textContent = data.error || '操作失败'; }
             } catch (e) { msg.textContent = '网络错误'; }
@@ -619,32 +481,28 @@
 
         function createLinkElement(link) {
             const item = document.createElement('div'); item.className = 'link-item';
-            let iconHtml = link.icon.startsWith('http') ? `<img src="${link.icon}">` : link.icon;
-            
-            // 注意：因为改成了横向布局，所以原逻辑不变，依然可以完美填入这个结构中
+            let iconHtml = link.icon.startsWith('http') ? `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">` : link.icon;
             item.innerHTML = `
                 <div class="edit-controls">
                     <button class="edit-btn-mini edit-icon-btn" onclick="event.stopPropagation();openLinkModal(${link.id})">✎</button>
                     <button class="edit-btn-mini del-icon-btn" onclick="event.stopPropagation();deleteLink(${link.id})">×</button>
                 </div>
                 <div class="link-icon">${iconHtml}</div>
-                <div class="link-comment" title="${link.comment || link.icon}">${link.comment || link.icon}</div>
+                <div class="link-comment">${link.comment || link.icon}</div>
             `;
-            
             item.onclick = () => {
                 if (isEditMode) return;
                 let url = link.url; if (!url.startsWith('http')) url = 'http://' + url;
                 window.open(url, '_blank');
             };
-            
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = (e) => {
                     if(isEditMode) return;
                     popup.textContent = link.note; popup.innerHTML = link.note.replace(/\n/g, '<br>');
                     const rect = item.getBoundingClientRect();
-                    let left = rect.right + 16;
-                    if (left + 320 > window.innerWidth) left = rect.left - 336;
+                    let left = rect.right + 10;
+                    if (left + 280 > window.innerWidth) left = rect.left - 290;
                     popup.style.left = left + 'px'; popup.style.top = rect.top + 'px';
                     popup.style.display = 'block';
                     popup.dataset.side = (left > rect.left) ? 'right' : 'left';
@@ -655,7 +513,7 @@
                     const currentSense = userSettings.sensitivity || 50;
                     const threshold = 1.0 - (currentSense / 100) * 0.9;
                     const isFastEnough = mouseTrack.speed > threshold;
-                    const delay = (isMovingTowards && isFastEnough) ? 600 : 80;
+                    const delay = (isMovingTowards && isFastEnough) ? 600 : 50;
                     setTimeout(() => {
                         if (!popup.matches(':hover') && !item.matches(':hover')) {
                             popup.style.display = 'none';
@@ -687,7 +545,6 @@
         }
 
         function closeLinkModal() { document.getElementById('link-modal').style.display = 'none'; }
-        
         async function submitLink() {
             const id = document.getElementById('link-id').value;
             const payload = {
@@ -703,9 +560,8 @@
                 if (res.ok) { closeLinkModal(); loadLinks(); } else { alert('保存失败'); }
             } catch (e) { alert('网络错误'); }
         }
-        
         async function deleteLink(id) {
-            if (!confirm('确定删除此链接？')) return;
+            if (!confirm('确定删除？')) return;
             try {
                 const token = localStorage.getItem('nav_token');
                 const res = await fetch(API_LINKS, { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id }) });
