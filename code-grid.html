@@ -28,8 +28,15 @@
         /* Excel 样式高密度网格表 */
         .grid-table { width: 100%; border-collapse: collapse; background: var(--bg-card); box-shadow: 0 4px 20px rgba(0,0,0,0.3); table-layout: fixed; }
         .grid-table th, .grid-table td { border: 1px solid var(--border-color); padding: 4px 6px; vertical-align: top; position: relative; }
-        .grid-table th { background: #1f242c; color: var(--accent-color); font-size: 12px; text-align: left; padding: 8px 6px; user-select: none; }
         
+        /* Excel题头公共基础样式 */
+        .grid-table th { background: #1f242c; color: var(--accent-color); font-size: 12px; text-align: left; padding: 8px 6px; user-select: none; cursor: pointer; }
+        .grid-table th:hover { background: #282e38; }
+        
+        /* 🔢 专属左侧序号行题头样式 */
+        .row-index-header { width: 45px; text-align: center !important; background: #161b22; color: var(--text-muted); font-size: 11px; font-weight: bold; vertical-align: middle; cursor: pointer; user-select: none; }
+        .row-index-header:hover { background: #21262d; color: var(--accent-color); }
+
         /* 可编辑的代码渲染区 */
         .code-editable-cell {
             width: 100%; min-height: 40px; background: transparent; color: #e6edf3;
@@ -42,6 +49,10 @@
         
         /* 检索高亮着色 */
         .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
+        
+        /* 🎴 核心魔改：行与列的 Excel 级级联选择高亮样式 */
+        .grid-table tr.row-selected td { background-color: rgba(56, 139, 253, 0.15) !important; border-top: 1px solid var(--accent-color); border-bottom: 1px solid var(--accent-color); }
+        .grid-table td.col-selected { background-color: rgba(56, 139, 253, 0.15) !important; border-left: 1px solid var(--accent-color); border-right: 1px solid var(--accent-color); }
         
         /* 🪐 极简暗黑系 Excel 右键快捷上下文菜单 */
         .excel-context-menu {
@@ -62,7 +73,7 @@
 
     <header>
         <div class="terminal-title"><i class="fas fa-th"></i> D1_CODE_SNIPPET_FLOW // Excel 智能交互多维矩阵</div>
-        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 终端就绪 // 右键任意单元格执行行列调度</div>
+        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 终端就绪 // 点击行列题头执行全量高亮，右键单元格执行插队调度</div>
     </header>
 
     <div class="toolbar">
@@ -70,14 +81,14 @@
         <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncGridToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量数据保存 (同步D1)</button>
     </div>
 
-    <table class="grid-table">
+    <table class="grid-table" id="main-grid-table">
         <thead id="grid-head"></thead>
         <tbody id="grid-body"></tbody>
     </table>
 
     <div id="grid-context-menu" class="excel-context-menu">
-        <div class="menu-item" onclick="insertRowAction('above')"><i class="fas fa-arrow-up"></i> 在上方插入行 (I)</div>
-        <div class="menu-item" onclick="insertRowAction('below')"><i class="fas fa-arrow-down"></i> 在下方插入行 (B)</div>
+        <div class="menu-item" onclick="insertRowAction('above')"><i class="fas fa-arrow-up"></i> 在上方插入行</div>
+        <div class="menu-item" onclick="insertRowAction('below')"><i class="fas fa-arrow-down"></i> 在下方插入行</div>
         <div class="menu-divider"></div>
         <div class="menu-item" onclick="insertColAction('left')"><i class="fas fa-arrow-left"></i> 在左侧插入列</div>
         <div class="menu-item" onclick="insertColAction('right')"><i class="fas fa-arrow-right"></i> 在右侧插入列</div>
@@ -91,7 +102,6 @@
         let rows = [];
         const token = localStorage.getItem('nav_token');
         
-        // 核心定位跟踪变量（记录当前右键点击的是哪个网格交叉点）
         let selectedRowIndex = null;
         let selectedColKey = null;
 
@@ -102,9 +112,9 @@
             }
             await fetchGridData();
             initContextMenuListener();
+            initHeaderClickListener();
         };
 
-        // 获取底层云存储资产
         async function fetchGridData() {
             try {
                 const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -112,7 +122,6 @@
                 columns = result.columns;
                 rows = result.rows;
                 
-                // 默认降级初始化：如无配置，自动刷出三大标配列
                 if (columns.length === 0) {
                     columns = [
                         { col_key: 'col_title', col_name: '功能/宏名称' },
@@ -131,16 +140,18 @@
             const head = document.getElementById('grid-head');
             const body = document.getElementById('grid-body');
             
-            // 1. 渲染 Excel 级列头
-            let headHtml = '<tr>';
+            // 1. 渲染表头（最前面增加一个用于对齐序号列的空白头格子）
+            let headHtml = '<tr><th class="row-index-header" style="cursor:default;">#</th>';
             columns.forEach(col => {
-                headHtml += `<th data-colkey="${col.col_key}">// ${col.col_name.toUpperCase()}</th>`;
+                headHtml += `<th class="col-trigger-header" data-colkey="${col.col_key}">// ${col.col_name.toUpperCase()}</th>`;
             });
             headHtml += '</tr>';
             head.innerHTML = headHtml;
 
-            // 2. 渲染网格矩阵数据
+            // 2. 渲染网格矩阵数据（加入自动递增的行号格）
             let bodyHtml = '';
+            let currentLineNumber = 1;
+
             rows.forEach((row, rowIndex) => {
                 if (keyword) {
                     let isMatch = false;
@@ -151,11 +162,14 @@
                 }
 
                 bodyHtml += `<tr>`;
+                // 🔢 核心插入：每行最左侧的自适应序号格子
+                bodyHtml += `<td class="row-index-header row-trigger-btn" data-rowidx="${rowIndex}">${currentLineNumber}</td>`;
+                
                 columns.forEach(col => {
                     let cellValue = row.data[col.col_key] || '';
                     
                     bodyHtml += `
-                        <td data-rowindex="${rowIndex}" data-colkey="${col.col_key}">
+                        <td class="grid-data-cell" data-rowindex="${rowIndex}" data-colkey="${col.col_key}">
                             <div class="code-editable-cell" 
                                  contenteditable="true"
                                  onblur="updateMemory(${rowIndex}, '${col.col_key}', this.innerText)"
@@ -165,6 +179,7 @@
                     `;
                 });
                 bodyHtml += '</tr>';
+                currentLineNumber++;
             });
             body.innerHTML = bodyHtml;
         }
@@ -180,7 +195,6 @@
             if (rows[rowIndex]) { rows[rowIndex].data[colKey] = val; }
         }
 
-        // 拦截制表 Tab 键，保持 Lua 标准的 4 空格物理缩进
         function handleTabKey(e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -196,29 +210,81 @@
         }
 
         // ==========================================
-        // 🪐 核心重构：右键高级上下文感应逻辑
+        // 🎴 核心新增：点选行首/列首全局高亮逻辑
+        // ==========================================
+        function initHeaderClickListener() {
+            const table = document.getElementById('main-grid-table');
+
+            table.addEventListener('click', function(e) {
+                // 1. 检查是否点击了行号题头
+                const rowTrigger = e.target.closest('.row-trigger-btn');
+                if (rowTrigger) {
+                    e.stopPropagation();
+                    clearAllHighlights();
+                    
+                    // 让当前点击的行首所在的 <tr> 挂载高亮类
+                    const parentTr = rowTrigger.closest('tr');
+                    if (parentTr) {
+                        parentTr.classList.toggle('row-selected');
+                    }
+                    return;
+                }
+
+                // 2. 检查是否点击了列标题题头
+                const colTrigger = e.target.closest('.col-trigger-header');
+                if (colTrigger) {
+                    e.stopPropagation();
+                    clearAllHighlights();
+
+                    const targetColKey = colTrigger.getAttribute('data-colkey');
+                    // 扫描并高亮当前列下所有的 td 数据单元格
+                    const allTargetCells = table.querySelectorAll(`.grid-data-cell[data-colkey="${targetColKey}"]`);
+                    allTargetCells.forEach(cell => {
+                        cell.classList.toggle('col-selected');
+                    });
+                    return;
+                }
+
+                // 点击表格内部其他普通可编辑区时，自动解除所有高亮状态，不阻碍阅读
+                if (e.target.closest('.code-editable-cell')) {
+                    clearAllHighlights();
+                }
+            });
+        }
+
+        // 清理器：在产生新点击时，重置所有行列的选择色状态
+        function clearAllHighlights() {
+            const table = document.getElementById('main-grid-table');
+            table.querySelectorAll('tr.row-selected').forEach(tr => tr.classList.remove('row-selected'));
+            table.querySelectorAll('td.col-selected').forEach(td => td.classList.remove('col-selected'));
+        }
+
+        // ==========================================
+        // 🪐 右键上下文菜单定位
         // ==========================================
         function initContextMenuListener() {
             const menu = document.getElementById('grid-context-menu');
 
-            // 监听全局右键点击事件
             document.addEventListener('contextmenu', function(e) {
-                // 判断点击的目标是否处于单元格或表头内部
-                const td = e.target.closest('td');
-                const th = e.target.closest('th');
+                const td = e.target.closest('td.grid-data-cell');
+                const th = e.target.closest('th.col-trigger-header');
+                const rowIdxHeader = e.target.closest('.row-trigger-btn');
 
-                if (td || th) {
-                    e.preventDefault(); // 强行拦截浏览器自带的菜单
+                if (td || th || rowIdxHeader) {
+                    e.preventDefault();
+                    clearAllHighlights();
 
                     if (td) {
                         selectedRowIndex = parseInt(td.getAttribute('data-rowindex'));
                         selectedColKey = td.getAttribute('data-colkey');
                     } else if (th) {
-                        selectedRowIndex = null; // 点击表头时说明没有指明行
+                        selectedRowIndex = null;
                         selectedColKey = th.getAttribute('data-colkey');
+                    } else if (rowIdxHeader) {
+                        selectedRowIndex = parseInt(rowIdxHeader.getAttribute('data-rowidx'));
+                        selectedColKey = null;
                     }
 
-                    // 移动并显现暗黑快捷控制菜单
                     menu.style.left = e.clientX + 'px';
                     menu.style.top = e.clientY + 'px';
                     menu.style.display = 'block';
@@ -227,13 +293,11 @@
                 }
             });
 
-            // 点击外部任何区域时关闭快捷菜单
             document.addEventListener('click', function() {
                 menu.style.display = 'none';
             });
         }
 
-        // [ 行插队动作 ]：在选中行之上 (I) 或之下 (B) 插入全新空行
         function insertRowAction(direction) {
             let emptyData = {};
             columns.forEach(col => emptyData[col.col_key] = '');
@@ -243,12 +307,10 @@
                 targetIndex = selectedRowIndex + 1;
             }
 
-            // 核心高级算法：使用 splice 物理切分并插队
             rows.splice(targetIndex, 0, { id: null, data: emptyData, sort_order: 0 });
             renderTable();
         }
 
-        // [ 列插队动作 ]：在选中列之左或之右扩展多维维度
         async function insertColAction(direction) {
             let name = prompt("请输入新增自定义列维度的展示名称：");
             if (!name) return;
@@ -261,7 +323,6 @@
 
             document.getElementById('sync-indicator').textContent = "⏳ 正在扩建字段架构...";
             try {
-                // 1. 发射同步指令生成列维度
                 const res = await fetch('/api/code-grid/column', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -269,7 +330,6 @@
                 });
                 
                 if (res.ok) {
-                    // 2. 内存就地完成列插队
                     columns.splice(insertIdx, 0, { col_key: newKey, col_name: name });
                     rows.forEach(r => r.data[newKey] = '');
                     renderTable();
@@ -277,18 +337,15 @@
             } catch(e) {}
         }
 
-        // [ 整行删除动作 ]
         function deleteRowAction() {
             if (selectedRowIndex === null) return;
             if (!confirm("确认要物理清除当前整行代码片段记录？")) return;
 
             let targetRow = rows[selectedRowIndex];
             if (!targetRow.id) {
-                // 如果是未同步的新建行，直接在内存中剔除
                 rows.splice(selectedRowIndex, 1);
                 renderTable();
             } else {
-                // 如果是持久层数据，直接走物理删除路由
                 fetch('/api/code-grid', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -297,7 +354,6 @@
             }
         }
 
-        // [ 整列删除动作 ]
         function deleteColAction() {
             if (!selectedColKey) return;
             if (columns.length <= 1) {
@@ -308,9 +364,7 @@
             let targetCol = columns.find(c => c.col_key === selectedColKey);
             if (!confirm(`⚠️ 高危警告\n\n确认要物理撤销【${targetCol.col_name}】这一整列维度吗？\n删除后，当前表格内属于该列下的全部代码段会被立刻倒空！`)) return;
 
-            // 1. 从内存列数组中抹去
             columns = columns.filter(c => c.col_key !== selectedColKey);
-            // 2. 倒空残留键值
             rows.forEach(r => { if(r.data[selectedColKey]) delete r.data[selectedColKey]; });
             
             renderTable();
@@ -322,7 +376,6 @@
             renderTable(query);
         }
 
-        // 持久化同步对齐
         async function syncGridToD1() {
             const indicator = document.getElementById('sync-indicator');
             indicator.textContent = "⏳ 正在同步全量多维网格配置...";
