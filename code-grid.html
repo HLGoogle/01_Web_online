@@ -5,59 +5,60 @@
     <title>Stream Canvas // 流式记事终端</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root { --bg-main: #0d1117; --bg-card: #161b22; --accent-color: #58a6ff; --accent-danger: #f85149; --text-muted: #8b949e; }
+        :root { --bg-main: #0d1117; --bg-card: #161b22; --accent-color: #58a6ff; --accent-danger: #f85149; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Consolas', monospace; }
-        body { background-color: var(--bg-main); color: #c9d1d9; padding: 10px 15px; }
-        header { display: flex; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #30363d; margin-bottom: 12px; }
-        .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
-        .ctrl-btn { background: transparent; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
-        .note-stream-list { display: flex; flex-direction: column; gap: 2px; }
+        body { background-color: var(--bg-main); color: #c9d1d9; padding: 10px; }
         
-        .note-strip-card { display: flex; gap: 8px; background: var(--bg-card); border: 1px solid #30363d; border-radius: 3px; padding: 2px 8px; align-items: center; position: relative; height: 28px; overflow: hidden; }
-        .note-strip-card:hover { border-color: #444c56; }
-        .note-strip-card.expanded { height: auto; padding: 6px 8px; }
+        .note-stream-list { display: flex; flex-direction: column; gap: 4px; }
+        .note-strip-card { 
+            display: flex; gap: 8px; background: var(--bg-card); border: 1px solid #30363d; 
+            border-radius: 3px; padding: 4px 8px; align-items: flex-start; height: 32px; overflow: hidden;
+            transition: height 0.2s;
+        }
+        .note-strip-card.expanded { height: auto; min-height: 100px; }
         
-        .drag-handle { color: var(--text-muted); cursor: grab; font-size: 12px; }
-        .strip-main-body { flex: 1; display: flex; gap: 12px; align-items: center; min-width: 0; padding-right: 50px; }
-        .strip-title-field { font-size: 13px; font-weight: bold; color: var(--accent-color); background: transparent; border: none; outline: none; width: 180px; flex-shrink: 0; }
+        .drag-handle { color: #8b949e; cursor: grab; padding: 4px; }
+        .strip-main-body { flex: 1; display: flex; gap: 8px; min-width: 0; }
         
-        .editor-wrapper { flex: 1; min-width: 0; position: relative; height: 22px; }
-        .note-strip-card.expanded .editor-wrapper { height: auto; }
+        /* 标题 */
+        .strip-title-field { color: var(--accent-color); font-weight: bold; background: none; border: none; outline: none; width: 150px; flex-shrink: 0; }
         
-        .strip-content-editor { width: 100%; height: 22px; background: transparent; color: transparent; caret-color: #fff; outline: none; font-size: 13px; white-space: nowrap; overflow: hidden; position: relative; z-index: 2; }
-        .note-strip-card.expanded .strip-content-editor { height: auto; white-space: pre-wrap; word-break: break-all; color: #e6edf3 !important; }
+        /* 编辑区：直接在该区域内实现语法着色，不用双层堆叠 */
+        .strip-content-editor { 
+            flex: 1; outline: none; font-size: 13px; line-height: 22px; white-space: nowrap; overflow: hidden;
+            color: #e6edf3;
+        }
+        .note-strip-card.expanded .strip-content-editor { white-space: pre-wrap; word-break: break-all; }
         
-        .code-highlight-layer { position: absolute; top: 0; left: 0; width: 100%; font-size: 13px; line-height: 22px; white-space: nowrap; pointer-events: none; z-index: 1; color: #e6edf3; }
-        .note-strip-card.expanded .code-highlight-layer { white-space: pre-wrap; word-break: break-all; }
+        /* 语法高亮类 */
+        .lua-kw { color: #ff79c6; font-weight: bold; }
+        .lua-macro { color: #ff5555; font-weight: bold; }
+        .lua-func { color: #50fa7b; }
+        .lua-comment { color: #6272a4; font-style: italic; }
         
-        /* 高亮颜色 */
-        .lua-kw { color: #ff79c6; } .lua-macro { color: #ff5555; } .lua-func { color: #50fa7b; }
-        
-        .strip-action-group { position: absolute; right: 35px; }
-        .toggle-expand-btn { background: transparent; border: 1px solid #30363d; color: var(--text-muted); width: 20px; height: 20px; border-radius: 3px; cursor: pointer; font-size: 10px; }
-        .danger-trash-container { position: absolute; right: 8px; }
-        .strip-del-btn { background: transparent; border: none; color: #444; cursor: pointer; opacity: 0; }
-        .note-strip-card:hover .strip-del-btn { opacity: 1; }
+        .strip-del-btn { background: none; border: none; color: #444; cursor: pointer; padding: 4px; }
+        .note-strip-card:hover .strip-del-btn { color: #666; }
         .strip-del-btn:hover { color: var(--accent-danger); }
     </style>
 </head>
 <body>
-    <header><div><i class="fas fa-stream"></i> 记事终端 // Stream Canvas</div></header>
-    <div class="toolbar">
-        <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 新增</button>
-        <button class="ctrl-btn" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 同步云端</button>
+    <div class="toolbar" style="margin-bottom:10px;">
+        <button class="ctrl-btn" onclick="addNewNoteStrip()" style="padding:4px 8px;">新增记事</button>
+        <button class="ctrl-btn" onclick="syncStreamToD1()" style="padding:4px 8px;">保存同步</button>
     </div>
     <div class="note-stream-list" id="note-stream-container"></div>
+
     <script>
         let noteItems = [];
         const token = localStorage.getItem('nav_token');
 
-        async function fetchStreamData() {
-            const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
-            const result = await res.json();
-            noteItems = result.rows || [];
-            renderStream();
+        // 核心高亮：直接在输入内容时转换
+        function applyHighlight(text) {
+            let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html = html.replace(/\b(local|if|then|end|and|or)\b/g, '<span class="lua-kw">$1</span>');
+            html = html.replace(/(\/click|\/cast|\/use|\/run)\b/g, '<span class="lua-macro">$1</span>');
+            html = html.replace(/(--.*)/g, '<span class="lua-comment">$1</span>');
+            return html;
         }
 
         function renderStream() {
@@ -69,34 +70,16 @@
                 card.innerHTML = `
                     <div class="drag-handle" draggable="true"><i class="fas fa-bars"></i></div>
                     <div class="strip-main-body">
-                        <input type="text" class="strip-title-field" value="${item.data.title || ''}" onchange="noteItems[${index}].data.title=this.value">
-                        <div class="editor-wrapper">
-                            <div class="strip-content-editor" contenteditable="true" onblur="noteItems[${index}].data.content=this.innerText;refresh(${index})" onpaste="handlePaste(event)">${item.data.content || ''}</div>
-                            <div class="code-highlight-layer" id="hl-${index}">${highlight(item.data.content || '')}</div>
-                        </div>
+                        <input class="strip-title-field" value="${item.data.title || ''}" onchange="noteItems[${index}].data.title=this.value">
+                        <div class="strip-content-editor" contenteditable="true" 
+                             oninput="noteItems[${index}].data.content=this.innerText"
+                             onblur="this.innerHTML=applyHighlight(this.innerText)">${applyHighlight(item.data.content || '')}</div>
                     </div>
-                    <div class="strip-action-group"><button class="toggle-expand-btn" onclick="this.closest('.note-strip-card').classList.toggle('expanded')">＋</button></div>
-                    <div class="danger-trash-container"><button class="strip-del-btn" onclick="del(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button></div>
+                    <button class="strip-del-btn" onclick="this.closest('.note-strip-card').classList.toggle('expanded')"><i class="fas fa-expand-arrows-alt"></i></button>
+                    <button class="strip-del-btn" onclick="del(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
                 `;
                 container.appendChild(card);
             });
-        }
-
-        function highlight(text) {
-            let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            html = html.replace(/\b(local|if|then|end|and|or)\b/g, '<span class="lua-kw">$1</span>');
-            html = html.replace(/(\/click|\/cast|\/use|\/run)\b/g, '<span class="lua-macro">$1</span>');
-            return html;
-        }
-
-        function handlePaste(e) {
-            e.preventDefault();
-            const text = e.clipboardData.getData('text/plain');
-            document.execCommand("insertText", false, text);
-        }
-
-        function refresh(i) {
-            document.getElementById('hl-'+i).innerHTML = highlight(noteItems[i].data.content);
         }
 
         function addNewNoteStrip() { noteItems.unshift({ id: null, data: { title: '', content: '' } }); renderStream(); }
@@ -105,7 +88,8 @@
             alert("同步完成");
         }
         async function del(id, i) { if(confirm('确认删除？')) { if(id) await fetch('/api/code-grid', { method: 'DELETE', headers: {'Authorization': `Bearer ${token}`}, body: JSON.stringify({id}) }); noteItems.splice(i, 1); renderStream(); } }
-        fetchStreamData();
+        
+        fetch('/api/code-grid', { headers: {'Authorization': `Bearer ${token}`} }).then(r=>r.json()).then(d=>{ noteItems = d.rows||[]; renderStream(); });
     </script>
 </body>
 </html>
