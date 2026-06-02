@@ -6,6 +6,7 @@
     <title>Console // 健壮导航终端</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* --- 极简暗黑硬核高密度终端风格 --- */
         :root {
             --bg-main: #0d1117; --bg-card: #161b22; --bg-input: #21262d;      
             --border-color: #30363d; --text-main: #c9d1d9; --text-muted: #8b949e;    
@@ -57,7 +58,10 @@
         
         .add-placeholder { border: 1px dashed var(--border-color); background: transparent; display: none; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); height: 46px; border-radius: 4px; cursor: pointer; }
         body.edit-mode .add-placeholder { display: flex; }
-        .note-popup { display: none; position: fixed; width: 260px; background: #161b22e6; backdrop-filter: blur(8px); border: 1px solid var(--accent-color); padding: 12px; border-radius: 6px; z-index: 9999; font-family: var(--font-mono); font-size: 11px; color: #88fa88; box-shadow: 0 4px 20px rgba(0,0,0,0.5); white-space: pre-wrap; word-break: break-all; pointer-events: none; }
+        
+        /* 纯净级联悬浮备注窗样式，开启 pointer-events: none 防止死锁阻挡鼠标 */
+        .note-popup { display: none; position: fixed; width: 260px; background: #161b22f2; backdrop-filter: blur(8px); border: 1px solid var(--accent-color); padding: 12px; border-radius: 6px; z-index: 9999; font-family: var(--font-mono); font-size: 11px; color: #88fa88; box-shadow: 0 4px 20px rgba(0,0,0,0.5); white-space: pre-wrap; word-break: break-all; pointer-events: none; }
+        
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(2px); z-index: 3000; justify-content: center; align-items: center; }
         .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; width: 360px; }
         .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
@@ -142,8 +146,8 @@
         <div class="modal-box">
             <div class="auth-title">// GLOBAL_SETTINGS</div>
             <div class="form-group" style="border-bottom: 1px dashed var(--border-color); padding-bottom: 12px;">
-                <label class="form-label">// SENSITIVITY / 悬浮灵敏度 (1-100)</label>
-                <input type="range" id="setting-sensitivity" min="1" max="100" value="50" style="width: 100%;">
+                <label class="form-label">// SENSITIVITY / 悬浮灵敏度 (系统保护：已切换为极速直显机制)</label>
+                <input type="range" id="setting-sensitivity" min="1" max="100" value="50" style="width: 100%; opacity: 0.5;">
             </div>
             <div class="form-group">
                 <label class="form-label">// CATEGORY_ORDER / 分类展示优先级顺序</label>
@@ -161,12 +165,6 @@
         const CACHE_NAME = 'nav-icon-assets-v1';
         let authMode = 'login'; let allLinks = []; let isEditMode = false;
         let userSettings = { sensitivity: 50, categoryOrder: "" }; let currentTargetLinkId = null;
-        const mouseTrack = { x: 0, y: 0, t: 0, vx: 0 };
-        
-        document.addEventListener('mousemove', e => {
-            const now = performance.now(); const dt = now - mouseTrack.t;
-            if (dt > 15) { mouseTrack.vx = (e.clientX - mouseTrack.x) / dt; mouseTrack.x = e.clientX; mouseTrack.y = e.clientY; mouseTrack.t = now; }
-        });
 
         window.onload = function() {
             const token = localStorage.getItem('nav_token');
@@ -242,7 +240,7 @@
             }
             if (types.length === 0 && allLinks.length === 0) {
                 if (isEditMode) types.push('常用');
-                else { content.innerHTML = '<div style="text-align:center;padding:50px;color:var(--text-muted);">[ END_POINT_EMPTY ] <br>请开启管理终端录入导航数据</div>'; return; }
+                else { content.innerHTML = '<div style="text-align:center;padding:50px;color:var(--text-muted);">[ END_POINT_EMPTY ] <br>环境就绪，请调出终端录入数据</div>'; return; }
             }
             types.forEach(type => {
                 const section = document.createElement('section'); section.className = 'type-section';
@@ -265,7 +263,6 @@
             let iconHtml = '';
             
             if (link.icon && link.icon.startsWith('user_')) {
-                // 默认加载暗黑透明占位符
                 iconHtml = `<img id="${imgId}" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><rect width='24' height='24' fill='%2321262d'/></svg>">`;
                 fetchAndCacheIcon(`/api/icon/${link.icon}`, imgId);
             } else {
@@ -286,25 +283,27 @@
             `;
 
             item.onclick = () => { if (isEditMode) return; window.open(link.url.startsWith('http') ? link.url : 'http://' + link.url, '_blank'); };
+            
+            // ⚡ 终极健壮前端解耦：移除了多余的位置跟踪和异步黏连，滑入即刻显现，滑出绝对斩断
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = () => {
                     if (isEditMode) return;
                     popup.innerHTML = `// DEPLOY_NOTE:\n${link.note.replace(/\n/g, '<br>')}`;
-                    const rect = item.getBoundingClientRect(); let left = rect.right + 8;
+                    const rect = item.getBoundingClientRect(); 
+                    let left = rect.right + 8;
                     if (left + 260 > window.innerWidth) left = rect.left - 270;
-                    popup.style.left = left + 'px'; popup.style.top = rect.top + 'px'; popup.style.display = 'block';
+                    popup.style.left = left + 'px'; 
+                    popup.style.top = rect.top + 'px';
+                    popup.style.display = 'block';
                 };
                 item.onmouseleave = () => {
-                    const sense = userSettings.sensitivity || 50;
-                    const isMovingFast = Math.abs(mouseTrack.vx) > (1.0 - (sense / 100) * 0.9);
-                    setTimeout(() => { if (!popup.matches(':hover') && !item.matches(':hover')) popup.style.display = 'none'; }, isMovingFast ? 300 : 50);
+                    popup.style.display = 'none'; // 坚决斩断，绝不留存任何残留定时器
                 };
             }
             return item;
         }
 
-        // 🚀 终极健壮拦截逻辑：防内存泄漏 + 强制后台网络校验机制
         async function fetchAndCacheIcon(url, targetImgId) {
             if (!('caches' in window)) {
                 const imgNode = document.getElementById(targetImgId);
@@ -321,24 +320,17 @@
                 const imgNode = document.getElementById(targetImgId);
                 if (imgNode) {
                     imgNode.src = blobUrl;
-                    // 🛡️ 健壮性防线：当图片完成 DOM 节点挂载后，立刻注销临时 Blob URL，释放系统运行内存！
                     imgNode.onload = () => { URL.revokeObjectURL(blobUrl); };
                 }
             };
 
             if (cachedResponse) {
-                // 1微秒极速离线闪开
                 await mountAndReleaseBlob(cachedResponse);
-                
-                // 📡 强制网络背景对齐线：加入时间戳防止强缓存锁死，实现真正的 Stale-While-Revalidate 机制
                 const bypassUrl = url + '?_ts=' + Date.now();
                 fetch(bypassUrl).then(networkResponse => {
-                    if (networkResponse.status === 200) {
-                        cache.put(url, networkResponse); // 静默重写底层二进制缓存沙盒
-                    }
+                    if (networkResponse.status === 200) { cache.put(url, networkResponse); }
                 }).catch(()=>{});
             } else {
-                // 首次拉取，走网络安全通道
                 try {
                     const response = await fetch(url);
                     if (response.status === 200) {
@@ -357,7 +349,6 @@
         async function handleIconFileSelected(inputElement) {
             const file = inputElement.files[0]; if (!file || !currentTargetLinkId) return;
             
-            // 🛑 前端健壮性第一道拦截：文件超过 2MB 直接弹窗警告，不再向后端发送请求
             if (file.size > 2 * 1024 * 1024) {
                 alert("安全拦截：图标文件过大（不可超过 2MB），已终止直传！");
                 inputElement.value = '';
@@ -442,7 +433,7 @@
                 icon: document.getElementById('link-icon').value.trim(), comment: document.getElementById('link-comment').value.trim(),
                 note: document.getElementById('link-note').value.trim(), sort_order: parseInt(document.getElementById('link-sort').value) || 0
             };
-            if (!payload.type || !payload.url) return alert('核心参数配置缺失');
+            if (!payload.type || !payload.url) return alert('必填参数缺失');
             if (id) payload.id = id;
             const res = await fetch(API_LINKS, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
             if (res.ok) { closeLinkModal(); loadLinks(); }
