@@ -102,8 +102,9 @@ export async function onRequest(context) {
       });
     }
 
-    // 后续原有四大核心关系型业务路由（/api/auth, /api/links, /api/user, /api/notes）...
-    // [此处保持你原本一模一样的 D1 执行逻辑，代码完全安全无缝融合]
+    // ==========================================
+    // 🔐 路由分支一: 用户管理与重置校验模块 (/api/auth)
+    // ==========================================
     if (path === '/api/auth' && method === 'POST') {
       const body = await request.json();
       const { action, username, password, reset_code, new_password } = body;
@@ -128,6 +129,9 @@ export async function onRequest(context) {
       }
     }
 
+    // ==========================================
+    // 🗂️ 路由分支二: 核心网址卡片库控制模块 (/api/links)
+    // ==========================================
     if (path === '/api/links') {
       if (method === 'GET') {
         const { results } = await env.DB.prepare('SELECT * FROM Web_online_info_01 WHERE user_id = ? ORDER BY sort_order ASC, created_at DESC').bind(userId).all();
@@ -154,12 +158,18 @@ export async function onRequest(context) {
       }
     }
 
+    // ==========================================
+    // ⚙️ 路由分支三: 全局偏好属性修改模块 (/api/user)
+    // ==========================================
     if (path === '/api/user' && method === 'PUT') {
       const { settings } = await request.json();
       await env.DB.prepare('UPDATE Web_online_users_00 SET settings = ? WHERE id = ?').bind(JSON.stringify(settings), userId).run();
       return new Response(JSON.stringify({ success: true }), { headers });
     }
 
+    // ========================================== 
+    // 📝 路由分支四: 滑动控制台开发备忘 模块 (/api/notes)
+    // ========================================== 
     if (path === '/api/notes') {
       if (method === 'GET') {
         const { results } = await env.DB.prepare('SELECT * FROM notes ORDER BY is_pinned DESC, created_at DESC').all();
