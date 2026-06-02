@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terminal Grid // 代码逻辑画布</title>
+    <title>Terminal Grid // 智能多维画布</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -13,7 +13,7 @@
             --font-mono: 'Consolas', 'Fira Code', 'Ubuntu Mono', monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-mono); }
-        body { background-color: var(--bg-main); color: var(--text-main); padding: 20px; min-height: 100vh; }
+        body { background-color: var(--bg-main); color: var(--text-main); padding: 20px; min-height: 100vh; position: relative; }
         
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
         .terminal-title { font-size: 14px; color: var(--accent-color); font-weight: bold; }
@@ -22,48 +22,51 @@
         .search-box { background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 4px; width: 320px; font-size: 13px; outline: none; }
         .search-box:focus { border-color: var(--accent-color); }
         
-        /* 符号化专属按钮样式 */
         .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: bold; }
         .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
-        .ctrl-btn.danger-zone:hover { border-color: var(--accent-danger); color: var(--accent-danger); }
         
-        /* High-Density 工业表格网格 */
-        .grid-table { width: 100%; border-collapse: collapse; background: var(--bg-card); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .grid-table th, .grid-table td { border: 1px solid var(--border-color); padding: 8px 12px; vertical-align: top; }
-        .grid-table th { background: #1f242c; color: var(--accent-color); font-size: 12px; text-align: left; padding: 10px; }
+        /* Excel 样式高密度网格表 */
+        .grid-table { width: 100%; border-collapse: collapse; background: var(--bg-card); box-shadow: 0 4px 20px rgba(0,0,0,0.3); table-layout: fixed; }
+        .grid-table th, .grid-table td { border: 1px solid var(--border-color); padding: 4px 6px; vertical-align: top; position: relative; }
+        .grid-table th { background: #1f242c; color: var(--accent-color); font-size: 12px; text-align: left; padding: 8px 6px; user-select: none; }
         
-        /* 自由富文本编辑器容器 */
+        /* 可编辑的代码渲染区 */
         .code-editable-cell {
-            width: 100%; min-height: 50px; background: transparent; color: #e6edf3;
+            width: 100%; min-height: 40px; background: transparent; color: #e6edf3;
             outline: none; font-family: var(--font-mono); font-size: 13px;
-            line-height: 1.6; white-space: pre; overflow-x: auto; tab-size: 4; -moz-tab-size: 4;
-            padding: 4px; border-radius: 3px; transition: background 0.2s;
+            line-height: 1.5; white-space: pre; overflow-x: auto; tab-size: 4; -moz-tab-size: 4;
+            padding: 4px; border-radius: 3px; transition: background 0.15s;
         }
         .code-editable-cell:focus { background: rgba(56, 139, 253, 0.08); }
         .code-editable-cell[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
-        /* 搜索关键字黄底高亮着色 */
+        /* 检索高亮着色 */
         .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
         
-        /* 纯符号减号按钮样式 */
-        .symbol-del-btn { background: transparent; border: 1px solid #f8514933; color: var(--accent-danger); width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; transition: all 0.2s; }
-        .symbol-del-btn:hover { background: #f8514922; border-color: var(--accent-danger); box-shadow: 0 0 8px rgba(248, 81, 73, 0.3); }
+        /* 🪐 极简暗黑系 Excel 右键快捷上下文菜单 */
+        .excel-context-menu {
+            position: fixed; display: none; background: #1c2128; border: 1px solid var(--border-color);
+            border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 99999;
+            width: 160px; padding: 4px 0; overflow: hidden;
+        }
+        .menu-item {
+            padding: 8px 14px; font-size: 12px; color: var(--text-main); cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: all 0.1s ease;
+        }
+        .menu-item:hover { background: #22272e; color: var(--accent-color); }
+        .menu-item.danger-action:hover { color: var(--accent-danger); background: #2d191e; }
+        .menu-divider { height: 1px; background: var(--border-color); margin: 4px 0; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="terminal-title"><i class="fas fa-terminal"></i> D1_CODE_SNIPPET_FLOW // 随身代码资产网格</div>
-        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 已连接边缘数据网络</div>
+        <div class="terminal-title"><i class="fas fa-th"></i> D1_CODE_SNIPPET_FLOW // Excel 智能交互多维矩阵</div>
+        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 终端就绪 // 右键任意单元格执行行列调度</div>
     </header>
 
     <div class="toolbar">
         <input type="text" id="global-search" class="search-box" placeholder="🔍 输入关键字全局筛选并精确定位高亮代码..." oninput="handleSearch()">
-        
-        <button class="ctrl-btn" onclick="addDimension()"><i class="fas fa-plus"></i> 列</button>
-        <button class="ctrl-btn danger-zone" onclick="removeDimension()"><i class="fas fa-minus"></i> 列</button>
-        <button class="ctrl-btn" onclick="addCodeRow()"><i class="fas fa-plus"></i> 行</button>
-        
         <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncGridToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量数据保存 (同步D1)</button>
     </div>
 
@@ -72,20 +75,36 @@
         <tbody id="grid-body"></tbody>
     </table>
 
+    <div id="grid-context-menu" class="excel-context-menu">
+        <div class="menu-item" onclick="insertRowAction('above')"><i class="fas fa-arrow-up"></i> 在上方插入行 (I)</div>
+        <div class="menu-item" onclick="insertRowAction('below')"><i class="fas fa-arrow-down"></i> 在下方插入行 (B)</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" onclick="insertColAction('left')"><i class="fas fa-arrow-left"></i> 在左侧插入列</div>
+        <div class="menu-item" onclick="insertColAction('right')"><i class="fas fa-arrow-right"></i> 在右侧插入列</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item danger-action" onclick="deleteRowAction()"><i class="fas fa-trash-alt"></i> 删除当前整行</div>
+        <div class="menu-item danger-action" onclick="deleteColAction()"><i class="fas fa-columns"></i> 删除当前整列</div>
+    </div>
+
     <script>
         let columns = [];
         let rows = [];
         const token = localStorage.getItem('nav_token');
+        
+        // 核心定位跟踪变量（记录当前右键点击的是哪个网格交叉点）
+        let selectedRowIndex = null;
+        let selectedColKey = null;
 
         window.onload = async function() {
             if (!token) {
-                alert("未检测到安全身份授权，请返回主页执行统一登录鉴定！");
+                alert("身份授权丢失，请从终端主页执行校验登录！");
                 return;
             }
             await fetchGridData();
+            initContextMenuListener();
         };
 
-        // 数据异步加载
+        // 获取底层云存储资产
         async function fetchGridData() {
             try {
                 const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -93,7 +112,7 @@
                 columns = result.columns;
                 rows = result.rows;
                 
-                // 默认初始化三大核心代码维度
+                // 默认降级初始化：如无配置，自动刷出三大标配列
                 if (columns.length === 0) {
                     columns = [
                         { col_key: 'col_title', col_name: '功能/宏名称' },
@@ -107,16 +126,20 @@
             }
         }
 
-        // 视窗核心渲染引擎
+        // 画布渲染层
         function renderTable(keyword = '') {
             const head = document.getElementById('grid-head');
             const body = document.getElementById('grid-body');
             
+            // 1. 渲染 Excel 级列头
             let headHtml = '<tr>';
-            columns.forEach(col => { headHtml += `<th>// ${col.col_name.toUpperCase()}</th>`; });
-            headHtml += '<th style="width:50px; text-align:center;">－</th></tr>';
+            columns.forEach(col => {
+                headHtml += `<th data-colkey="${col.col_key}">// ${col.col_name.toUpperCase()}</th>`;
+            });
+            headHtml += '</tr>';
             head.innerHTML = headHtml;
 
+            // 2. 渲染网格矩阵数据
             let bodyHtml = '';
             rows.forEach((row, rowIndex) => {
                 if (keyword) {
@@ -132,22 +155,16 @@
                     let cellValue = row.data[col.col_key] || '';
                     
                     bodyHtml += `
-                        <td>
+                        <td data-rowindex="${rowIndex}" data-colkey="${col.col_key}">
                             <div class="code-editable-cell" 
                                  contenteditable="true"
                                  onblur="updateMemory(${rowIndex}, '${col.col_key}', this.innerText)"
                                  onkeydown="handleTabKey(event)"
-                                 placeholder="// [点击录入代码块或配置数据]">${highlightText(cellValue, keyword)}</div>
+                                 placeholder="// [右键呼出控制菜单]">${highlightText(cellValue, keyword)}</div>
                         </td>
                     `;
                 });
-                
-                // 行删除精简为纯符号 [ - ] 按钮
-                bodyHtml += `
-                    <td style="text-align:center; vertical-align:middle;">
-                        <button class="symbol-del-btn" title="擦除此行" onclick="deleteRow(${row.id}, ${rowIndex})"><i class="fas fa-minus"></i></button>
-                    </td>
-                </tr>`;
+                bodyHtml += '</tr>';
             });
             body.innerHTML = bodyHtml;
         }
@@ -163,7 +180,7 @@
             if (rows[rowIndex]) { rows[rowIndex].data[colKey] = val; }
         }
 
-        // 拦截原生 Tab 焦点跳跃事件，优雅注入 4 空格缩进
+        // 拦截制表 Tab 键，保持 Lua 标准的 4 空格物理缩进
         function handleTabKey(e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -178,57 +195,126 @@
             }
         }
 
-        // [ ＋ 行 ] 增加数据记录
-        function addCodeRow() {
+        // ==========================================
+        // 🪐 核心重构：右键高级上下文感应逻辑
+        // ==========================================
+        function initContextMenuListener() {
+            const menu = document.getElementById('grid-context-menu');
+
+            // 监听全局右键点击事件
+            document.addEventListener('contextmenu', function(e) {
+                // 判断点击的目标是否处于单元格或表头内部
+                const td = e.target.closest('td');
+                const th = e.target.closest('th');
+
+                if (td || th) {
+                    e.preventDefault(); // 强行拦截浏览器自带的菜单
+
+                    if (td) {
+                        selectedRowIndex = parseInt(td.getAttribute('data-rowindex'));
+                        selectedColKey = td.getAttribute('data-colkey');
+                    } else if (th) {
+                        selectedRowIndex = null; // 点击表头时说明没有指明行
+                        selectedColKey = th.getAttribute('data-colkey');
+                    }
+
+                    // 移动并显现暗黑快捷控制菜单
+                    menu.style.left = e.clientX + 'px';
+                    menu.style.top = e.clientY + 'px';
+                    menu.style.display = 'block';
+                } else {
+                    menu.style.display = 'none';
+                }
+            });
+
+            // 点击外部任何区域时关闭快捷菜单
+            document.addEventListener('click', function() {
+                menu.style.display = 'none';
+            });
+        }
+
+        // [ 行插队动作 ]：在选中行之上 (I) 或之下 (B) 插入全新空行
+        function insertRowAction(direction) {
             let emptyData = {};
             columns.forEach(col => emptyData[col.col_key] = '');
-            rows.unshift({ id: null, data: emptyData, sort_order: 0 });
+            let targetIndex = (selectedRowIndex === null) ? 0 : selectedRowIndex;
+            
+            if (direction === 'below' && selectedRowIndex !== null) {
+                targetIndex = selectedRowIndex + 1;
+            }
+
+            // 核心高级算法：使用 splice 物理切分并插队
+            rows.splice(targetIndex, 0, { id: null, data: emptyData, sort_order: 0 });
             renderTable();
         }
 
-        // [ ＋ 列 ] 动态广播新维度
-        async function addDimension() {
-            let name = prompt("请输入新增自定义列维度的展示名称（如：触发按键、适用版本）：");
+        // [ 列插队动作 ]：在选中列之左或之右扩展多维维度
+        async function insertColAction(direction) {
+            let name = prompt("请输入新增自定义列维度的展示名称：");
             if (!name) return;
+
+            let currentIdx = columns.findIndex(c => c.col_key === selectedColKey);
+            if (currentIdx === -1) currentIdx = columns.length;
+            
+            let insertIdx = (direction === 'left') ? currentIdx : currentIdx + 1;
+            let newKey = `col_${Date.now()}`;
+
+            document.getElementById('sync-indicator').textContent = "⏳ 正在扩建字段架构...";
             try {
+                // 1. 发射同步指令生成列维度
                 const res = await fetch('/api/code-grid/column', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ col_name: name })
                 });
-                if (res.ok) await fetchGridData();
+                
+                if (res.ok) {
+                    // 2. 内存就地完成列插队
+                    columns.splice(insertIdx, 0, { col_key: newKey, col_name: name });
+                    rows.forEach(r => r.data[newKey] = '');
+                    renderTable();
+                }
             } catch(e) {}
         }
 
-        // [ － 列 ] 自定义维度反向物理裁剪机制
-        function removeDimension() {
+        // [ 整行删除动作 ]
+        function deleteRowAction() {
+            if (selectedRowIndex === null) return;
+            if (!confirm("确认要物理清除当前整行代码片段记录？")) return;
+
+            let targetRow = rows[selectedRowIndex];
+            if (!targetRow.id) {
+                // 如果是未同步的新建行，直接在内存中剔除
+                rows.splice(selectedRowIndex, 1);
+                renderTable();
+            } else {
+                // 如果是持久层数据，直接走物理删除路由
+                fetch('/api/code-grid', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ id: targetRow.id })
+                }).then(res => { if(res.ok) fetchGridData(); });
+            }
+        }
+
+        // [ 整列删除动作 ]
+        function deleteColAction() {
+            if (!selectedColKey) return;
             if (columns.length <= 1) {
-                alert("系统保护：必须保留至少一个核心维度列！");
+                alert("系统保护：必须保留至少一个表格数据列维度！");
                 return;
             }
             
-            // 列出当前所有可删列名称提示用户
-            let colNames = columns.map((c, i) => `${i + 1}. ${c.col_name}`).join('\n');
-            let targetName = prompt(`请输入您想要擦除的“列名称”（注意：该列下所有代码数据将被丢弃）：\n\n当前已有列清单：\n${colNames}`);
-            if (!targetName) return;
+            let targetCol = columns.find(c => c.col_key === selectedColKey);
+            if (!confirm(`⚠️ 高危警告\n\n确认要物理撤销【${targetCol.col_name}】这一整列维度吗？\n删除后，当前表格内属于该列下的全部代码段会被立刻倒空！`)) return;
 
-            let colIndex = columns.findIndex(c => c.col_name.trim() === targetName.trim());
-            if (colIndex === -1) {
-                alert("未匹配到该列名称，请确保输入的字样完全一致。");
-                return;
-            }
-
-            if (confirm(`⚠️ 警告：确认要物理裁撤【${targetName}】列吗？此操作不可逆！`)) {
-                let targetKey = columns[colIndex].col_key;
-                
-                // 1. 内存中将该列配置剪掉
-                columns.splice(colIndex, 1);
-                // 2. 清理所有行中关于该键值下的残留字符串
-                rows.forEach(r => { if(r.data[targetKey]) delete r.data[targetKey]; });
-                
-                renderTable();
-                alert(`✨ 【${targetName}】列已临时裁撤。请点击右上角“批量数据保存”将该架构物理同步回传至 D1 数据库！`);
-            }
+            // 1. 从内存列数组中抹去
+            columns = columns.filter(c => c.col_key !== selectedColKey);
+            // 2. 倒空残留键值
+            rows.forEach(r => { if(r.data[selectedColKey]) delete r.data[selectedColKey]; });
+            
+            renderTable();
+            alert(`✨ 列【${targetCol.col_name}】已被剪切下线，请务必点击右上角保存数据同步至 D1 云端！`);
         }
 
         function handleSearch() {
@@ -236,12 +322,11 @@
             renderTable(query);
         }
 
-        // 串行写入持久层
+        // 持久化同步对齐
         async function syncGridToD1() {
             const indicator = document.getElementById('sync-indicator');
-            indicator.textContent = "⏳ 正在同步全量网格画布至 D1 数据层...";
+            indicator.textContent = "⏳ 正在同步全量多维网格配置...";
             try {
-                // 如果在前端删除了列配置，同步时全量对齐
                 for (let row of rows) {
                     await fetch('/api/code-grid', {
                         method: 'POST',
@@ -249,30 +334,12 @@
                         body: JSON.stringify(row)
                     });
                 }
-                indicator.textContent = "⚡ 云端数据已全部对齐";
+                indicator.textContent = "⚡ 云端对齐一致 // Canvas Fully Synced";
                 await fetchGridData();
-                alert("✨ 同步对齐成功！所有变动资产已托管写入边缘存储。");
+                alert("✨ 同步成功！数据已全量重组写入 D1 边缘群集。");
             } catch (e) {
-                indicator.textContent = "❌ 串行同步失败";
+                indicator.textContent = "❌ 串行同步链中断";
             }
-        }
-
-        // [ － ] 物理擦除行
-        async function deleteRow(id, index) {
-            if (!confirm("是否将此条代码画布记录从云端执行物理擦除？")) return;
-            if (!id) {
-                rows.splice(index, 1);
-                renderTable();
-                return;
-            }
-            try {
-                const res = await fetch('/api/code-grid', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ id })
-                });
-                if (res.ok) await fetchGridData();
-            } catch(e){}
         }
     </script>
 </body>
