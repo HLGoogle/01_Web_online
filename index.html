@@ -264,7 +264,7 @@
         .add-placeholder:hover { border-color: var(--accent-color); color: var(--accent-color); }
         body.edit-mode .add-placeholder { display: flex; }
 
-        /* 全局账号笔记悬浮窗 */
+        /* 全局账号密码悬浮提示节点 */
         .note-popup {
             display: none;
             position: fixed;
@@ -377,6 +377,7 @@
             <span class="status-sync-indicator" id="sync-status">📡 Cache Ready</span>
         </div>
         <div class="top-controls">
+            <button class="ctrl-btn" onclick="openSettingsModal()"><i class="fas fa-sliders-h"></i> 全局设置</button>
             <button class="ctrl-btn" onclick="toggleEditMode()" id="edit-mode-btn"><i class="fas fa-terminal"></i> 开启管理</button>
             <button class="ctrl-btn" onclick="toggleNotesSidebar()"><i class="fas fa-code-branch"></i> 策划笔记本</button>
             <button class="ctrl-btn" onclick="logout()"><i class="fas fa-power-off"></i> 注销</button>
@@ -461,14 +462,39 @@
         </div>
     </div>
 
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="auth-title">// GLOBAL_SETTINGS</div>
+            
+            <div class="form-group" style="border-bottom: 1px dashed var(--border-color); padding-bottom: 12px;">
+                <label class="form-label">// SENSITIVITY / 悬浮灵敏度 (1-100)</label>
+                <input type="range" id="setting-sensitivity" min="1" max="100" value="50" style="width: 100%; cursor: pointer;">
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">数值越大，划过卡片时账号密码弹窗展开响应越灵敏。</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">// CATEGORY_ORDER / 分类展示优先级顺序</label>
+                <input type="text" id="setting-category-order" class="form-input" placeholder="例如: 云盘, 流量卡, 宣传, LUA">
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">用中英文逗号隔开。未列出的剩余分类将自动靠后追加。</div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="ctrl-btn" onclick="document.getElementById('settings-modal').style.display='none'">取消</button>
+                <button class="ctrl-btn" style="color:var(--accent-color); border-color:var(--accent-color);" onclick="saveSettings()">确认保存</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_AUTH = '/api/auth';
         const API_LINKS = '/api/links';
         const API_NOTES = '/api/notes';
+        const API_USER = '/api/user';
         
         let authMode = 'login';
         let allLinks = [];
         let isEditMode = false;
+        let userSettings = { sensitivity: 50, categoryOrder: "" };
 
         // 精密测算鼠标滑出向量与速率
         const mouseTrack = { x: 0, y: 0, t: 0, vx: 0 };
@@ -485,6 +511,10 @@
             const token = localStorage.getItem('nav_token');
             if (token) {
                 document.getElementById('auth-panel').style.display = 'none';
+                const cachedSettings = localStorage.getItem('nav_settings');
+                if (cachedSettings) {
+                    try { userSettings = JSON.parse(cachedSettings); } catch(e){}
+                }
                 showUI();
                 loadLinks(); 
             }
@@ -517,13 +547,13 @@
         }
 
         // ==========================================================
-        // 【核心策略】Stale-While-Revalidate 本地缓存优先，后台静默网络同步
+        // 【核心策略】Stale-While-Revalidate 本地缓存优先 + 分类重排引擎
         // ==========================================================
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
             const indicator = document.getElementById('sync-status');
 
-            // 1. 优先捕获本地 LocalStorage 缓存，立刻渲染（实现大陆节点秒开）
+            // 1. 优先捕获本地 LocalStorage 缓存，立刻渲染（实现秒开）
             const cachedLinks = localStorage.getItem('cached_links_data');
             if (cachedLinks) {
                 try {
@@ -554,7 +584,23 @@
         function renderLinks() {
             const content = document.getElementById('content'); 
             content.innerHTML = '';
+            
+            // 1. 提取全量原始分类标签
             let types = [...new Set(allLinks.map(l => l.type))];
+
+            // 2. 注入分类展示顺序洗牌防线
+            const orderStr = userSettings.categoryOrder || "";
+            const priorityList = orderStr.split(/[,，]/).map(s => s.trim()).filter(s => s);
+            if (priorityList.length > 0) {
+                types.sort((a, b) => {
+                    const indexA = priorityList.indexOf(a);
+                    const indexB = priorityList.indexOf(b);
+                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                    if (indexA !== -1) return -1; // 规则内定义的往前排
+                    if (indexB !== -1) return 1;  // 未定义的追加靠后
+                    return 0; 
+                });
+            }
 
             if (types.length === 0 && allLinks.length === 0) {
                 if (isEditMode) types.push('常用');
@@ -564,6 +610,7 @@
                 }
             }
 
+            // 3. 严格遵照排好的序进行分块渲染
             types.forEach(type => {
                 const section = document.createElement('section'); 
                 section.className = 'type-section';
@@ -572,7 +619,10 @@
                 const container = document.createElement('div'); 
                 container.className = 'links-container';
                 
+                // 内部小卡片按照 sort_order 升序排
                 const groupLinks = allLinks.filter(l => l.type === type);
+                groupLinks.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+                
                 groupLinks.forEach(link => {
                     container.appendChild(createLinkCard(link));
                 });
@@ -612,7 +662,7 @@
                 window.open(targetUrl, '_blank');
             };
 
-            // 悬浮显示暗号/账密代码注释
+            // 划过卡片展示私密代码笔记
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = () => {
@@ -625,7 +675,9 @@
                     popup.style.display = 'block';
                 };
                 item.onmouseleave = () => {
-                    const delay = (mouseTrack.vx > 0.1) ? 300 : 50;
+                    const sense = userSettings.sensitivity || 50;
+                    const isMovingFast = Math.abs(mouseTrack.vx) > (1.0 - (sense / 100) * 0.9);
+                    const delay = (isMovingFast) ? 300 : 50;
                     setTimeout(() => {
                         if (!popup.matches(':hover') && !item.matches(':hover')) popup.style.display = 'none';
                     }, delay);
@@ -643,6 +695,35 @@
         }
 
         // ==========================================
+        // 全局偏好配置 Modal 管理控制
+        // ==========================================
+        function openSettingsModal() {
+            document.getElementById('setting-sensitivity').value = userSettings.sensitivity || 50;
+            document.getElementById('setting-category-order').value = userSettings.categoryOrder || "";
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        async function saveSettings() {
+            const newSense = parseInt(document.getElementById('setting-sensitivity').value);
+            const newOrder = document.getElementById('setting-category-order').value.trim();
+            userSettings.sensitivity = newSense;
+            userSettings.categoryOrder = newOrder;
+            
+            localStorage.setItem('nav_settings', JSON.stringify(userSettings));
+            document.getElementById('settings-modal').style.display = 'none';
+            renderLinks(); // 触发就地刷新排版
+            
+            try {
+                const token = localStorage.getItem('nav_token');
+                await fetch(API_USER, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ settings: userSettings })
+                });
+            } catch(e) { console.log("离线保存本地，网络同步失败"); }
+        }
+
+        // ==========================================
         // 滑动笔记本静默缓存同步引擎
         // ==========================================
         function toggleNotesSidebar() {
@@ -654,13 +735,11 @@
         async function loadNotes() {
             const listContainer = document.getElementById('notes-list');
             
-            // 优先加载本地笔记本缓存
             const cachedNotes = localStorage.getItem('cached_notes_data');
             if (cachedNotes) {
                 try { renderNotesUI(JSON.parse(cachedNotes)); } catch(e) {}
             }
 
-            // 异步后台同步新条目
             try {
                 const res = await fetch(API_NOTES);
                 if (!res.ok) throw new Error();
@@ -671,7 +750,7 @@
                     renderNotesUI(freshNotes);
                 }
             } catch(e) {
-                if(!cachedNotes) listContainer.innerHTML = '<p style="color:var(--accent-danger); font-size:12px;">无法连接至边缘数据库</p>';
+                if(!cachedNotes) listContainer.innerHTML = '<p style="color:var(--accent-danger); font-size:12px;">无法连接至云端数据库</p>';
             }
         }
 
@@ -725,11 +804,11 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, password: pwd })
             });
-            if (res.ok) loadNotes(); else alert('解密密钥验证失败');
+            if (res.ok) loadNotes(); else alert('密钥验证失败');
         }
 
         // ==========================================
-        // 远程 D1 数据库标准的卡片 CRUD 交互
+        // 远程 D1 数据库卡片 CRUD 交互
         // ==========================================
         function openLinkModal(id = null, prefillType = '') {
             document.getElementById('link-id').value = ''; document.getElementById('link-type').value = prefillType;
@@ -799,6 +878,10 @@
                     if (authMode === 'login') {
                         localStorage.setItem('nav_token', data.token); 
                         localStorage.setItem('nav_user', data.username);
+                        if (data.settings) {
+                            localStorage.setItem('nav_settings', data.settings);
+                            try { userSettings = JSON.parse(data.settings); } catch(e){}
+                        }
                         document.getElementById('auth-panel').style.display = 'none';
                         showUI(); loadLinks();
                     } else { alert('安全注册/重置成功，正在返回登录控制台'); switchAuthMode('login'); }
