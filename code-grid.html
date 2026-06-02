@@ -13,106 +13,101 @@
             --font-mono: 'Consolas', 'Fira Code', 'Ubuntu Mono', monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-mono); }
-        body { background-color: var(--bg-main); color: var(--text-main); padding: 20px; min-height: 100vh; }
+        body { background-color: var(--bg-main); color: var(--text-main); padding: 10px 15px; min-height: 100vh; }
         
-        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
-        .terminal-title { font-size: 14px; color: var(--accent-color); font-weight: bold; }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; }
+        .terminal-title { font-size: 13px; color: var(--accent-color); font-weight: bold; }
         
-        .toolbar { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; }
-        .search-box { background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 4px; width: 350px; font-size: 13px; outline: none; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+        .search-box { background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; padding: 4px 10px; border-radius: 4px; width: 350px; font-size: 12px; outline: none; }
         .search-box:focus { border-color: var(--accent-color); }
         
-        .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 14px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-weight: bold; }
+        .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: bold; }
         .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
         
-        /* 📜 紧凑流水线记事条容器 */
-        .note-stream-list { display: flex; flex-direction: column; gap: 10px; width: 100%; min-height: 200px; }
+        /* 📜 极致紧凑流水线容器 */
+        .note-stream-list { display: flex; flex-direction: column; gap: 2px; width: 100%; }
         
-        /* 单条紧凑流水线记事卡片 */
+        /* 🎯 核心优化：单行横向并排结构，间距压减到极致 */
         .note-strip-card { 
-            display: flex; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-color); 
-            border-radius: 6px; padding: 10px 14px; align-items: flex-start; position: relative;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            display: flex; gap: 8px; background: var(--bg-card); border: 1px solid var(--border-color); 
+            border-radius: 3px; padding: 2px 8px; align-items: center; position: relative; height: 28px;
         }
-        .note-strip-card:hover { border-color: #444c56; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .note-strip-card:hover { border-color: #444c56; }
         
-        /* 🔀 智能拖拽换位手柄 */
-        .drag-handle { color: var(--text-muted); cursor: grab; padding: 4px; font-size: 14px; user-select: none; display: flex; align-items: center; height: 32px; }
+        /* 🔀 智能拖拽手柄缩减 */
+        .drag-handle { color: var(--text-muted); padding: 2px; font-size: 12px; user-select: none; display: flex; align-items: center; cursor: grab; }
         .drag-handle:active { cursor: grabbing; color: var(--accent-color); }
         .note-strip-card.dragging { opacity: 0.3; border: 1px dashed var(--accent-color); background: #1f242c; }
         
-        /* 记事条内部内容区 */
-        .strip-main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-right: 45px; /* 留出稳定的空间给右侧功能键 */ }
+        /* 🎯 一行流主体区 */
+        .strip-main-body { flex: 1; display: flex; gap: 12px; align-items: center; min-width: 0; padding-right: 50px; }
         
-        /* 功能标题输入框字段 */
+        /* 🎯 标题独立样式：支持右键或点击修改独立颜色 */
         .strip-title-field { 
             font-size: 13px; font-weight: bold; color: var(--accent-color); background: transparent;
-            border: none; outline: none; width: 100%; padding: 2px 0; border-bottom: 1px dashed transparent;
+            border: none; outline: none; width: 180px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+            border-right: 1px solid var(--border-color); padding-right: 6px; flex-shrink: 0;
         }
-        .strip-title-field:focus { border-bottom-color: var(--accent-color); color: #fff; }
+        .strip-title-field:focus { color: #fff; }
         
-        /* 🛠️ 核心修改：任何时候只要不点 [＋]，打字、失焦或聚焦均强行死锁单行 */
+        /* 🛠️ IDE级渲染器基础 */
+        .editor-wrapper { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; height: 100%; }
+        
+        /* 真正用来打字编辑的透明隐形层 */
         .strip-content-editor { 
-            width: 100%; 
-            min-height: 22px;
-            background: transparent; 
-            color: #e6edf3;
-            outline: none; 
-            font-size: 13px;
-            line-height: 1.6; 
-            white-space: nowrap; /* 🎯 强制单行不换行 */
-            overflow: hidden;    /* 🎯 强制隐藏所有出戏的滑条 */
-            text-overflow: ellipsis;
-            tab-size: 4; -moz-tab-size: 4; 
-            padding: 2px 0;
+            width: 100%; height: 22px; background: transparent; color: transparent; /* 🎯 隐藏原生文字，把舞台留给下方的着色层 */
+            caret-color: #fff; /* 保持白色光标可见 */
+            outline: none; font-size: 13px; line-height: 22px;
+            white-space: nowrap; overflow: hidden; position: relative; z-index: 2;
         }
         
-        /* 💡 只有当外层卡片被手工挂载了 .expanded 样式，才允许解除单行封印 */
-        .note-strip-card.expanded .strip-content-editor {
-            white-space: pre-wrap; /* 展开后完整呈现多行格式 */
-            overflow: visible;     
-            text-overflow: clip;
+        /* 🎯 新增：Notepad++风格语法着色渲染层 */
+        .code-highlight-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            font-size: 13px; line-height: 22px; white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; pointer-events: none; z-index: 1; color: #e6edf3;
         }
+
+        /* 💡 激活展开状态下的高度和换流覆盖 */
+        .note-strip-card.expanded { height: auto; min-height: 28px; align-items: flex-start; padding-top: 4px; padding-bottom: 4px; }
+        .note-strip-card.expanded .strip-main-body { align-items: flex-start; }
+        .note-strip-card.expanded .strip-title-field { border-right: 1px dashed var(--border-color); }
+        .note-strip-card.expanded .strip-content-editor { height: auto; min-height: 38px; color: #e6edf3; white-space: pre-wrap; word-break: break-all; }
+        .note-strip-card.expanded .code-highlight-layer { display: none; /* 展开编辑时，为了绝对平滑，切回原生多行文本模式 */ }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
-        /* 🔍 检索黄色高亮 */
-        .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
+        /* 🎨 Lua IDE 着色色板 */
+        .lua-kw { color: #ff79c6; font-weight: bold; } /* if, then, end, local */
+        .lua-func { color: #50fa7b; }                 /* BeeRun, BeelsRun */
+        .lua-str { color: #f1fa8c; }                  /* "心灵冰冻" */
+        .lua-comment { color: #6272a4; font-style: italic; } /* -- 注释 */
+        .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; }
         
-        /* 右侧独立控制按钮组容器 */
-        .strip-action-group {
-            position: absolute; top: 10px; right: 12px; display: flex; gap: 6px; align-items: center;
-        }
-
-        /* ＋ / － 控制按钮 */
-        .toggle-expand-btn {
-            background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);
-            width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
-            display: inline-flex; align-items: center; justify-content: center;
-            font-size: 12px; font-weight: bold; transition: all 0.15s ease;
-        }
+        /* 右侧悬浮控制区 */
+        .strip-action-group { position: absolute; right: 8px; display: flex; gap: 4px; align-items: center; height: 100%; top: 0; }
+        .toggle-expand-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); width: 18px; height: 18px; border-radius: 3px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
         .toggle-expand-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
 
-        /* 隐藏感应式擦除按钮 */
-        .strip-del-btn { 
-            background: transparent; border: none; color: var(--text-muted); 
-            cursor: pointer; font-size: 13px; padding: 4px; display: inline-flex; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.15s ease, color 0.15s;
-        }
+        .strip-del-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; display: inline-flex; align-items: center; justify-content: center; opacity: 0; }
         .note-strip-card:hover .strip-del-btn { opacity: 1; }
         .strip-del-btn:hover { color: var(--accent-danger); }
+        
+        /* 隐藏的原生原色选择器触发孔 */
+        .title-color-picker { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="terminal-title"><i class="fas fa-stream"></i> D1_NOTE_STREAM_FLOW // 紧凑流式记事终端</div>
-        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 点击右侧 [＋] 展开，代码区聚焦与划选绝不误触展开</div>
+        <div class="terminal-title"><i class="fas fa-code"></i> D1_NOTE_STREAM_FLOW // 极致紧凑高密度记事终端</div>
+        <div id="sync-indicator" style="font-size:11px; color:var(--text-muted);">⚡ 系统就绪 // 左击标题打字，右键或双击标题独立赋予标签颜色</div>
     </header>
 
     <div class="toolbar">
         <input type="text" id="global-search" class="search-box" placeholder="🔍 全局搜索过滤并精确定位代码/随身笔记..." oninput="handleSearch()">
-        <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 录入新记事条</button>
-        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量数据保存 (同步D1)</button>
+        <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 录入新行</button>
+        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量保存</button>
     </div>
 
     <div class="note-stream-list" id="note-stream-container"></div>
@@ -130,7 +125,6 @@
             initDragAndDropEngine();
         };
 
-        // 从 D1 加载数据
         async function fetchStreamData() {
             try {
                 const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -142,8 +136,9 @@
                         id: null,
                         sort_order: 0,
                         data: {
-                            title: "欢迎使用全新流式记事终端",
-                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 📢 代码区聚焦或划选时绝不自动展开！必须且只有点击右侧的 [ ＋ ] 才会展开伸展！"
+                            title: "默认宏判定",
+                            title_color: "#58a6ff",
+                            content: "local j = BeeStringFind(jineng, BeeUnitCastSpellName(target)) --判定\nif BeelsRun(\"心灵冰冻\") and j then BeeRun(\"心灵冰冻\") end"
                         }
                     }];
                 }
@@ -153,6 +148,7 @@
             }
         }
 
+        // 核心高密度单行渲染引擎
         function renderStream(keyword = '') {
             const container = document.getElementById('note-stream-container');
             container.innerHTML = '';
@@ -160,12 +156,11 @@
             noteItems.forEach((item, index) => {
                 const titleText = item.data.title || '';
                 const contentText = item.data.content || '';
+                const titleColor = item.data.title_color || '#58a6ff'; // 默认经典蓝
 
                 if (keyword) {
                     const lowerKey = keyword.toLowerCase();
-                    const isTitleMatch = titleText.toLowerCase().includes(lowerKey);
-                    const isContentMatch = contentText.toLowerCase().includes(lowerKey);
-                    if (!isTitleMatch && !isContentMatch) return; 
+                    if (!titleText.toLowerCase().includes(lowerKey) && !contentText.toLowerCase().includes(lowerKey)) return; 
                 }
 
                 const card = document.createElement('div');
@@ -175,22 +170,35 @@
 
                 card.innerHTML = `
                     <div class="drag-handle" draggable="true"><i class="fas fa-bars"></i></div>
+                    
                     <div class="strip-main-body">
                         <input type="text" class="strip-title-field" 
                                value="${titleText}" 
-                               placeholder="// 输入功能/技术片段标题"
-                               onchange="updateMemory(${index}, 'title', this.value)">
+                               style="color: ${titleColor}"
+                               placeholder="// 输入功能标题"
+                               onchange="updateMemory(${index}, 'title', this.value)"
+                               oncontextmenu="triggerColorPicker(event, ${index})"
+                               ondblclick="triggerColorPicker(event, ${index})">
                         
-                        <div class="strip-content-editor" 
-                             contenteditable="true"
-                             onblur="updateMemory(${index}, 'content', this.innerText)"
-                             onkeydown="handleTabKey(event)"
-                             onpaste="handlePureTextPaste(event)"
-                             placeholder="// 点击此处录入随身备忘逻辑...">${highlightText(contentText, keyword)}</div>
+                        <input type="color" class="title-color-picker" id="color-picker-${index}" 
+                               value="${titleColor}" 
+                               onchange="updateTitleColor(${index}, this.value)">
+                        
+                        <div class="editor-wrapper">
+                            <div class="strip-content-editor" 
+                                 contenteditable="true"
+                                 onblur="updateMemory(${index}, 'content', this.innerText); refreshHighlight(${index})"
+                                 oninput="syncRealtimeText(${index}, this.innerText)"
+                                 onkeydown="handleTabKey(event)"
+                                 onpaste="handlePureTextPaste(event)"
+                                 placeholder="// 点击录入代码段...">${contentText}</div>
+                            
+                            <div class="code-highlight-layer" id="highlight-layer-${index}">${runLuaHighlighter(contentText, keyword)}</div>
+                        </div>
                     </div>
                     
                     <div class="strip-action-group">
-                        <button class="toggle-expand-btn" id="expand-btn-node-${index}" title="展开/收起代码" onclick="toggleCardExpand(${index})">＋</button>
+                        <button class="toggle-expand-btn" id="expand-btn-node-${index}" title="展开多行视图" onclick="toggleCardExpand(${index})">＋</button>
                         <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 `;
@@ -198,7 +206,72 @@
             });
         }
 
-        // 💡 ＋ / － 核心伸缩引擎切换
+        // 🎨 极其轻量且强悍的本地 Lua 关键字着色规则引擎
+        function runLuaHighlighter(text, keyword) {
+            if (!text) return '';
+            
+            // 转义 HTML 防止代码里有尖括号破坏 DOM 结构
+            let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            // 1. 匹配字符串 "..."
+            html = html.replace(/(".*?")/g, '<span class="lua-str">$1</span>');
+
+            // 2. 匹配 Lua 关键字
+            const keywords = ['local', 'if', 'then', 'end', 'and', 'or', 'else', 'elseif', 'return', 'function'];
+            keywords.forEach(kw => {
+                const reg = new RegExp(`\\b(${kw})\\b`, 'g');
+                html = html.replace(reg, '<span class="lua-kw">$1</span>');
+            });
+
+            // 3. 匹配你的专属内置函数
+            const specialFuncs = ['BeeRun', 'BeelsRun', 'BeeStringFind', 'BeeUnitCastSpellName'];
+            specialFuncs.forEach(func => {
+                const reg = new RegExp(`\\b(${func})\\b`, 'g');
+                html = html.replace(reg, '<span class="lua-func">$1</span>');
+            });
+
+            // 4. 匹配单行注释 --
+            html = html.replace(/(--.*)$/g, '<span class="lua-comment">$1</span>');
+
+            // 5. 叠加全局搜索过滤高亮
+            if (keyword) {
+                const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const searchReg = new RegExp(`(${escapedKeyword})`, 'gi');
+                html = html.replace(searchReg, '<span class="txt-highlight">$1</span>');
+            }
+
+            return html;
+        }
+
+        // 实时追踪打字，保持高亮层和输入层文字严格同步
+        function syncRealtimeText(index, text) {
+            const layer = document.getElementById(`highlight-layer-${index}`);
+            if (layer) layer.innerHTML = runLuaHighlighter(text, '');
+        }
+
+        function refreshHighlight(index) {
+            const layer = document.getElementById(`highlight-layer-${index}`);
+            const editor = document.querySelectorAll('.strip-content-editor')[index];
+            if (layer && editor) layer.innerHTML = runLuaHighlighter(editor.innerText, '');
+        }
+
+        // 唤醒独立标题调色盘
+        function triggerColorPicker(e, index) {
+            e.preventDefault();
+            const picker = document.getElementById(`color-picker-${index}`);
+            if (picker) picker.click();
+        }
+
+        // 更改独立标题颜色写回内存
+        function updateTitleColor(index, colorHex) {
+            if (noteItems[index]) {
+                noteItems[index].data.title_color = colorHex;
+                const titleField = document.querySelectorAll('.strip-title-field')[index];
+                if (titleField) titleField.style.color = colorHex;
+            }
+        }
+
+        // 展开与折叠控制
         function toggleCardExpand(index) {
             const card = document.getElementById(`strip-card-node-${index}`);
             const btn = document.getElementById(`expand-btn-node-${index}`);
@@ -210,7 +283,6 @@
             btn.style.borderColor = isExpanded ? 'var(--accent-color)' : 'var(--border-color)';
         }
 
-        // 粘贴纯文本
         function handlePureTextPaste(e) {
             e.preventDefault(); 
             const clipboardData = e.clipboardData || window.clipboardData;
@@ -233,21 +305,14 @@
             if (editor) {
                 const index = parseInt(editor.closest('.note-strip-card').getAttribute('data-index'));
                 updateMemory(index, 'content', editor.innerText);
+                refreshHighlight(index);
             }
-        }
-
-        function highlightText(text, keyword) {
-            if (!keyword) return text;
-            const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp(`(${escapedKeyword})`, 'gi');
-            return text.replace(regex, `<span class="txt-highlight">$1</span>`);
         }
 
         function updateMemory(index, field, value) {
             if (noteItems[index]) { noteItems[index].data[field] = value; }
         }
 
-        // Tab 键原生支持 4 空格物理缩进
         function handleTabKey(e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -266,7 +331,7 @@
             noteItems.unshift({
                 id: null,
                 sort_order: 0,
-                data: { title: '', content: '' }
+                data: { title: '', content: '', title_color: '#58a6ff' }
             });
             renderStream();
             setTimeout(() => {
@@ -337,14 +402,14 @@
                 }
                 indicator.textContent = "⚡ 云端记事资产已完全对齐";
                 await fetchStreamData();
-                alert("✨ 同步成功！拖拽校准后的干净行格式记事数据已持久化写入 D1。");
+                alert("✨ 同步成功！高密度着色数据已安全持久化写入 D1。");
             } catch (e) {
                 indicator.textContent = "❌ 级联更新同步失败";
             }
         }
 
         async function deleteStripAction(id, index) {
-            if (!confirm("确认要物理清除本条记事数据吗？此操作不可逆！")) return;
+            if (!confirm("确认要物理清除本条记事数据吗？")) return;
             if (!id) {
                 noteItems.splice(index, 1);
                 renderStream();
