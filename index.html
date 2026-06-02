@@ -100,7 +100,19 @@
             text-align: center;
             color: var(--accent-color);
         }
-        .form-group { margin-bottom: 15px; }
+        .form-group { 
+            margin-bottom: 12px; 
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .form-label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
         .form-input {
             width: 100%;
             background: var(--bg-input);
@@ -112,6 +124,10 @@
             outline: none;
         }
         .form-input:focus { border-color: var(--accent-color); }
+        .form-input::placeholder {
+            color: #3b424d;
+            font-size: 12px;
+        }
         .auth-switch {
             text-align: center;
             font-size: 12px;
@@ -151,7 +167,7 @@
 
         .links-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 130px)); /* 固定紧凑宽度 */
+            grid-template-columns: repeat(auto-fill, minmax(130px, 130px)); 
             gap: 10px;
         }
 
@@ -210,7 +226,7 @@
             text-overflow: ellipsis;
         }
 
-        /* 卡片管理控件 */
+        /* 卡片管理控制 */
         .edit-controls {
             display: none;
             position: absolute;
@@ -248,7 +264,7 @@
         .add-placeholder:hover { border-color: var(--accent-color); color: var(--accent-color); }
         body.edit-mode .add-placeholder { display: flex; }
 
-        /* --- 大佬级设计：全局代码账号笔记悬浮窗 --- */
+        /* 全局账号笔记悬浮窗 */
         .note-popup {
             display: none;
             position: fixed;
@@ -261,14 +277,14 @@
             z-index: 9999;
             font-family: var(--font-mono);
             font-size: 11px;
-            color: #88fa88; /* 经典的终端代码绿 */
+            color: #88fa88; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             white-space: pre-wrap;
             word-break: break-all;
             pointer-events: none;
         }
 
-        /* --- 极客必备：一体化右侧双向静默笔记本控制台（原02note合并） --- */
+        /* 侧边滑动一体化笔记本控制台 */
         #notes-sidebar {
             position: fixed;
             top: 0;
@@ -339,7 +355,7 @@
         .note-meta-action:hover { color: var(--accent-color); }
         .note-meta-action.del:hover { color: var(--accent-danger); }
 
-        /* 常规弹窗样式 (编辑、设置链接弹窗) */
+        /* 弹窗通用基础样式 */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(2px); z-index: 3000;
@@ -356,7 +372,7 @@
 
     <header>
         <div class="sys-status">
-            <span>导航</span>
+            <span>ROOT@NAV_PANEL:~$</span>
             <span class="status-tag" id="welcome-msg">VISITOR_MODE</span>
             <span class="status-sync-indicator" id="sync-status">📡 Cache Ready</span>
         </div>
@@ -369,11 +385,23 @@
 
     <div id="auth-panel">
         <div class="auth-title">// IDENTITY_VERIFICATION</div>
-        <div class="form-group"><input type="text" id="auth-username" class="form-input" placeholder="USERNAME"></div>
-        <div class="form-group" id="group-password"><input type="password" id="auth-password" class="form-input" placeholder="PASSWORD"></div>
-        <div class="form-group" id="group-reset-code" style="display:none;"><input type="text" id="auth-reset-code" class="form-input" placeholder="RESET_CODE"></div>
-        <div class="form-group" id="group-new-pwd" style="display:none;"><input type="password" id="auth-new-pwd" class="form-input" placeholder="NEW_PASSWORD"></div>
-        <button class="ctrl-btn" style="width:100%; padding: 8px;" id="auth-submit-btn" onclick="handleAuth()">执行登录</button>
+        <div class="form-group">
+            <label class="form-label">Username / 用户名</label>
+            <input type="text" id="auth-username" class="form-input" placeholder="USERNAME">
+        </div>
+        <div class="form-group" id="group-password">
+            <label class="form-label">Password / 密码</label>
+            <input type="password" id="auth-password" class="form-input" placeholder="PASSWORD">
+        </div>
+        <div class="form-group" id="group-reset-code" style="display:none;">
+            <label class="form-label">Reset Code / 安全重置码</label>
+            <input type="text" id="auth-reset-code" class="form-input" placeholder="RESET_CODE">
+        </div>
+        <div class="form-group" id="group-new-pwd" style="display:none;">
+            <label class="form-label">New Password / 新密码</label>
+            <input type="password" id="auth-new-pwd" class="form-input" placeholder="NEW_PASSWORD">
+        </div>
+        <button class="ctrl-btn" style="width:100%; padding: 8px; margin-top:10px;" id="auth-submit-btn" onclick="handleAuth()">执行登录</button>
         <div class="auth-switch">
             <span onclick="switchAuthMode('login')">登录</span> | 
             <span onclick="switchAuthMode('register')">注册</span> | 
@@ -400,12 +428,32 @@
         <div class="modal-box">
             <div class="auth-title" id="link-modal-title">// LINK_CONFIG</div>
             <input type="hidden" id="link-id">
-            <div class="form-group"><input type="text" id="link-type" class="form-input" placeholder="分类 (如: 常用)"></div>
-            <div class="form-group"><input type="text" id="link-url" class="form-input" placeholder="链接 (https://...)"></div>
-            <div class="form-group"><input type="text" id="link-icon" class="form-input" placeholder="图标文本或图片网址"></div>
-            <div class="form-group"><input type="text" id="link-comment" class="form-input" placeholder="卡片显示名"></div>
-            <div class="form-group"><textarea id="link-note" class="form-input" style="height:60px; resize:none;" placeholder="私密账号笔记..."></textarea></div>
-            <div class="form-group"><input type="number" id="link-sort" class="form-input" value="0" placeholder="排序权重"></div>
+            
+            <div class="form-group">
+                <label class="form-label">// CATEGORY / 分类名称</label>
+                <input type="text" id="link-type" class="form-input" placeholder="例如: 常用, LUA, 媒体">
+            </div>
+            <div class="form-group">
+                <label class="form-label">// TARGET_URL / 目标网址</label>
+                <input type="text" id="link-url" class="form-input" placeholder="https://...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">// ICON_SOURCE / 图标配置</label>
+                <input type="text" id="link-icon" class="form-input" placeholder="输入2个字(如: 百度) 或 图片链接">
+            </div>
+            <div class="form-group">
+                <label class="form-label">// DISPLAY_NAME / 卡片标题</label>
+                <input type="text" id="link-comment" class="form-input" placeholder="卡片上显示的名称">
+            </div>
+            <div class="form-group">
+                <label class="form-label">// SECRETS_NOTE / 私密代码笔记 (可存账密)</label>
+                <textarea id="link-note" class="form-input" style="height:60px; resize:none;" placeholder="此处内容仅在悬浮窗中作为代码注释展示..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">// SORT_WEIGHT / 排序权重</label>
+                <input type="number" id="link-sort" class="form-input" value="0" placeholder="数值越小越靠前">
+            </div>
+            
             <div class="modal-footer">
                 <button class="ctrl-btn" onclick="closeLinkModal()">取消</button>
                 <button class="ctrl-btn" style="color:var(--accent-color); border-color:var(--accent-color);" onclick="submitLink()">应用配置</button>
@@ -422,7 +470,7 @@
         let allLinks = [];
         let isEditMode = false;
 
-        // 鼠标移入速度探测
+        // 精密测算鼠标滑出向量与速率
         const mouseTrack = { x: 0, y: 0, t: 0, vx: 0 };
         document.addEventListener('mousemove', e => {
             const now = performance.now();
@@ -438,7 +486,7 @@
             if (token) {
                 document.getElementById('auth-panel').style.display = 'none';
                 showUI();
-                loadLinks(); // 内部触发：缓存优先、异步更新逻辑
+                loadLinks(); 
             }
         };
 
@@ -468,30 +516,30 @@
             }
         }
 
-        // ==========================================
-        // 核心同步引擎：先加载缓存，后台静默向 Cloudflare 同步链接
-        // ==========================================
+        // ==========================================================
+        // 【核心策略】Stale-While-Revalidate 本地缓存优先，后台静默网络同步
+        // ==========================================================
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
             const indicator = document.getElementById('sync-status');
 
-            // 1. 开屏瞬间加载本地缓存渲染
+            // 1. 优先捕获本地 LocalStorage 缓存，立刻渲染（实现大陆节点秒开）
             const cachedLinks = localStorage.getItem('cached_links_data');
             if (cachedLinks) {
                 try {
                     allLinks = JSON.parse(cachedLinks);
                     renderLinks();
                     indicator.textContent = "📡 Cache Rendered (Syncing...)";
-                } catch(e) { console.error("读取缓存损坏", e); }
+                } catch(e) { console.error("缓存校验失败", e); }
             }
 
-            // 2. 后台并行建立网络握手，静默拉取 D1 库最新版本
+            // 2. 异步并行请求远程 Cloudflare D1 数据库
             try {
                 const res = await fetch(API_LINKS, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401) { logout(); return; }
                 const freshLinks = await res.json();
 
-                // 比对新旧数据签名，发生改变则执行静默热覆盖
+                // 只有当远程最新数据与本地不一致时，才执行静默热覆盖，避免页面闪烁
                 if (JSON.stringify(freshLinks) !== cachedLinks) {
                     allLinks = freshLinks;
                     localStorage.setItem('cached_links_data', JSON.stringify(freshLinks));
@@ -511,7 +559,7 @@
             if (types.length === 0 && allLinks.length === 0) {
                 if (isEditMode) types.push('常用');
                 else {
-                    content.innerHTML = '<div style="text-align:center;padding:50px;color:var(--text-muted);font-family:var(--font-mono); font-size:13px;">[ SYSTEM EMPTY ] <br>点击左上角执行管理指令增加卡片</div>';
+                    content.innerHTML = '<div style="text-align:center;padding:50px;color:var(--text-muted);font-family:var(--font-mono); font-size:13px;">[ SYSTEM EMPTY ] <br>请开启管理终端命令链来录入首条数据</div>';
                     return;
                 }
             }
@@ -531,7 +579,7 @@
 
                 const addPlaceholder = document.createElement('div');
                 addPlaceholder.className = 'add-placeholder';
-                addPlaceholder.innerHTML = '[ + Add ]';
+                addPlaceholder.innerHTML = '[ + ADD_ITEM ]';
                 addPlaceholder.onclick = () => openLinkModal(null, type);
                 container.appendChild(addPlaceholder);
 
@@ -544,8 +592,6 @@
             const item = document.createElement('div'); 
             item.className = 'link-item';
             let iconHtml = link.icon.startsWith('http') ? `<img src="${link.icon}">` : link.icon.slice(0, 2);
-            
-            // 获取简短的展示用 URL 域名
             let displayUrl = link.url.replace(/^(https?:\/\/)?(www\.)?/, '');
 
             item.innerHTML = `
@@ -566,7 +612,7 @@
                 window.open(targetUrl, '_blank');
             };
 
-            // 卡片私密代码笔记悬浮框逻辑（注入灵敏度延迟保护）
+            // 悬浮显示暗号/账密代码注释
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = () => {
@@ -575,8 +621,7 @@
                     const rect = item.getBoundingClientRect();
                     let left = rect.right + 8;
                     if (left + 260 > window.innerWidth) left = rect.left - 270;
-                    popup.style.left = left + 'px';
-                    popup.style.top = rect.top + 'px';
+                    popup.style.left = left + 'px'; popup.style.top = rect.top + 'px';
                     popup.style.display = 'block';
                 };
                 item.onmouseleave = () => {
@@ -598,7 +643,7 @@
         }
 
         // ==========================================
-        // 核心同步引擎：笔记本侧边控制台同步
+        // 滑动笔记本静默缓存同步引擎
         // ==========================================
         function toggleNotesSidebar() {
             const sidebar = document.getElementById('notes-sidebar');
@@ -609,13 +654,13 @@
         async function loadNotes() {
             const listContainer = document.getElementById('notes-list');
             
-            // 1. 优先加载本地笔记本缓存
+            // 优先加载本地笔记本缓存
             const cachedNotes = localStorage.getItem('cached_notes_data');
             if (cachedNotes) {
                 try { renderNotesUI(JSON.parse(cachedNotes)); } catch(e) {}
             }
 
-            // 2. 后台异步请求更新
+            // 异步后台同步新条目
             try {
                 const res = await fetch(API_NOTES);
                 if (!res.ok) throw new Error();
@@ -626,7 +671,7 @@
                     renderNotesUI(freshNotes);
                 }
             } catch(e) {
-                if(!cachedNotes) listContainer.innerHTML = '<p style="color:var(--accent-danger); font-size:12px;">数据库交互失败</p>';
+                if(!cachedNotes) listContainer.innerHTML = '<p style="color:var(--accent-danger); font-size:12px;">无法连接至边缘数据库</p>';
             }
         }
 
@@ -673,18 +718,18 @@
         }
 
         async function deleteNote(id) {
-            const pwd = prompt('EXEC_DELETE // 请确认管理员密钥:');
+            const pwd = prompt('EXEC_DELETE // 请输入管理员密钥验证安全指令:');
             if (pwd === null) return;
             const res = await fetch(API_NOTES, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, password: pwd })
             });
-            if (res.ok) loadNotes(); else alert('密钥鉴权未通过');
+            if (res.ok) loadNotes(); else alert('解密密钥验证失败');
         }
 
         // ==========================================
-        // 增删改通用 CRUD API 交互（保持对接到云端）
+        // 远程 D1 数据库标准的卡片 CRUD 交互
         // ==========================================
         function openLinkModal(id = null, prefillType = '') {
             document.getElementById('link-id').value = ''; document.getElementById('link-type').value = prefillType;
@@ -725,7 +770,7 @@
         }
 
         async function deleteLink(id) {
-            if (!confirm('确认销毁该站点卡片数据？')) return;
+            if (!confirm('确认从边缘节点彻底移除此站点卡片数据？')) return;
             const token = localStorage.getItem('nav_token');
             const res = await fetch(API_LINKS, {
                 method: 'DELETE',
@@ -756,12 +801,12 @@
                         localStorage.setItem('nav_user', data.username);
                         document.getElementById('auth-panel').style.display = 'none';
                         showUI(); loadLinks();
-                    } else { alert('指令执行成功，正在返回登录控制台'); switchAuthMode('login'); }
+                    } else { alert('安全注册/重置成功，正在返回登录控制台'); switchAuthMode('login'); }
                 } else { msg.textContent = `>> ERROR: ${data.error || 'BAD_REQUEST'}`; }
             } catch(e) { msg.textContent = '>> ERROR: NETWORK_TIMEOUT'; }
         }
 
-        function logout() { localStorage.removeItem('nav_token'); localStorage.removeItem('cached_links_data'); location.reload(); }
+        function logout() { localStorage.removeItem('nav_token'); localStorage.removeItem('cached_links_data'); localStorage.removeItem('cached_notes_data'); location.reload(); }
     </script>
 </body>
 </html>
