@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 后端精简版路由中心 - 完美融合 D1 关系型数据库与 Workers KV 物理隔离存储
+ * 后端完美版路由中心 - 完美融合 D1 关系型数据库与 Workers KV 物理隔离存储
  */
 export async function onRequest(context) {
   const { request, env } = context;
@@ -19,7 +19,7 @@ export async function onRequest(context) {
   if (method === 'OPTIONS') return new Response(null, { headers });
 
   // ==========================================
-  // 📸 路由分支：动态读取 KV 中的自定义图片图标 (免绑卡直链)
+  // 📸 路由分支：动态读取 KV 中的自定义图片图标 (提供强缓存协议头)
   // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
@@ -39,7 +39,7 @@ export async function onRequest(context) {
       headers: {
         'Access-Control-Allow-Origin': '*',
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000" // 强缓存一年，省去重复读取KV的额度
+        "Cache-Control": "public, max-age=31536000, immutable" // 强缓存一年，通知浏览器此资产永恒不变
       }
     });
   }
@@ -136,7 +136,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true }), { headers });
       }
       if (method === 'DELETE') {
-        // 联动删除优化：在移除卡片前，顺便把与之绑定的 KV 图片删除，杜绝浪费资源
+        // 联动删除：在移除卡片前，顺便把与之绑定的 KV 图片删除，杜绝浪费资源
         const currentLink = await env.DB.prepare('SELECT icon FROM Web_online_info_01 WHERE id = ? AND user_id = ?').bind(body.id, userId).first();
         if (currentLink && currentLink.icon && currentLink.icon.startsWith('user_')) {
           await env.IMAGE_KV.delete(currentLink.icon);
@@ -156,7 +156,7 @@ export async function onRequest(context) {
     }
 
     // ========================================== 
-    // 📝 路由分支四: 滑动控制台开发备忘模块 (/api/notes)
+    // 📝 路由分支四: 滑动控制台开发备忘 模块 (/api/notes)
     // ========================================== 
     if (path === '/api/notes') {
       if (method === 'GET') {
@@ -174,13 +174,13 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true }), { headers });
       }
       if (method === 'DELETE') {
-        if (body.password !== '273573221') return new Response(JSON.stringify({ success: false, error: '安全屏障：拒绝指令执行，管理密钥未通过' }), { status: 403, headers });
+        if (body.password !== '273573221') return new Response(JSON.stringify({ success: false, error: '安全屏障：管理密钥未通过' }), { status: 403, headers });
         await env.DB.prepare('DELETE FROM notes WHERE id = ?').bind(body.id).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
     }
 
-    return new Response(JSON.stringify({ error: 'BAD_GATEWAY: Method Not Allowed or Path Invalid' }), { status: 405, headers });
+    return new Response(JSON.stringify({ error: 'BAD_GATEWAY: Method Not Allowed' }), { status: 405, headers });
 
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers });
