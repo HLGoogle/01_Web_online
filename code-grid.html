@@ -51,10 +51,10 @@
         }
         .strip-title-field:focus { border-bottom-color: var(--accent-color); color: #fff; }
         
-        /* 🛠️ 核心优化：高密度智能限高、防超长代码框 */
+        /* 高密度智能限高、防超长代码框 */
         .strip-content-editor { 
             width: 100%; 
-            max-height: 240px; /* 🎯 限制最高高度，超过后自动收纳 */
+            max-height: 240px; 
             min-height: 38px; 
             background: transparent; 
             color: #e6edf3;
@@ -65,10 +65,9 @@
             word-break: break-all;
             tab-size: 4; -moz-tab-size: 4; 
             padding: 2px 0;
-            overflow-y: auto; /* 🎯 超过限高自动出现内部滚动条 */
+            overflow-y: auto; 
             transition: max-height 0.2s ease;
         }
-        /* 💡 交互小彩蛋：鼠标聚焦正在打字或修改时，自动展开高度方便操作 */
         .strip-content-editor:focus { max-height: 600px; background: rgba(56, 139, 253, 0.02); }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
@@ -89,7 +88,7 @@
 
     <header>
         <div class="terminal-title"><i class="fas fa-stream"></i> D1_NOTE_STREAM_FLOW // 流式记事终端</div>
-        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 选中左侧 ☰ 题头激活插队，复制来的代码会自动剔除格式与背景色</div>
+        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 选中左侧 ☰ 题头激活插队，粘贴时会自动清洗背景和颜色格式</div>
     </header>
 
     <div class="toolbar">
@@ -175,14 +174,15 @@
             });
         }
 
-        // ✨ 终极核心优化：强制拦截富文本，洗掉任何原网页携带的背景色与字体格式
+        // 🛠️ 终极修正：采用 clipboardData 抓取剪贴板字符，彻底修复粘贴失效BUG
         function handlePureTextPaste(e) {
-            e.preventDefault(); // 强行切断系统默认的富文本粘贴行为
+            e.preventDefault(); // 拦截默认富文本行为
             
-            // 仅仅抓取纯文字字符串
-            const plainText = (e.originalEvent || e).dataTransfer.getData('text/plain');
+            // 正确获取系统底层剪贴板的纯文本
+            const clipboardData = e.clipboardData || window.clipboardData;
+            const plainText = clipboardData.getData('text/plain');
             
-            // 执行光标定点原生干净插入
+            // 执行光标处定点插入
             const sel = window.getSelection();
             if (!sel.rangeCount) return;
             const range = sel.getRangeAt(0);
@@ -191,14 +191,18 @@
             const textNode = document.createTextNode(plainText);
             range.insertNode(textNode);
             
-            // 将输入光标平滑移动到粘贴文本的末尾
+            // 移动光标到末尾
             range.setStartAfter(textNode);
             range.setEndAfter(textNode);
             sel.removeAllRanges();
             sel.addRange(range);
             
-            // 主动触发事件让内存层感知变动
-            e.target.dispatchEvent(new Event('blur'));
+            // 抛出通知，写回内存数组
+            const editor = e.target.closest('.strip-content-editor');
+            if (editor) {
+                const index = parseInt(editor.closest('.note-strip-card').getAttribute('data-index'));
+                updateMemory(index, 'content', editor.innerText);
+            }
         }
 
         function highlightText(text, keyword) {
