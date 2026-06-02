@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 终极健壮版路由中心 - 整合多维动态代码画布接口
+ * 终极健壮版路由中心 - 具备恶意大文件拦截、D1-KV 级联安全与多维代码画布存储架构
  */
 export async function onRequest(context) {
   const { request, env } = context;
@@ -18,28 +18,38 @@ export async function onRequest(context) {
   if (method === 'OPTIONS') return new Response(null, { headers });
 
   // ==========================================
-  // 📸 路由分支：读取 KV 中的自定义图片图标
+  // 📸 路由分支：读取 KV 中的自定义图片图标 (带健壮死图兜底)
   // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
     const placeholderPng = new Uint8Array([
       137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,11,73,68,65,84,120,156,99,96,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130
     ]);
+
     if (!kvKey) return new Response(placeholderPng, { headers: { ...headers, "Content-Type": "image/png" } });
+
     try {
       const imageBuffer = await env.IMAGE_KV.get(kvKey, { type: "arrayBuffer" });
       if (!imageBuffer) return new Response(placeholderPng, { headers: { ...headers, "Content-Type": "image/png" } });
+
       let contentType = "image/png";
       if (kvKey.endsWith(".jpg") || kvKey.endsWith(".jpeg")) contentType = "image/jpeg";
       if (kvKey.endsWith(".gif")) contentType = "image/gif";
       if (kvKey.endsWith(".webp")) contentType = "image/webp";
-      return new Response(imageBuffer, { headers: { 'Access-Control-Allow-Origin': '*', "Content-Type": contentType, "Cache-Control": "public, max-age=31536000, immutable" } });
+
+      return new Response(imageBuffer, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=31536000, immutable"
+        }
+      });
     } catch(e) {
       return new Response(placeholderPng, { headers: { ...headers, "Content-Type": "image/png" } });
     }
   }
 
-  // 统一鉴权逻辑
+  // 统一鉴权受保护的路由
   let userId = null;
   const isProtected = path.startsWith('/api/links') || path.startsWith('/api/user') || path.startsWith('/api/code-grid');
   
@@ -104,17 +114,29 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 📸 路由分支：用户直传图标
+    // 📸 路由分支：用户直传图标 (防溢出、大文件拦截机制)
     // ==========================================
     if (path === '/api/user/upload-icon' && method === 'POST') {
       const originalName = url.searchParams.get("name") || "icon.png";
       const extension = originalName.split('.').pop().toLowerCase();
       const kvKey = `user_${userId}_${Date.now()}.${extension}`;
+
       const imageBlob = await request.arrayBuffer();
-      if (!imageBlob || imageBlob.byteLength === 0) return new Response(JSON.stringify({ success: false, error: "上传文件不可为空" }), { status: 400, headers });
-      if (imageBlob.byteLength > 2 * 1024 * 1024) return new Response(JSON.stringify({ success: false, error: "图标体积不可超过 2MB" }), { status: 400, headers });
+      
+      if (!imageBlob || imageBlob.byteLength === 0) {
+        return new Response(JSON.stringify({ success: false, error: "上传文件不可为空" }), { status: 400, headers });
+      }
+
+      const maxAllowedSize = 2 * 1024 * 1024; // 2MB
+      if (imageBlob.byteLength > maxAllowedSize) {
+        return new Response(JSON.stringify({ success: false, error: "系统保护机制：图标体积不可超过 2MB" }), { status: 400, headers });
+      }
+
       await env.IMAGE_KV.put(kvKey, imageBlob);
-      return new Response(JSON.stringify({ success: true, kvKey, url: `/api/icon/${kvKey}` }), { headers: { ...headers, "Content-Type": "application/json" } });
+
+      return new Response(JSON.stringify({ success: true, kvKey: kvKey, url: `/api/icon/${kvKey}` }), {
+        headers: { ...headers, "Content-Type": "application/json" }
+      });
     }
 
     // ==========================================
@@ -132,7 +154,7 @@ export async function onRequest(context) {
       }
       if (action === 'login') {
         const user = await env.DB.prepare('SELECT id, username, settings FROM Web_online_users_00 WHERE username = ? AND password = ?').bind(username, password).first();
-        if (!user) return new Response(JSON.stringify({ success: false, error: '账号或密码错误' }), { status: 401, headers });
+        if (!user) return new Response(JSON.stringify({ success: false, error: '安全访问控制拒绝：账号或密码错误' }), { status: 401, headers });
         const token = btoa(`${user.id}:${user.username}`);
         return new Response(JSON.stringify({ success: true, token, username: user.username, settings: user.settings || '{"sensitivity": 50}' }), { headers });
       }
@@ -182,7 +204,31 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ success: true }), { headers });
     }
 
-    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers });
+    // ========================================== 
+    // 📝 路由分支四: 开发备忘文本记事本模块
+    // ========================================== 
+    if (path === '/api/notes') {
+      if (method === 'GET') {
+        const { results } = await env.DB.prepare('SELECT * FROM notes ORDER BY is_pinned DESC, created_at DESC').all();
+        return new Response(JSON.stringify(results), { headers });
+      }
+      const body = await request.json();
+      if (method === 'POST') {
+        await env.DB.prepare('INSERT INTO notes (content, is_pinned) VALUES (?, ?)').bind(body.content.trim(), body.is_pinned ? 1 : 0).run();
+        return new Response(JSON.stringify({ success: true }), { headers });
+      }
+      if (method === 'PUT') {
+        await env.DB.prepare('UPDATE notes SET content = ?, is_pinned = ? WHERE id = ?').bind(body.content.trim(), body.is_pinned ? 1 : 0, body.id).run();
+        return new Response(JSON.stringify({ success: true }), { headers });
+      }
+      if (method === 'DELETE') {
+        if (body.password !== '273573221') return new Response(JSON.stringify({ success: false, error: '管理密钥未通过' }), { status: 403, headers });
+        await env.DB.prepare('DELETE FROM notes WHERE id = ?').bind(body.id).run();
+        return new Response(JSON.stringify({ success: true }), { headers });
+      }
+    }
+
+    return new Response(JSON.stringify({ error: 'BAD_GATEWAY: Method Not Allowed' }), { status: 405, headers });
 
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers });
