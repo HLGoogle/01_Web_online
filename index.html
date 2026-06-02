@@ -59,12 +59,40 @@
         .add-placeholder { border: 1px dashed var(--border-color); background: transparent; display: none; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); height: 46px; border-radius: 4px; cursor: pointer; }
         body.edit-mode .add-placeholder { display: flex; }
         
-        /* 纯净级联悬浮备注窗样式，开启 pointer-events: none 防止死锁阻挡鼠标 */
         .note-popup { display: none; position: fixed; width: 260px; background: #161b22f2; backdrop-filter: blur(8px); border: 1px solid var(--accent-color); padding: 12px; border-radius: 6px; z-index: 9999; font-family: var(--font-mono); font-size: 11px; color: #88fa88; box-shadow: 0 4px 20px rgba(0,0,0,0.5); white-space: pre-wrap; word-break: break-all; pointer-events: none; }
         
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(2px); z-index: 3000; justify-content: center; align-items: center; }
         .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; width: 360px; }
         .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
+
+        /* 菜单面板悬浮展示增加滚动样式 */
+        .widget-menu {
+            position: absolute; top: 0; right: 0; width: 150px;
+            background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            opacity: 0; transform: scale(0.8) translate(10px, -10px);
+            transform-origin: top right; pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .top-widget:hover .widget-menu { opacity: 1; transform: scale(1) translate(0, 0); pointer-events: auto; }
+        .top-widget { position: fixed; top: 20px; right: 20px; z-index: 1000; display: none; }
+        body.logged-in .top-widget { display: block; }
+        .widget-trigger {
+            width: 36px; height: 36px; background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(5px); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.5);
+        }
+        .top-widget:hover .widget-trigger { opacity: 0; pointer-events: none; }
+        .user-info-box { font-size: 13px; font-weight: bold; color: #333; padding-bottom: 6px; border-bottom: 1px solid #eee; text-align: center; }
+        .menu-btn { width: 100%; padding: 7px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; text-align: center; transition: background 0.2s; font-weight: normal; }
+        .btn-toggle { background: #f0f5ff; color: #1890ff; }
+        .btn-settings { background: #f9f0ff; color: #722ed1; }
+        .btn-updates { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .btn-logout { background: transparent; color: #999; border: 1px solid #eee; margin-top: 5px; }
+        .btn-logout:hover { background: #fff1f0; color: #ff4d4f; border-color: #ffccc7; }
     </style>
 </head>
 <body>
@@ -72,9 +100,23 @@
     <header>
         <div><span class="status-sync-indicator" id="sync-status">⚡ 校验边缘终端...</span></div>
         <div class="top-controls">
-            <button class="ctrl-btn" onclick="openSettingsModal()"><i class="fas fa-sliders-h"></i> 全局设置</button>
-            <button class="ctrl-btn" onclick="toggleEditMode()" id="edit-mode-btn"><i class="fas fa-terminal"></i> 开启管理</button>
-            <button class="ctrl-btn btn-logout" onclick="logout()" id="logout-btn"><i class="fas fa-power-off"></i> 注销</button>
+            <div class="top-widget" id="top-bar">
+                <div class="widget-trigger"><span>⚙️</span></div>
+                <div class="widget-menu">
+                    <div class="user-info-box" id="welcome-msg">Hi, User</div>
+                    <button class="menu-btn btn-toggle" onclick="toggleEditMode()" id="edit-mode-btn">开启管理</button>
+                    <button class="menu-btn btn-settings" onclick="openSettingsModal()">⚙️ 全局设置</button>
+                    
+                    <button class="menu-btn" style="background: #1f242c; color: #58a6ff; border: 1px solid #388bfd4d; font-weight: bold;" onclick="window.open('/code-grid.html', '_blank')">
+                        <i class="fas fa-code"></i> 动态代码画布
+                    </button>
+
+                    <button class="menu-btn btn-updates" onclick="window.open('/02note/note.html', '_blank')">📝 下一季策划</button>
+                    <button class="menu-btn" style="background: #fff7e6; color: #fa8c16;" onclick="window.open('https://run.wow80.eu.cc/', '_blank')">👾 丛林跑酷</button>
+                    <button class="menu-btn" style="background: #e6fffb; color: #13c2c2;" onclick="window.open('https://www.baidu.com', '_blank')">⚔️ 网页传奇</button>
+                    <button class="menu-btn btn-logout" onclick="logout()">注销</button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -111,30 +153,12 @@
         <div class="modal-box">
             <div class="auth-title" id="link-modal-title">// LINK_CONFIG</div>
             <input type="hidden" id="link-id">
-            <div class="form-group">
-                <label class="form-label">// CATEGORY / 分类名称</label>
-                <input type="text" id="link-type" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">// TARGET_URL / 目标网址</label>
-                <input type="text" id="link-url" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">// ICON_SOURCE / 图标配置</label>
-                <input type="text" id="link-icon" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">// DISPLAY_NAME / 卡片标题</label>
-                <input type="text" id="link-comment" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">// SECRETS_NOTE / 注释信息</label>
-                <textarea id="link-note" class="form-input" style="height:60px; resize:none;"></textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label">// SORT_WEIGHT / 排序权重</label>
-                <input type="number" id="link-sort" class="form-input" value="0">
-            </div>
+            <div class="form-group"><label class="form-label">// CATEGORY / 分类名称</label><input type="text" id="link-type" class="form-input"></div>
+            <div class="form-group"><label class="form-label">// TARGET_URL / 目标网址</label><input type="text" id="link-url" class="form-input"></div>
+            <div class="form-group"><label class="form-label">// ICON_SOURCE / 图标配置</label><input type="text" id="link-icon" class="form-input"></div>
+            <div class="form-group"><label class="form-label">// DISPLAY_NAME / 卡片标题</label><input type="text" id="link-comment" class="form-input"></div>
+            <div class="form-group"><label class="form-label">// SECRETS_NOTE / 注释信息</label><textarea id="link-note" class="form-input" style="height:60px; resize:none;"></textarea></div>
+            <div class="form-group"><label class="form-label">// SORT_WEIGHT / 排序权重</label><input type="number" id="link-sort" class="form-input" value="0"></div>
             <div class="modal-footer">
                 <button class="ctrl-btn" onclick="closeLinkModal()">取消</button>
                 <button class="ctrl-btn" style="color:var(--accent-color); border-color:var(--accent-color);" onclick="submitLink()">应用配置</button>
@@ -146,7 +170,7 @@
         <div class="modal-box">
             <div class="auth-title">// GLOBAL_SETTINGS</div>
             <div class="form-group" style="border-bottom: 1px dashed var(--border-color); padding-bottom: 12px;">
-                <label class="form-label">// SENSITIVITY / 悬浮灵敏度 (系统保护：已切换为极速直显机制)</label>
+                <label class="form-label">// SENSITIVITY / 悬浮灵敏度 (保护：极速直显机制)</label>
                 <input type="range" id="setting-sensitivity" min="1" max="100" value="50" style="width: 100%; opacity: 0.5;">
             </div>
             <div class="form-group">
@@ -179,7 +203,7 @@
         function showUI() {
             const user = localStorage.getItem('nav_user');
             document.body.classList.add('logged-in');
-            document.getElementById('logout-btn').innerHTML = `<i class="fas fa-power-off"></i> [ ${user.toUpperCase()} ] 注销`;
+            document.getElementById('welcome-msg').textContent = `Hi, ${user.toUpperCase()}`;
         }
 
         function switchAuthMode(mode) {
@@ -197,32 +221,29 @@
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
             const indicator = document.getElementById('sync-status');
-            
             const cachedLinks = localStorage.getItem('cached_links_data');
             if (cachedLinks) {
                 try {
                     allLinks = JSON.parse(cachedLinks);
                     renderLinks(); 
                     indicator.className = "status-sync-indicator cached";
-                    indicator.textContent = "⚠️ 离线浏览 // 当前正使用本地缓存渲染画布";
+                    indicator.textContent = "⚠️ 离线浏览 // 本地缓存画布";
                 } catch(e){}
             }
-
             try {
                 const res = await fetch(API_LINKS, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401) { logout(); return; }
                 const freshLinks = await res.json();
-
                 if (JSON.stringify(freshLinks) !== cachedLinks) {
                     allLinks = freshLinks;
                     localStorage.setItem('cached_links_data', JSON.stringify(freshLinks));
                     renderLinks(); 
                 }
                 indicator.className = "status-sync-indicator synced";
-                indicator.textContent = "⚙️ 系统就绪 // 已实时对齐 D1 数据库独立账号层";
+                indicator.textContent = "⚙️ 系统就绪 // 已实时对齐 D1 数据库独立层";
             } catch (err) {
                 indicator.className = "status-sync-indicator cached";
-                indicator.textContent = "⚠️ 离线浏览 // 维持本地强缓存运行";
+                indicator.textContent = "⚠️ 离线浏览 // 维持强缓存运行";
             }
         }
 
@@ -261,7 +282,6 @@
             const item = document.createElement('div'); item.className = 'link-item';
             const imgId = `img-node-${link.id}`;
             let iconHtml = '';
-            
             if (link.icon && link.icon.startsWith('user_')) {
                 iconHtml = `<img id="${imgId}" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><rect width='24' height='24' fill='%2321262d'/></svg>">`;
                 fetchAndCacheIcon(`/api/icon/${link.icon}`, imgId);
@@ -269,10 +289,9 @@
                 const textIcon = link.icon ? link.icon.slice(0, 2) : (link.comment || '无').slice(0, 2);
                 iconHtml = `<span class="text-icon-wrapper">${textIcon}</span>`;
             }
-
             item.innerHTML = `
                 <div class="edit-controls">
-                    <button class="mini-btn upload" title="上传专属KV图片" onclick="event.stopPropagation();triggerIconUpload(${link.id})"><i class="fas fa-upload"></i></button>
+                    <button class="mini-btn upload" title="上传" onclick="event.stopPropagation();triggerIconUpload(${link.id})"><i class="fas fa-upload"></i></button>
                     <button class="mini-btn" onclick="event.stopPropagation();openLinkModal(${link.id})">✎</button>
                     <button class="mini-btn del" onclick="event.stopPropagation();deleteLink(${link.id})">×</button>
                 </div>
@@ -281,10 +300,7 @@
                     <div class="link-comment">${link.comment || '无标题'}</div>
                 </div>
             `;
-
             item.onclick = () => { if (isEditMode) return; window.open(link.url.startsWith('http') ? link.url : 'http://' + link.url, '_blank'); };
-            
-            // ⚡ 终极健壮前端解耦：移除了多余的位置跟踪和异步黏连，滑入即刻显现，滑出绝对斩断
             if (link.note) {
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = () => {
@@ -293,13 +309,9 @@
                     const rect = item.getBoundingClientRect(); 
                     let left = rect.right + 8;
                     if (left + 260 > window.innerWidth) left = rect.left - 270;
-                    popup.style.left = left + 'px'; 
-                    popup.style.top = rect.top + 'px';
-                    popup.style.display = 'block';
+                    popup.style.left = left + 'px'; popup.style.top = rect.top + 'px'; popup.style.display = 'block';
                 };
-                item.onmouseleave = () => {
-                    popup.style.display = 'none'; // 坚决斩断，绝不留存任何残留定时器
-                };
+                item.onmouseleave = () => { popup.style.display = 'none'; };
             }
             return item;
         }
@@ -310,33 +322,21 @@
                 if (imgNode) imgNode.src = url;
                 return;
             }
-            
             const cache = await caches.open(CACHE_NAME);
             const cachedResponse = await cache.match(url);
-
             const mountAndReleaseBlob = async (responseObj) => {
                 const blob = await responseObj.blob();
                 const blobUrl = URL.createObjectURL(blob);
                 const imgNode = document.getElementById(targetImgId);
-                if (imgNode) {
-                    imgNode.src = blobUrl;
-                    imgNode.onload = () => { URL.revokeObjectURL(blobUrl); };
-                }
+                if (imgNode) { imgNode.src = blobUrl; imgNode.onload = () => { URL.revokeObjectURL(blobUrl); }; }
             };
-
             if (cachedResponse) {
                 await mountAndReleaseBlob(cachedResponse);
-                const bypassUrl = url + '?_ts=' + Date.now();
-                fetch(bypassUrl).then(networkResponse => {
-                    if (networkResponse.status === 200) { cache.put(url, networkResponse); }
-                }).catch(()=>{});
+                fetch(url + '?_ts=' + Date.now()).then(networkResponse => { if (networkResponse.status === 200) { cache.put(url, networkResponse); } }).catch(()=>{});
             } else {
                 try {
                     const response = await fetch(url);
-                    if (response.status === 200) {
-                        await cache.put(url, response.clone());
-                        await mountAndReleaseBlob(response);
-                    }
+                    if (response.status === 200) { await cache.put(url, response.clone()); await mountAndReleaseBlob(response); }
                 } catch(e) {
                     const imgNode = document.getElementById(targetImgId);
                     if (imgNode) imgNode.src = url;
@@ -348,43 +348,22 @@
 
         async function handleIconFileSelected(inputElement) {
             const file = inputElement.files[0]; if (!file || !currentTargetLinkId) return;
-            
-            if (file.size > 2 * 1024 * 1024) {
-                alert("安全拦截：图标文件过大（不可超过 2MB），已终止直传！");
-                inputElement.value = '';
-                return;
-            }
-
+            if (file.size > 2 * 1024 * 1024) { alert("文件过大（不可超过 2MB）"); inputElement.value = ''; return; }
             const token = localStorage.getItem('nav_token');
-            document.getElementById('sync-status').textContent = "⏳ 正在直传图片资产至 Workers KV 空间...";
-
+            document.getElementById('sync-status').textContent = "⏳ 正在直传图片资产...";
             try {
-                const res = await fetch(`/api/user/upload-icon?name=${encodeURIComponent(file.name)}`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: file
-                });
-                
-                if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.error || "服务器拒绝接收");
-                }
-                
+                const res = await fetch(`/api/user/upload-icon?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: file });
+                if (!res.ok) throw new Error("拒绝接收");
                 const uploadResult = await res.json();
-                
                 if (uploadResult.success) {
                     const targetLink = allLinks.find(l => l.id === currentTargetLinkId);
                     if (targetLink) {
                         targetLink.icon = uploadResult.kvKey;
-                        await fetch(API_LINKS, {
-                            method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                            body: JSON.stringify(targetLink)
-                        });
-                        if ('caches' in window) {
-                            const cache = await caches.open(CACHE_NAME);
-                            await cache.delete(`/api/icon/${uploadResult.kvKey}`);
-                        }
+                        await fetch(API_LINKS, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(targetLink) });
+                        if ('caches' in window) { const cache = await caches.open(CACHE_NAME); await cache.delete(`/api/icon/${uploadResult.kvKey}`); }
                         loadLinks();
                     }
-                } else { alert('直传终止: ' + uploadResult.error); }
+                }
             } catch (e) { alert('存储资产失败: ' + e.message); }
             finally { inputElement.value = ''; currentTargetLinkId = null; }
         }
@@ -404,10 +383,7 @@
             userSettings.categoryOrder = document.getElementById('setting-category-order').value.trim();
             localStorage.setItem('nav_settings', JSON.stringify(userSettings));
             document.getElementById('settings-modal').style.display = 'none'; renderLinks();
-            try {
-                const token = localStorage.getItem('nav_token');
-                await fetch(API_USER, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ settings: userSettings }) });
-            } catch(e){}
+            try { const token = localStorage.getItem('nav_token'); await fetch(API_USER, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ settings: userSettings }) }); } catch(e){}
         }
         function openLinkModal(id = null, prefillType = '') {
             document.getElementById('link-id').value = ''; document.getElementById('link-type').value = prefillType;
@@ -439,7 +415,7 @@
             if (res.ok) { closeLinkModal(); loadLinks(); }
         }
         async function deleteLink(id) {
-            if (!confirm('确认要物理注销此卡片记录？')) return;
+            if (!confirm('确认注销卡片？')) return;
             const token = localStorage.getItem('nav_token');
             const res = await fetch(API_LINKS, { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id }) });
             if (res.ok) loadLinks();
@@ -459,7 +435,7 @@
                         localStorage.setItem('nav_token', data.token); localStorage.setItem('nav_user', data.username);
                         if (data.settings) { localStorage.setItem('nav_settings', data.settings); try { userSettings = JSON.parse(data.settings); } catch(e){} }
                         document.getElementById('auth-panel').style.display = 'none'; showUI(); loadLinks();
-                    } else { alert('指令验证执行通过'); switchAuthMode('login'); }
+                    } else { alert('指令验证通过'); switchAuthMode('login'); }
                 } else { msg.textContent = `>> ERROR: ${data.error || 'BAD_REQUEST'}`; }
             } catch(e) { msg.textContent = '>> ERROR: CONN_TIMEOUT'; }
         }
