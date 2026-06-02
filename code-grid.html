@@ -28,7 +28,7 @@
         /* 📜 紧凑流水线记事条容器 */
         .note-stream-list { display: flex; flex-direction: column; gap: 10px; width: 100%; min-height: 200px; }
         
-        /* 单条卡片样式 */
+        /* 单条紧凑流水线记事卡片 */
         .note-strip-card { 
             display: flex; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-color); 
             border-radius: 6px; padding: 10px 14px; align-items: flex-start; position: relative;
@@ -36,41 +36,46 @@
         }
         .note-strip-card:hover { border-color: #444c56; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         
-        /* 🎯 核心魔改：只有左侧这个手柄才允许触发拖拽 */
-        .drag-handle { 
-            color: var(--text-muted); padding: 4px; font-size: 14px; 
-            user-select: none; display: flex; align-items: center; height: 32px;
-            cursor: grab; /* 明确的抓取提示 */
-        }
+        /* 🔀 智能拖拽换位手柄 */
+        .drag-handle { color: var(--text-muted); padding: 4px; font-size: 14px; user-select: none; display: flex; align-items: center; height: 32px; cursor: grab; }
         .drag-handle:active { cursor: grabbing; color: var(--accent-color); }
-        
-        /* 被动激活拖拽状态下的卡片样式 */
         .note-strip-card.dragging { opacity: 0.3; border: 1px dashed var(--accent-color); background: #1f242c; }
         
-        /* 内部主体区 */
+        /* 记事条内部内容区 */
         .strip-main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         
-        /* 功能标题字段 */
+        /* 功能标题输入框字段 */
         .strip-title-field { 
             font-size: 13px; font-weight: bold; color: var(--accent-color); background: transparent;
             border: none; outline: none; width: 100%; padding: 2px 0; border-bottom: 1px dashed transparent;
         }
         .strip-title-field:focus { border-bottom-color: var(--accent-color); color: #fff; }
         
-        /* 多行代码块编辑区 */
+        /* 🛠️ 核心优化：高密度智能限高、防超长代码框 */
         .strip-content-editor { 
-            width: 100%; min-height: 38px; background: transparent; color: #e6edf3;
-            outline: none; font-family: var(--font-mono); font-size: 13px;
-            line-height: 1.5; white-space: pre-wrap; word-break: break-all;
-            tab-size: 4; -moz-tab-size: 4; padding: 2px 0;
+            width: 100%; 
+            max-height: 240px; /* 🎯 限制最高高度，超过后自动收纳 */
+            min-height: 38px; 
+            background: transparent; 
+            color: #e6edf3;
+            outline: none; 
+            font-size: 13px;
+            line-height: 1.5; 
+            white-space: pre-wrap; 
+            word-break: break-all;
+            tab-size: 4; -moz-tab-size: 4; 
+            padding: 2px 0;
+            overflow-y: auto; /* 🎯 超过限高自动出现内部滚动条 */
+            transition: max-height 0.2s ease;
         }
-        .strip-content-editor:focus { background: rgba(56, 139, 253, 0.03); }
+        /* 💡 交互小彩蛋：鼠标聚焦正在打字或修改时，自动展开高度方便操作 */
+        .strip-content-editor:focus { max-height: 600px; background: rgba(56, 139, 253, 0.02); }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
-        /* 全局高亮定位 */
+        /* 🔍 检索黄色高亮 */
         .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
         
-        /* 感应式删除按钮 */
+        /* 隐藏感应式擦除按钮 */
         .strip-del-btn { 
             position: absolute; top: 10px; right: 12px; background: transparent; border: none;
             color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 4px;
@@ -84,7 +89,7 @@
 
     <header>
         <div class="terminal-title"><i class="fas fa-stream"></i> D1_NOTE_STREAM_FLOW // 流式记事终端</div>
-        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 选中左侧 ☰ 题头激活插队，后面数据区自由划选复制</div>
+        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 选中左侧 ☰ 题头激活插队，复制来的代码会自动剔除格式与背景色</div>
     </header>
 
     <div class="toolbar">
@@ -120,7 +125,7 @@
                         sort_order: 0,
                         data: {
                             title: "欢迎使用全新流式记事终端",
-                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 📢 鼠标只有点按住左侧（☰）才能拖动插队排序！后面的文字可以随意划选复制，不再误触！"
+                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 📢 复制带有复杂颜色背景的代码进来时，系统会自动洗掉格式，只存纯文本！"
                         }
                     }];
                 }
@@ -147,26 +152,53 @@
 
                 const card = document.createElement('div');
                 card.className = 'note-strip-card';
-                card.setAttribute('data-index', index); // 注意：移除外层的 draggable="true"
+                card.setAttribute('data-index', index);
 
                 card.innerHTML = `
                     <div class="drag-handle" draggable="true"><i class="fas fa-bars"></i></div>
-                    
                     <div class="strip-main-body">
                         <input type="text" class="strip-title-field" 
                                value="${titleText}" 
                                placeholder="// 输入功能/技术片段标题"
                                onchange="updateMemory(${index}, 'title', this.value)">
+                        
                         <div class="strip-content-editor" 
                              contenteditable="true"
                              onblur="updateMemory(${index}, 'content', this.innerText)"
                              onkeydown="handleTabKey(event)"
+                             onpaste="handlePureTextPaste(event)"
                              placeholder="// 点击此处录入随身备忘逻辑、代码判定宏...">${highlightText(contentText, keyword)}</div>
                     </div>
                     <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
                 `;
                 container.appendChild(card);
             });
+        }
+
+        // ✨ 终极核心优化：强制拦截富文本，洗掉任何原网页携带的背景色与字体格式
+        function handlePureTextPaste(e) {
+            e.preventDefault(); // 强行切断系统默认的富文本粘贴行为
+            
+            // 仅仅抓取纯文字字符串
+            const plainText = (e.originalEvent || e).dataTransfer.getData('text/plain');
+            
+            // 执行光标定点原生干净插入
+            const sel = window.getSelection();
+            if (!sel.rangeCount) return;
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            
+            const textNode = document.createTextNode(plainText);
+            range.insertNode(textNode);
+            
+            // 将输入光标平滑移动到粘贴文本的末尾
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            
+            // 主动触发事件让内存层感知变动
+            e.target.dispatchEvent(new Event('blur'));
         }
 
         function highlightText(text, keyword) {
@@ -212,20 +244,13 @@
             renderStream(query);
         }
 
-        // 🔀 高级重构：手柄级动态定位插队拖拽引擎
         function initDragAndDropEngine() {
             const container = document.getElementById('note-stream-container');
-            let dragSrcCard = null; // 实际用来移动的整条卡片块
+            let dragSrcCard = null;
 
-            // 1. 拖拽开始：判断是否从手柄触发
             container.addEventListener('dragstart', function(e) {
                 const handle = e.target.closest('.drag-handle');
-                if (!handle) {
-                    e.preventDefault(); // 如果不是点中 ☰ 手柄，直接掐断本次拖拽行为
-                    return;
-                }
-                
-                // 向上冒泡定位到所属的整条记事条卡片
+                if (!handle) { e.preventDefault(); return; }
                 dragSrcCard = handle.closest('.note-strip-card');
                 if (dragSrcCard) {
                     dragSrcCard.classList.add('dragging');
@@ -233,22 +258,17 @@
                 }
             });
 
-            // 2. 拖拽滑过邻近卡片
             container.addEventListener('dragover', function(e) {
                 e.preventDefault();
                 const overCard = e.target.closest('.note-strip-card');
                 if (!overCard || overCard === dragSrcCard) return;
-                
                 const rect = overCard.getBoundingClientRect();
                 const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
                 container.insertBefore(dragSrcCard, next ? overCard.nextSibling : overCard);
             });
 
-            // 3. 拖拽完成：物理校准定序
             container.addEventListener('dragend', function(e) {
-                if (dragSrcCard) {
-                    dragSrcCard.classList.remove('dragging');
-                }
+                if (dragSrcCard) dragSrcCard.classList.remove('dragging');
 
                 const allCurrentDOMs = Array.from(container.querySelectorAll('.note-strip-card'));
                 const reorderedItems = [];
