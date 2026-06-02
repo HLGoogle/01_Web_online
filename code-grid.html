@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Canvas // 流式记事画布</title>
+    <title>Stream Canvas // 流式记事终端</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -25,10 +25,10 @@
         .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 14px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-weight: bold; }
         .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
         
-        /* 📜 紧凑记事流水线容器 */
+        /* 📜 紧凑流水线记事条容器 */
         .note-stream-list { display: flex; flex-direction: column; gap: 10px; width: 100%; min-height: 200px; }
         
-        /* 单条记事卡片样式 */
+        /* 单条紧凑流水线记事卡片 */
         .note-strip-card { 
             display: flex; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-color); 
             border-radius: 6px; padding: 10px 14px; align-items: flex-start; position: relative;
@@ -36,36 +36,35 @@
         }
         .note-strip-card:hover { border-color: #444c56; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         
-        /* 🔀 强悍的拖拽手柄样式 */
+        /* 🔀 智能拖拽换位手柄 */
         .drag-handle { color: var(--text-muted); cursor: grab; padding: 4px; font-size: 14px; user-select: none; display: flex; align-items: center; height: 32px; }
         .drag-handle:active { cursor: grabbing; color: var(--accent-color); }
-        
-        /* 拖拽状态中样式的视觉绑定 */
         .note-strip-card.dragging { opacity: 0.4; border: 1px dashed var(--accent-color); background: #1f242c; }
         
-        /* 记事条主体内容 */
+        /* 记事条内部内容区 */
         .strip-main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         
-        /* 功能标题框 */
+        /* 功能标题输入框字段 */
         .strip-title-field { 
             font-size: 13px; font-weight: bold; color: var(--accent-color); background: transparent;
             border: none; outline: none; width: 100%; padding: 2px 0; border-bottom: 1px dashed transparent;
         }
         .strip-title-field:focus { border-bottom-color: var(--accent-color); color: #fff; }
         
-        /* 多行代码与内容框 */
+        /* 多行随身逻辑与代码编辑器 */
         .strip-content-editor { 
-            font-size: 13px; line-height: 1.5; color: #e6edf3; background: transparent;
-            outline: none; white-space: pre-wrap; word-break: break-all; width: 100%;
-            tab-size: 4; -moz-tab-size: 4; min-height: 38px;
+            width: 100%; min-height: 38px; background: transparent; color: #e6edf3;
+            outline: none; font-family: var(--font-mono); font-size: 13px;
+            line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+            tab-size: 4; -moz-tab-size: 4; padding: 2px 0;
         }
         .strip-content-editor:focus { background: rgba(56, 139, 253, 0.03); }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
-        /* 🔍 本地全局实时搜索定位黄色强显 */
+        /* 🔍 检索黄色高亮强显定位 */
         .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
         
-        /* 悬浮隐藏式擦除按钮 */
+        /* 隐藏感应式擦除按钮 */
         .strip-del-btn { 
             position: absolute; top: 10px; right: 12px; background: transparent; border: none;
             color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 4px;
@@ -85,7 +84,7 @@
     <div class="toolbar">
         <input type="text" id="global-search" class="search-box" placeholder="🔍 全局搜索过滤并精确定位代码/随身笔记..." oninput="handleSearch()">
         <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 录入新记事条</button>
-        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 同步到云端 D1</button>
+        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量数据保存 (同步D1)</button>
     </div>
 
     <div class="note-stream-list" id="note-stream-container"></div>
@@ -96,38 +95,37 @@
 
         window.onload = async function() {
             if (!token) {
-                alert("未检测到统一登录验证态，请返回主页重新连接终端！");
+                alert("未检测到有效登录验证态，请返回主页建立统一鉴权连接！");
                 return;
             }
             await fetchStreamData();
             initDragAndDropEngine();
         };
 
-        // 从 D1 加载全量行记事数据
+        // 从 D1 加载数据
         async function fetchStreamData() {
             try {
                 const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
                 const result = await res.json();
-                noteItems = result.rows;
+                noteItems = result.rows || [];
                 
-                // 初次使用无数据时，刷入一段硬核 Lua 示例作为引导
                 if (noteItems.length === 0) {
                     noteItems = [{
                         id: null,
                         sort_order: 0,
                         data: {
-                            title: "魔峰成品库 - 心灵冰冻条件判定",
-                            content: "local j = BeeStringFind(jineng, BeeUnitCastSpellName(target))\nif BeelsRun(\"心灵冰冻\") and j and Castingtime - time > 0.9 then\n    BeeRun(\"心灵冰冻\")\nend"
+                            title: "欢迎使用全新流式记事终端",
+                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 鼠标按住左侧三横杠（☰）手柄，可以随时上下拖动换位插队"
                         }
                     }];
                 }
                 renderStream();
             } catch (e) {
-                document.getElementById('sync-indicator').textContent = "❌ 存储网络级联中断";
+                document.getElementById('sync-indicator').textContent = "❌ 存储网络群集连接断开";
             }
         }
 
-        // 核心渲染流
+        // 视图渲染流
         function renderStream(keyword = '') {
             const container = document.getElementById('note-stream-container');
             container.innerHTML = '';
@@ -136,15 +134,13 @@
                 const titleText = item.data.title || '';
                 const contentText = item.data.content || '';
 
-                // 本地全局模糊多维筛选过滤
                 if (keyword) {
                     const lowerKey = keyword.toLowerCase();
                     const isTitleMatch = titleText.toLowerCase().includes(lowerKey);
                     const isContentMatch = contentText.toLowerCase().includes(lowerKey);
-                    if (!isTitleMatch && !isContentMatch) return; // 没命中直接过滤隐藏
+                    if (!isTitleMatch && !isContentMatch) return; 
                 }
 
-                // 创建记事条物理 DOM 节点并赋予原生拖拽容器属性
                 const card = document.createElement('div');
                 card.className = 'note-strip-card';
                 card.setAttribute('draggable', 'true');
@@ -152,28 +148,23 @@
 
                 card.innerHTML = `
                     <div class="drag-handle"><i class="fas fa-bars"></i></div>
-                    
                     <div class="strip-main-body">
                         <input type="text" class="strip-title-field" 
                                value="${titleText}" 
-                               placeholder="// 未命名功能标题"
+                               placeholder="// 输入功能/技术片段标题"
                                onchange="updateMemory(${index}, 'title', this.value)">
-                        
                         <div class="strip-content-editor" 
                              contenteditable="true"
                              onblur="updateMemory(${index}, 'content', this.innerText)"
                              onkeydown="handleTabKey(event)"
                              placeholder="// 点击此处录入随身备忘逻辑、代码判定宏...">${highlightText(contentText, keyword)}</div>
                     </div>
-                    
                     <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
                 `;
-
                 container.appendChild(card);
             });
         }
 
-        // 🔍 全局精准高亮定位引擎
         function highlightText(text, keyword) {
             if (!keyword) return text;
             const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -181,14 +172,10 @@
             return text.replace(regex, `<span class="txt-highlight">$1</span>`);
         }
 
-        // 内存写回
         function updateMemory(index, field, value) {
-            if (noteItems[index]) {
-                noteItems[index].data[field] = value;
-            }
+            if (noteItems[index]) { noteItems[index].data[field] = value; }
         }
 
-        // 支持 Tab 物理 4 空格代码防焦跳缩进
         function handleTabKey(e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -203,7 +190,6 @@
             }
         }
 
-        // 录入新记事条（默认塞到队列顶端，方便快速书写）
         function addNewNoteStrip() {
             noteItems.unshift({
                 id: null,
@@ -211,55 +197,43 @@
                 data: { title: '', content: '' }
             });
             renderStream();
-            // 让第一个新生成的标题框立刻获取焦点
             setTimeout(() => {
                 const firstTitle = document.querySelector('.strip-title-field');
                 if (firstTitle) firstTitle.focus();
             }, 50);
         }
 
-        // 执行本地检索过滤分流
         function handleSearch() {
             const query = document.getElementById('global-search').value.trim();
             renderStream(query);
         }
 
-        // ==========================================
-        // 🔀 核心重构：Excel 级别拖拽换位插队引擎
-        // ==========================================
+        // 拖拽定序算法
         function initDragAndDropEngine() {
             const container = document.getElementById('note-stream-container');
             let dragSrcElement = null;
 
-            // 1. 开始拖拽
             container.addEventListener('dragstart', function(e) {
                 const card = e.target.closest('.note-strip-card');
                 if (!card) return;
-                
                 dragSrcElement = card;
                 card.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
             });
 
-            // 2. 拖拽划过邻近单元
             container.addEventListener('dragover', function(e) {
                 e.preventDefault();
                 const overCard = e.target.closest('.note-strip-card');
                 if (!overCard || overCard === dragSrcElement) return;
-
-                // 判断当前鼠标距离划入卡片的中线高度，决定是在上方还是下方插入
                 const rect = overCard.getBoundingClientRect();
                 const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-                
                 container.insertBefore(dragSrcElement, next ? overCard.nextSibling : overCard);
             });
 
-            // 3. 拖拽完成松开鼠标，触发物理内存对齐与重新定序
             container.addEventListener('dragend', function(e) {
                 const card = e.target.closest('.note-strip-card');
                 if (card) card.classList.remove('dragging');
 
-                // 扫描最新的真实 DOM 排列顺序，重组全量数据内存排序
                 const allCurrentDOMs = Array.from(container.querySelectorAll('.note-strip-card'));
                 const reorderedItems = [];
 
@@ -267,22 +241,20 @@
                     const originalIndex = parseInt(dom.getAttribute('data-index'));
                     const targetItem = noteItems[originalIndex];
                     if (targetItem) {
-                        targetItem.sort_order = newOrder; // 赋予最新的物理行排序权重
+                        targetItem.sort_order = newOrder; 
                         reorderedItems.push(targetItem);
                     }
                 });
 
                 noteItems = reorderedItems;
-                // 重新刷新局部视图以绑定正确的 index 节点
                 renderStream();
-                document.getElementById('sync-indicator').textContent = "⏳ 排序已发生变更，请记得点击同步保存云端";
+                document.getElementById('sync-indicator').textContent = "⏳ 排序已变更，请记得点击同步保存";
             });
         }
 
-        // 全量对齐并持久化存储 D1 边缘群集
         async function syncStreamToD1() {
             const indicator = document.getElementById('sync-indicator');
-            indicator.textContent = "⏳ 正在校准云端多维流水线定序...";
+            indicator.textContent = "⏳ 正在对齐云端数据定序...";
             try {
                 for (let item of noteItems) {
                     await fetch('/api/code-grid', {
@@ -291,17 +263,16 @@
                         body: JSON.stringify(item)
                     });
                 }
-                indicator.textContent = "⚡ 云端记事条资产对齐一致";
+                indicator.textContent = "⚡ 云端记事资产已完全对齐";
                 await fetchStreamData();
-                alert("✨ 同步成功！拖拽更新后的全新行次序已完美写入 D1。");
+                alert("✨ 同步成功！干净的新格式记事数据已安全持久化。");
             } catch (e) {
-                indicator.textContent = "❌ 级联更新流终止";
+                indicator.textContent = "❌ 级联更新同步失败";
             }
         }
 
-        // 物理擦除记事条记录
         async function deleteStripAction(id, index) {
-            if (!confirm("确认要从边缘集群中物理清除本条记事数据吗？此操作不可逆！")) return;
+            if (!confirm("确认要物理清除本条记事数据吗？此操作不可逆！")) return;
             if (!id) {
                 noteItems.splice(index, 1);
                 renderStream();
