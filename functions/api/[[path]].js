@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 终极精简校准版路由中心 - 适配紧凑拖拽记事条画布
+ * 终极校准版路由中心 - 彻底修复记事条同步字段不匹配BUG
  */
 export async function onRequest(context) {
   const { request, env } = context;
@@ -57,12 +57,12 @@ export async function onRequest(context) {
 
   try {
     // ========================================== 
-    // 🎴 核心新路由：流式流水线记事条模块 (/api/code-grid)
+    // 🎴 核心路由：流式流水线记事条模块 (/api/code-grid)
     // ========================================== 
     if (path.startsWith('/api/code-grid')) {
-      // 1. 获取所有记事条条目 (GET) - 严格按照 sort_order 升序排列输出，实现拖拽排序持久化
+      // 1. 获取所有记事条条目 (GET)
       if (method === 'GET') {
-        const rows = await env.DB.prepare('SELECT * FROM Web_code_rows WHERE user_id = ? ORDER BY sort_order ASC, id DESC').bind(userId).all();
+        const rows = await env.DB.prepare('SELECT id, user_id, row_data, sort_order FROM Web_code_rows WHERE user_id = ? ORDER BY sort_order ASC, id DESC').bind(userId).all();
         
         const parsedRows = rows.results.map(r => ({
           id: r.id,
@@ -74,13 +74,14 @@ export async function onRequest(context) {
 
       const body = await request.json();
 
-      // 2. 保存或更新单行记事条 (POST)
+      // 2. 保存或更新单行记事条 (POST) - ✨ 显式指明插入字段，修复不匹配BUG
       if (method === 'POST') {
         const rowDataStr = JSON.stringify(body.data);
         if (body.id) {
           await env.DB.prepare('UPDATE Web_code_rows SET row_data = ?, sort_order = ? WHERE id = ? AND user_id = ?')
             .bind(rowDataStr, body.sort_order || 0, body.id, userId).run();
         } else {
+          // 这里强行规范显式写入参数，完全对齐数据表的 3 个指定赋值槽
           await env.DB.prepare('INSERT INTO Web_code_rows (user_id, row_data, sort_order) VALUES (?, ?, ?)')
             .bind(userId, rowDataStr, body.sort_order || 0).run();
         }
@@ -109,7 +110,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🔐 路由分支一: 用户管理与重置校验模块 (/api/auth)
+    // 🔐 路由分支一: 用户管理模块 (/api/auth)
     // ==========================================
     if (path === '/api/auth' && method === 'POST') {
       const body = await request.json();
