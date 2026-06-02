@@ -1,95 +1,44 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>Stream Canvas // 流式记事终端</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        :root { --bg-main: #0d1117; --bg-card: #161b22; --accent-color: #58a6ff; --accent-danger: #f85149; }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Consolas', monospace; }
-        body { background-color: var(--bg-main); color: #c9d1d9; padding: 10px; }
-        
-        .note-stream-list { display: flex; flex-direction: column; gap: 4px; }
-        .note-strip-card { 
-            display: flex; gap: 8px; background: var(--bg-card); border: 1px solid #30363d; 
-            border-radius: 3px; padding: 4px 8px; align-items: flex-start; height: 32px; overflow: hidden;
-            transition: height 0.2s;
-        }
-        .note-strip-card.expanded { height: auto; min-height: 100px; }
-        
-        .drag-handle { color: #8b949e; cursor: grab; padding: 4px; }
-        .strip-main-body { flex: 1; display: flex; gap: 8px; min-width: 0; }
-        
-        /* 标题 */
-        .strip-title-field { color: var(--accent-color); font-weight: bold; background: none; border: none; outline: none; width: 150px; flex-shrink: 0; }
-        
-        /* 编辑区：直接在该区域内实现语法着色，不用双层堆叠 */
-        .strip-content-editor { 
-            flex: 1; outline: none; font-size: 13px; line-height: 22px; white-space: nowrap; overflow: hidden;
-            color: #e6edf3;
-        }
-        .note-strip-card.expanded .strip-content-editor { white-space: pre-wrap; word-break: break-all; }
-        
-        /* 语法高亮类 */
-        .lua-kw { color: #ff79c6; font-weight: bold; }
-        .lua-macro { color: #ff5555; font-weight: bold; }
-        .lua-func { color: #50fa7b; }
-        .lua-comment { color: #6272a4; font-style: italic; }
-        
-        .strip-del-btn { background: none; border: none; color: #444; cursor: pointer; padding: 4px; }
-        .note-strip-card:hover .strip-del-btn { color: #666; }
-        .strip-del-btn:hover { color: var(--accent-danger); }
-    </style>
-</head>
-<body>
-    <div class="toolbar" style="margin-bottom:10px;">
-        <button class="ctrl-btn" onclick="addNewNoteStrip()" style="padding:4px 8px;">新增记事</button>
-        <button class="ctrl-btn" onclick="syncStreamToD1()" style="padding:4px 8px;">保存同步</button>
-    </div>
-    <div class="note-stream-list" id="note-stream-container"></div>
+function runLuaHighlighter(text, keyword) {
+    if (!text) return '';
+    // 修正：用正则转义处理 HTML 特殊字符
+    let html = text.replace(/&/g, "&amp;")
+                   .replace(/</g, "&lt;")
+                   .replace(/>/g, "&gt;");
 
-    <script>
-        let noteItems = [];
-        const token = localStorage.getItem('nav_token');
+    // 1. 字符串高亮
+    html = html.replace(/(".*?")/g, '<span class="lua-str">$1</span>');
 
-        // 核心高亮：直接在输入内容时转换
-        function applyHighlight(text) {
-            let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            html = html.replace(/\b(local|if|then|end|and|or)\b/g, '<span class="lua-kw">$1</span>');
-            html = html.replace(/(\/click|\/cast|\/use|\/run)\b/g, '<span class="lua-macro">$1</span>');
-            html = html.replace(/(--.*)/g, '<span class="lua-comment">$1</span>');
-            return html;
-        }
+    // 2. Lua 关键字
+    const keywords = ['local', 'if', 'then', 'end', 'and', 'or', 'else', 'elseif', 'return', 'function'];
+    keywords.forEach(kw => {
+        const reg = new RegExp(`\\b(${kw})\\b`, 'g');
+        html = html.replace(reg, '<span class="lua-kw">$1</span>');
+    });
 
-        function renderStream() {
-            const container = document.getElementById('note-stream-container');
-            container.innerHTML = '';
-            noteItems.forEach((item, index) => {
-                const card = document.createElement('div');
-                card.className = 'note-strip-card';
-                card.innerHTML = `
-                    <div class="drag-handle" draggable="true"><i class="fas fa-bars"></i></div>
-                    <div class="strip-main-body">
-                        <input class="strip-title-field" value="${item.data.title || ''}" onchange="noteItems[${index}].data.title=this.value">
-                        <div class="strip-content-editor" contenteditable="true" 
-                             oninput="noteItems[${index}].data.content=this.innerText"
-                             onblur="this.innerHTML=applyHighlight(this.innerText)">${applyHighlight(item.data.content || '')}</div>
-                    </div>
-                    <button class="strip-del-btn" onclick="this.closest('.note-strip-card').classList.toggle('expanded')"><i class="fas fa-expand-arrows-alt"></i></button>
-                    <button class="strip-del-btn" onclick="del(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
-                `;
-                container.appendChild(card);
-            });
-        }
+    // 3. 宏命令高亮
+    const macroCommands = ['/click', '/cast', '/use', '/run', '/script', '/target', '/clearfocus'];
+    macroCommands.forEach(cmd => {
+        const escapedCmd = cmd.replace('/', '\\/');
+        const reg = new RegExp(`(${escapedCmd})\\b`, 'g');
+        html = html.replace(reg, '<span class="lua-macro">$1</span>');
+    });
 
-        function addNewNoteStrip() { noteItems.unshift({ id: null, data: { title: '', content: '' } }); renderStream(); }
-        async function syncStreamToD1() {
-            for (let item of noteItems) { await fetch('/api/code-grid', { method: 'POST', headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'}, body: JSON.stringify(item) }); }
-            alert("同步完成");
-        }
-        async function del(id, i) { if(confirm('确认删除？')) { if(id) await fetch('/api/code-grid', { method: 'DELETE', headers: {'Authorization': `Bearer ${token}`}, body: JSON.stringify({id}) }); noteItems.splice(i, 1); renderStream(); } }
-        
-        fetch('/api/code-grid', { headers: {'Authorization': `Bearer ${token}`} }).then(r=>r.json()).then(d=>{ noteItems = d.rows||[]; renderStream(); });
-    </script>
-</body>
-</html>
+    // 4. 自定义触发函数
+    const specialFuncs = ['BeeRun', 'BeelsRun', 'BeeStringFind', 'BeeUnitCastSpellName'];
+    specialFuncs.forEach(func => {
+        const reg = new RegExp(`\\b(${func})\\b`, 'g');
+        html = html.replace(reg, '<span class="lua-func">$1</span>');
+    });
+
+    // 5. 注释
+    html = html.replace(/(--.*)/g, '<span class="lua-comment">$1</span>');
+
+    // 6. 搜索高亮
+    if (keyword) {
+        const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const searchReg = new RegExp(`(${escapedKeyword})`, 'gi');
+        html = html.replace(searchReg, '<span class="txt-highlight">$1</span>');
+    }
+
+    return html;
+}
