@@ -42,7 +42,7 @@
         .note-strip-card.dragging { opacity: 0.3; border: 1px dashed var(--accent-color); background: #1f242c; }
         
         /* 记事条内部内容区 */
-        .strip-main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-right: 40px; /* 留出空间给右侧悬浮按钮 */ }
+        .strip-main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-right: 45px; /* 留出稳定的空间给右侧功能键 */ }
         
         /* 功能标题输入框字段 */
         .strip-title-field { 
@@ -51,7 +51,7 @@
         }
         .strip-title-field:focus { border-bottom-color: var(--accent-color); color: #fff; }
         
-        /* 🛠️ 核心魔改：默认死锁在一行、彻底隐藏滑条的代码编辑器 */
+        /* 🛠️ 核心修改：任何时候只要不点 [＋]，打字、失焦或聚焦均强行死锁单行 */
         .strip-content-editor { 
             width: 100%; 
             min-height: 22px;
@@ -60,17 +60,17 @@
             outline: none; 
             font-size: 13px;
             line-height: 1.6; 
-            white-space: nowrap; /* 🎯 默认强行锁定单行，不换行 */
-            overflow: hidden;    /* 🎯 隐藏溢出，不留滑条 */
+            white-space: nowrap; /* 🎯 强制单行不换行 */
+            overflow: hidden;    /* 🎯 强制隐藏所有出戏的滑条 */
             text-overflow: ellipsis;
             tab-size: 4; -moz-tab-size: 4; 
             padding: 2px 0;
         }
         
-        /* 💡 当处于展开激活状态（expanded）时的样式覆盖 */
+        /* 💡 只有当外层卡片被手工挂载了 .expanded 样式，才允许解除单行封印 */
         .note-strip-card.expanded .strip-content-editor {
-            white-space: pre-wrap; /* 展开后恢复正常多行排版 */
-            overflow: visible;     /* 消除裁剪 */
+            white-space: pre-wrap; /* 展开后完整呈现多行格式 */
+            overflow: visible;     
             text-overflow: clip;
         }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
@@ -83,7 +83,7 @@
             position: absolute; top: 10px; right: 12px; display: flex; gap: 6px; align-items: center;
         }
 
-        /* 🛠️ 新增：极其精致的 ＋ / － 原生控制按钮 */
+        /* ＋ / － 控制按钮 */
         .toggle-expand-btn {
             background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);
             width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
@@ -106,7 +106,7 @@
 
     <header>
         <div class="terminal-title"><i class="fas fa-stream"></i> D1_NOTE_STREAM_FLOW // 紧凑流式记事终端</div>
-        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 默认单行紧凑。点击右侧 [＋] 展开代码，点击 [－] 折叠。</div>
+        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 点击右侧 [＋] 展开，代码区聚焦与划选绝不误触展开</div>
     </header>
 
     <div class="toolbar">
@@ -143,7 +143,7 @@
                         sort_order: 0,
                         data: {
                             title: "欢迎使用全新流式记事终端",
-                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 📢 长代码默认精简压缩为单行。点击最右侧的 [ ＋ ] 即可瞬间满血伸展！"
+                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 📢 代码区聚焦或划选时绝不自动展开！必须且只有点击右侧的 [ ＋ ] 才会展开伸展！"
                         }
                     }];
                 }
@@ -184,7 +184,6 @@
                         <div class="strip-content-editor" 
                              contenteditable="true"
                              onblur="updateMemory(${index}, 'content', this.innerText)"
-                             onfocus="autoExpandCard(${index})"
                              onkeydown="handleTabKey(event)"
                              onpaste="handlePureTextPaste(event)"
                              placeholder="// 点击此处录入随身备忘逻辑...">${highlightText(contentText, keyword)}</div>
@@ -211,21 +210,7 @@
             btn.style.borderColor = isExpanded ? 'var(--accent-color)' : 'var(--border-color)';
         }
 
-        // 💡 辅助交互：当鼠标点击代码框进去光标准备修改时，自动执行 [ + ] 展开
-        function autoExpandCard(index) {
-            const card = document.getElementById(`strip-card-node-${index}`);
-            const btn = document.getElementById(`expand-btn-node-${index}`);
-            if (card && !card.classList.contains('expanded')) {
-                card.classList.add('expanded');
-                if (btn) {
-                    btn.textContent = '－';
-                    btn.style.color = 'var(--accent-color)';
-                    btn.style.borderColor = 'var(--accent-color)';
-                }
-            }
-        }
-
-        // 粘贴干净纯文本
+        // 粘贴纯文本
         function handlePureTextPaste(e) {
             e.preventDefault(); 
             const clipboardData = e.clipboardData || window.clipboardData;
@@ -262,6 +247,7 @@
             if (noteItems[index]) { noteItems[index].data[field] = value; }
         }
 
+        // Tab 键原生支持 4 空格物理缩进
         function handleTabKey(e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
