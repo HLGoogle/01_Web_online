@@ -61,6 +61,20 @@
         .status-sync-indicator {
             font-size: 11px;
             color: var(--text-muted);
+            background: #1f242c;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+        .status-sync-indicator.synced {
+            color: #58a6ff;
+            border-color: #388bfd4d;
+            background: #0d1117;
+        }
+        .status-sync-indicator.cached {
+            color: #f0883e;
+            border-color: #f0883e4d;
+            background: #1f1510;
         }
         .top-controls {
             display: flex;
@@ -374,7 +388,7 @@
         <div class="sys-status">
             <span>ROOT@NAV_PANEL:~$</span>
             <span class="status-tag" id="welcome-msg">VISITOR_MODE</span>
-            <span class="status-sync-indicator" id="sync-status">📡 Cache Ready</span>
+            <span class="status-sync-indicator cached" id="sync-status">⚠️ 离线浏览 // 当前正使用本地缓存加载</span>
         </div>
         <div class="top-controls">
             <button class="ctrl-btn" onclick="openSettingsModal()"><i class="fas fa-sliders-h"></i> 全局设置</button>
@@ -559,7 +573,9 @@
                 try {
                     allLinks = JSON.parse(cachedLinks);
                     renderLinks();
-                    indicator.textContent = "📡 Cache Rendered (Syncing...)";
+                    // 样式设置为橙色缓存状态
+                    indicator.className = "status-sync-indicator cached";
+                    indicator.textContent = "⚠️ 离线浏览 // 当前正使用本地缓存加载";
                 } catch(e) { console.error("缓存校验失败", e); }
             }
 
@@ -575,9 +591,12 @@
                     localStorage.setItem('cached_links_data', JSON.stringify(freshLinks));
                     renderLinks();
                 }
-                indicator.textContent = "⚙️ Synced // Cloudflare D1";
+                // 样式设置为蓝色同步成功状态
+                indicator.className = "status-sync-indicator synced";
+                indicator.textContent = "⚙️ 系统就绪 // 已实时同步远程云端数据库 (Cloudflare D1)";
             } catch (err) {
-                indicator.textContent = "⚠️ Offline Mode // Local Cache";
+                indicator.className = "status-sync-indicator cached";
+                indicator.textContent = "⚠️ 离线浏览 // 当前正使用本地缓存加载";
             }
         }
 
@@ -641,7 +660,7 @@
         function createLinkCard(link) {
             const item = document.createElement('div'); 
             item.className = 'link-item';
-            let iconHtml = link.icon.startsWith('http') ? `<img src="${link.icon}">` : link.icon.slice(0, 2);
+            let iconHtml = link.icon.startsWith('http') ? `<img src="${link.icon}" style="width:100%;height:100%;object-fit:cover;">` : link.icon.slice(0, 2);
             let displayUrl = link.url.replace(/^(https?:\/\/)?(www\.)?/, '');
 
             item.innerHTML = `
