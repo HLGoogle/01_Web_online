@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Grid // 代码逻辑画布</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-main: #0d1117; --bg-card: #161b22; --bg-input: #21262d;      
+            --border-color: #30363d; --text-main: #c9d1d9; --text-muted: #8b949e;    
+            --accent-color: #58a6ff; --accent-green: #2ea44f; --accent-danger: #f85149;
+            --font-mono: 'Consolas', 'Fira Code', 'Ubuntu Mono', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-mono); }
+        body { background-color: var(--bg-main); color: var(--text-main); padding: 20px; min-height: 100vh; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
+        .terminal-title { font-size: 14px; color: var(--accent-color); font-weight: bold; }
+        
+        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .search-box { background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 4px; width: 320px; font-size: 13px; outline: none; }
+        .search-box:focus { border-color: var(--accent-color); }
+        .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px; }
+        .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        
+        /* Excel高密度暗黑网格 */
+        .grid-table { width: 100%; border-collapse: collapse; background: var(--bg-card); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .grid-table th, .grid-table td { border: 1px solid var(--border-color); padding: 8px 12px; vertical-align: top; }
+        .grid-table th { background: #1f242c; color: var(--accent-color); font-size: 12px; text-align: left; padding: 10px; }
+        
+        /* 支持代码排版和高亮渲染的可编辑容器 */
+        .code-editable-cell {
+            width: 100%; min-height: 50px; background: transparent; color: #e6edf3;
+            outline: none; font-family: var(--font-mono); font-size: 13px;
+            line-height: 1.6; white-space: pre; overflow-x: auto; tab-size: 4; -moz-tab-size: 4;
+            padding: 4px; border-radius: 3px; transition: background 0.2s;
+        }
+        .code-editable-cell:focus { background: rgba(56, 139, 253, 0.08); }
+        .code-editable-cell[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
+        
+        /* ✨ 搜索关键字黄底高亮定位样式 */
+        .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
+        .mini-del-btn { color: var(--accent-danger); border: 1px solid #f8514933; background: transparent; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .mini-del-btn:hover { background: #f8514922; border-color: var(--accent-danger); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="terminal-title"><i class="fas fa-terminal"></i> D1_CODE_SNIPPET_FLOW // 随身代码资产网格</div>
+        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 已连接边缘数据网络</div>
+    </header>
+
+    <div class="toolbar">
+        <input type="text" id="global-search" class="search-box" placeholder="🔍 输入关键字全局筛选并精确定位高亮代码..." oninput="handleSearch()">
+        <button class="ctrl-btn" onclick="addDimension()"><i class="fas fa-columns"></i> ＋添加自定义列</button>
+        <button class="ctrl-btn" onclick="addCodeRow()"><i class="fas fa-plus"></i> ＋插入新行</button>
+        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green);" onclick="syncGridToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量数据保存 (同步D1)</button>
+    </div>
+
+    <table class="grid-table">
+        <thead id="grid-head"></thead>
+        <tbody id="grid-body"></tbody>
+    </table>
+
+    <script>
+        let columns = [];
+        let rows = [];
+        const token = localStorage.getItem('nav_token');
+
+        window.onload = async function() {
+            if (!token) {
+                alert("未检测到安全身份授权，请返回主页执行统一登录鉴定！");
+                return;
+            }
+            await fetchGridData();
+        };
+
+        // 数据拉取核心层
+        async function fetchGridData() {
+            try {
+                const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
+                const result = await res.json();
+                columns = result.columns;
+                rows = result.rows;
+                
+                // 缺省初始化 3 个核心表格字段
+                if (columns.length === 0) {
+                    columns = [
+                        { col_key: 'col_title', col_name: '功能/宏名称' },
+                        { col_key: 'col_code', col_name: 'Lua代码片段 / 条件判定' },
+                        { col_key: 'col_note', col_name: '核心玩法及批注说明' }
+                    ];
+                }
+                renderTable();
+            } catch (e) {
+                document.getElementById('sync-indicator').textContent = "❌ D1 集群同步断开";
+            }
+        }
+
+        // 视窗渲染引擎
+        function renderTable(keyword = '') {
+            const head = document.getElementById('grid-head');
+            const body = document.getElementById('grid-body');
+            
+            let headHtml = '<tr>';
+            columns.forEach(col => { headHtml += `<th>// ${col.col_name.toUpperCase()}</th>`; });
+            headHtml += '<th style="width:70px; text-align:center;">CANCELLATION</th></tr>';
+            head.innerHTML = headHtml;
+
+            let bodyHtml = '';
+            rows.forEach((row, rowIndex) => {
+                if (keyword) {
+                    let isMatch = false;
+                    Object.values(row.data).forEach(val => {
+                        if (String(val).toLowerCase().includes(keyword.toLowerCase())) isMatch = true;
+                    });
+                    if (!isMatch) return;
+                }
+
+                bodyHtml += `<tr>`;
+                columns.forEach(col => {
+                    let cellValue = row.data[col.col_key] || '';
+                    
+                    bodyHtml += `
+                        <td>
+                            <div class="code-editable-cell" 
+                                 contenteditable="true"
+                                 onblur="updateMemory(${rowIndex}, '${col.col_key}', this.innerText)"
+                                 onkeydown="handleTabKey(event)"
+                                 placeholder="// [点击录入代码块或配置数据]">${highlightText(cellValue, keyword)}</div>
+                        </td>
+                    `;
+                });
+                
+                bodyHtml += `
+                    <td style="text-align:center; vertical-align:middle;">
+                        <button class="mini-del-btn" onclick="deleteRow(${row.id}, ${rowIndex})">擦除</button>
+                    </td>
+                </tr>`;
+            });
+            body.innerHTML = bodyHtml;
+        }
+
+        // 精准高亮着色匹配
+        function highlightText(text, keyword) {
+            if (!keyword) return text;
+            const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`(${escapedKeyword})`, 'gi');
+            return text.replace(regex, `<span class="txt-highlight">$1</span>`);
+        }
+
+        // 内存写回
+        function updateMemory(rowIndex, colKey, val) {
+            if (rows[rowIndex]) {
+                rows[rowIndex].data[colKey] = val;
+            }
+        }
+
+        // 支持原生 Tab 4空格缩进
+        function handleTabKey(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const sel = window.getSelection();
+                const range = sel.getRangeAt(0);
+                const tabNode = document.createTextNode("    ");
+                range.insertNode(tabNode);
+                range.setStartAfter(tabNode);
+                range.setEndAfter(tabNode); 
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }
+
+        // 新增行
+        function addCodeRow() {
+            let emptyData = {};
+            columns.forEach(col => emptyData[col.col_key] = '');
+            rows.unshift({ id: null, data: emptyData, sort_order: 0 });
+            renderTable();
+        }
+
+        // 广播新建一个多维自定义列
+        async function addDimension() {
+            let name = prompt("请输入新增自定义维度的显示列名称（如：触发按键、适用职业、宏图标）：");
+            if (!name) return;
+            try {
+                const res = await fetch('/api/code-grid/column', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ col_name: name })
+                });
+                if (res.ok) await fetchGridData();
+            } catch(e) {}
+        }
+
+        function handleSearch() {
+            const query = document.getElementById('global-search').value.trim();
+            renderTable(query);
+        }
+
+        // 批量向 D1 提交持久化保存
+        async function syncGridToD1() {
+            const indicator = document.getElementById('sync-indicator');
+            indicator.textContent = "⏳ 正在同步全量网格画布至 D1 数据层...";
+            try {
+                for (let row of rows) {
+                    await fetch('/api/code-grid', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(row)
+                    });
+                }
+                indicator.textContent = "⚡ 云端对齐一致 // 变更已全部持久化";
+                await fetchGridData();
+                alert("✨ 同步对齐成功！所有多维 Lua 资产已成功托管至 D1 数据库。");
+            } catch (e) {
+                indicator.textContent = "❌ 串行同步失败";
+            }
+        }
+
+        // 物理注销行
+        async function deleteRow(id, index) {
+            if (!confirm("是否将此条代码画布记录从云端执行物理擦除？")) return;
+            if (!id) {
+                rows.splice(index, 1);
+                renderTable();
+                return;
+            }
+            try {
+                const res = await fetch('/api/code-grid', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ id })
+                });
+                if (res.ok) await fetchGridData();
+            } catch(e){}
+        }
+    </script>
+</body>
+</html>
