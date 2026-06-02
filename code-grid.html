@@ -18,12 +18,32 @@
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; }
         .terminal-title { font-size: 13px; color: var(--accent-color); font-weight: bold; }
         
-        .toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
         .search-box { background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; padding: 4px 10px; border-radius: 4px; width: 350px; font-size: 12px; outline: none; }
         .search-box:focus { border-color: var(--accent-color); }
         
         .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: bold; }
         .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+        /* 🏷️ 极致紧凑的动态分类页签栏 */
+        .tabs-bar { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #21262d; padding-bottom: 4px; flex-wrap: wrap; }
+        .tab-item { 
+            display: flex; align-items: center; gap: 6px; background: #1f242c; border: 1px solid var(--border-color);
+            padding: 2px 10px; border-radius: 3px 3px 0 0; font-size: 12px; cursor: pointer; color: var(--text-muted);
+            position: relative; transition: all 0.15s ease; user-select: none; height: 24px;
+        }
+        .tab-item:hover { color: #fff; border-color: #444c56; }
+        .tab-item.active { background: var(--bg-card); color: var(--accent-color); border-color: var(--border-color) var(--border-color) var(--bg-card) var(--border-color); font-weight: bold; height: 25px; margin-bottom: -1px; z-index: 2; }
+        
+        /* 页签内置轻量输入框（用于改名） */
+        .tab-rename-input { background: transparent; border: none; color: var(--accent-color); font-size: 12px; font-weight: bold; outline: none; width: 60px; padding: 0; }
+        
+        /* 页签内小垃圾桶（删除分类） */
+        .tab-close-btn { font-size: 10px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px; border-radius: 2px; }
+        .tab-close-btn:hover { background: rgba(248,81,73,0.15); color: var(--accent-danger); }
+        
+        .add-tab-btn { background: transparent; border: 1px dashed var(--border-color); color: var(--text-muted); padding: 2px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; height: 20px; display: flex; align-items: center; justify-content: center; }
+        .add-tab-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
         
         /* 📜 流式画布容器 */
         .note-stream-list { display: flex; flex-direction: column; gap: 2px; width: 100%; }
@@ -125,13 +145,18 @@
 
     <header>
         <div class="terminal-title"><i class="fas fa-code"></i> D1_NOTE_STREAM_FLOW // 极致紧凑高密度记事终端</div>
-        <div id="sync-indicator" style="font-size:11px; color:var(--text-muted);">⚡ 系统就绪 // 点击手柄可展开/收紧卡片，右键或双击标题配置独立色彩属性</div>
+        <div id="sync-indicator" style="font-size:11px; color:var(--text-muted);">⚡ 系统就绪 // 双击页签可以修改名字，点击手柄可伸缩行项目</div>
     </header>
 
     <div class="toolbar">
-        <input type="text" id="global-search" class="search-box" placeholder="🔍 全局搜索过滤并精确定位代码/随身笔记..." oninput="handleSearch()">
+        <input type="text" id="global-search" class="search-box" placeholder="🔍 全局跨分类搜索过滤并精确定位..." oninput="handleSearch()">
         <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 录入新行</button>
         <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量保存</button>
+    </div>
+
+    <!-- 🏷️ 升级注入：全动态页签导航栏区 -->
+    <div class="tabs-bar" id="dynamic-tabs-zone">
+        <!-- 动态脚本在此处渲染页签 -->
     </div>
 
     <div class="note-stream-list" id="note-stream-container"></div>
@@ -152,6 +177,8 @@
 
     <script>
         let noteItems = [];
+        let categories = ["文本1"]; // 初始化默认页签
+        let currentTab = "文本1";    // 当前激活的页签
         const token = localStorage.getItem('nav_token');
         let activePickerIndex = null; 
 
@@ -170,6 +197,9 @@
                 const result = await res.json();
                 noteItems = result.rows || [];
                 
+                // 自动建立干净的分类索引
+                extractCategories();
+                
                 if (noteItems.length === 0) {
                     noteItems = [{
                         id: null,
@@ -177,21 +207,181 @@
                         data: {
                             title: "默认动作判定",
                             title_color: "#58a6ff",
+                            category: "文本1",
                             content: "/click MultiBarBottomLeftButton1\nlocal j = BeeStringFind(jineng, BeeUnitCastSpellName(\"target\"))\nif BeelsRun(\"心灵冰冻\") and j then BeeRun(\"心灵冰冻\") end"
                         }
                     }];
+                    extractCategories();
                 }
+                renderTabs();
                 renderStream();
             } catch (e) {
                 document.getElementById('sync-indicator').textContent = "❌ D1 群集连接异常";
             }
         }
 
+        // 从全局数据包里提取所有的分类，并去重
+        function extractCategories() {
+            const set = new Set();
+            noteItems.forEach(item => {
+                if(item.data && item.data.category) {
+                    set.add(item.data.category);
+                }
+            });
+            if(set.size > 0) {
+                categories = Array.from(set);
+            } else {
+                categories = ["文本1"];
+            }
+            // 确保当前激活的分类合法
+            if (!categories.includes(currentTab)) {
+                currentTab = categories[0];
+            }
+        }
+
+        // 🎨 渲染页签栏
+        function renderTabs() {
+            const zone = document.getElementById('dynamic-tabs-zone');
+            zone.innerHTML = '';
+
+            categories.forEach(cat => {
+                const isTxt1 = (cat === "文本1");
+                const activeClass = (cat === currentTab) ? 'active' : '';
+                const tab = document.createElement('div');
+                tab.className = `tab-item ${activeClass}`;
+                tab.setAttribute('onclick', `switchTab('${cat.replace(/'/g, "\\'")}')`);
+                // 双击改名
+                tab.setAttribute('ondblclick', `startRenameTab(event, this, '${cat.replace(/'/g, "\\'")}')`);
+
+                tab.innerHTML = `
+                    <span>${cat}</span>
+                    ${!isTxt1 ? `<div class="tab-close-btn" title="删除该页签及其下所有行" onclick="deleteTab(event, '${cat.replace(/'/g, "\\'")}')"><i class="fas fa-times"></i></div>` : ''}
+                `;
+                zone.appendChild(tab);
+            });
+
+            // 页签增加按钮
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-tab-btn';
+            addBtn.innerHTML = `<i class="fas fa-plus"></i> 新增页签`;
+            addBtn.onclick = createNewTab;
+            zone.appendChild(addBtn);
+        }
+
+        // 切换页签
+        function switchTab(catName) {
+            currentTab = catName;
+            renderTabs();
+            renderStream();
+        }
+
+        // 新建页签
+        function createNewTab() {
+            const newName = prompt("请输入新分类页签的名称:", "新页签");
+            if (!newName || newName.trim() === "") return;
+            const cleanName = newName.trim();
+            if (categories.includes(cleanName)) {
+                alert("该页签名称已存在！");
+                return;
+            }
+            categories.push(cleanName);
+            currentTab = cleanName;
+            
+            // 顺便往这个新页签里塞一条默认行，方便直观展现
+            noteItems.unshift({
+                id: null,
+                sort_order: 0,
+                data: { title: '新行项', content: '', title_color: '#58a6ff', category: currentTab }
+            });
+
+            renderTabs();
+            renderStream();
+            document.getElementById('sync-indicator').textContent = "⏳ 建立了新分类，请记得点击批量保存入库";
+        }
+
+        // ✏️ 原地双击改页签名
+        function startRenameTab(e, tabEl, oldName) {
+            e.stopPropagation(); // 阻止触发切换事件
+            const span = tabEl.querySelector('span');
+            if (!span) return;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'tab-rename-input';
+            input.value = oldName;
+            
+            // 替换原文本
+            tabEl.replaceChild(input, span);
+            input.focus();
+            input.select();
+
+            // 失去焦点或回车即代表确认
+            input.onblur = () => finishRenameTab(input, oldName);
+            input.onkeydown = (ev) => {
+                if (ev.key === 'Enter') finishRenameTab(input, oldName);
+            };
+        }
+
+        function finishRenameTab(inputEl, oldName) {
+            const newName = inputEl.value.trim();
+            if (!newName || newName === oldName) {
+                renderTabs(); // 恢复原状
+                return;
+            }
+            if (categories.includes(newName)) {
+                alert("目标页签名字与其他冲突！");
+                renderTabs();
+                return;
+            }
+
+            // 1. 改变分类集里的名字
+            const idx = categories.indexOf(oldName);
+            if(idx !== -1) categories[idx] = newName;
+
+            // 2. 联动把数据内存池里所有属于旧名字的 category 全部刷成新名字！
+            noteItems.forEach(item => {
+                if (item.data && item.data.category === oldName) {
+                    item.data.category = newName;
+                }
+            });
+
+            if (currentTab === oldName) currentTab = newName;
+
+            renderTabs();
+            renderStream();
+            document.getElementById('sync-indicator').textContent = "⏳ 页签重命名成功，请点击批量保存同步到云端";
+        }
+
+        // 🔥 删除分类页签及其下的所有行
+        function deleteTab(e, catName) {
+            e.stopPropagation();
+            if (!confirm(`确定要物理销毁 [${catName}] 页签以及它里面的全部记事吗？该操作不可逆！`)) return;
+
+            // 过滤掉该分类下的内存项
+            noteItems = noteItems.filter(item => !(item.data && item.data.category === catName));
+            
+            extractCategories();
+            renderTabs();
+            renderStream();
+            document.getElementById('sync-indicator').textContent = "⏳ 页签已清空，请点击批量保存提交到集群";
+        }
+
+        // 🎨 渲染行项目列表
         function renderStream(keyword = '') {
             const container = document.getElementById('note-stream-container');
             container.innerHTML = '';
 
-            noteItems.forEach((item, index) => {
+            // 只挑出当前页签或者符合全局搜索条件的行
+            let filteredItems = noteItems;
+            if (!keyword) {
+                // 如果没有搜索，执行严格的页签分类过滤
+                filteredItems = noteItems.filter(item => (item.data.category || '文本1') === currentTab);
+            }
+
+            filteredItems.forEach((item, viewIndex) => {
+                // 找出它在主内存池 noteItems 中的真实绝对索引
+                const globalIndex = noteItems.indexOf(item);
+                
                 const titleText = item.data.title || '';
                 const contentText = item.data.content || '';
                 const titleColor = item.data.title_color || '#58a6ff';
@@ -203,35 +393,35 @@
 
                 const card = document.createElement('div');
                 card.className = 'note-strip-card';
-                card.setAttribute('data-index', index);
-                card.setAttribute('id', `strip-card-node-${index}`);
+                card.setAttribute('data-index', globalIndex); // 标记全局绝对坐标
+                card.setAttribute('id', `strip-card-node-${globalIndex}`);
 
                 card.innerHTML = `
-                    <div class="drag-handle" draggable="true" onclick="handleHandleClick(event, ${index})"><i class="fas fa-bars"></i></div>
+                    <div class="drag-handle" draggable="true" onclick="handleHandleClick(event, ${globalIndex})"><i class="fas fa-bars"></i></div>
                     
                     <div class="strip-main-body">
                         <input type="text" class="strip-title-field" 
                                value="${titleText}" 
                                style="color: ${titleColor}"
                                placeholder="// 输入功能标题"
-                               onchange="updateMemory(${index}, 'title', this.value)"
-                               oncontextmenu="openColorModal(event, ${index})"
-                               ondblclick="openColorModal(event, ${index})">
+                               onchange="updateMemory(${globalIndex}, 'title', this.value)"
+                               oncontextmenu="openColorModal(event, ${globalIndex})"
+                               ondblclick="openColorModal(event, ${globalIndex})">
                         
                         <div class="strip-del-container">
-                            <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
+                            <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${globalIndex})"><i class="fas fa-trash-alt"></i></button>
                         </div>
                         
                         <div class="editor-wrapper">
                             <div class="strip-content-editor" 
                                  contenteditable="true"
-                                 onblur="updateMemory(${index}, 'content', this.innerText); refreshHighlight(${index})"
-                                 oninput="syncRealtimeText(${index}, this.innerText)"
+                                 onblur="updateMemory(${globalIndex}, 'content', this.innerText); refreshHighlight(${globalIndex})"
+                                 oninput="syncRealtimeText(${globalIndex}, this.innerText)"
                                  onkeydown="handleTabKey(event)"
                                  onpaste="handlePureTextPaste(event)"
                                  placeholder="// 点击录入代码段...">${contentText}</div>
                             
-                            <div class="code-highlight-layer" id="highlight-layer-${index}">${runLuaHighlighter(contentText, keyword)}</div>
+                            <div class="code-highlight-layer" id="highlight-layer-${globalIndex}">${runLuaHighlighter(contentText, keyword)}</div>
                         </div>
                     </div>
                 `;
@@ -239,22 +429,15 @@
             });
         }
 
-        // 🔀 核心新增：判定手柄点击是执行“展开”还是“缩紧”
         function handleHandleClick(e, index) {
-            // 防止拖拽松开时意外触发点击
             if (e.defaultPrevented) return;
-            
             const card = document.getElementById(`strip-card-node-${index}`);
-            if (!card) return;
-
-            // 联动切换类名状态实现自适应换行与换高
-            card.classList.toggle('expanded');
+            if (card) card.classList.toggle('expanded');
         }
 
         function runLuaHighlighter(text, keyword) {
             if (!text) return '';
             let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
             html = html.replace(/(".*?")/g, '<span class="lua-str">$1</span>');
 
             const keywords = ['local', 'if', 'then', 'end', 'and', 'or', 'else', 'elseif', 'return', 'function'];
@@ -283,7 +466,6 @@
                 const searchReg = new RegExp(`(${escapedKeyword})`, 'gi');
                 html = html.replace(searchReg, '<span class="txt-highlight">$1</span>');
             }
-
             return html;
         }
 
@@ -294,19 +476,21 @@
 
         function refreshHighlight(index) {
             const layer = document.getElementById(`highlight-layer-${index}`);
-            const editor = document.querySelectorAll('.strip-content-editor')[index];
-            if (layer && editor) layer.innerHTML = runLuaHighlighter(editor.innerText, '');
+            const cards = Array.from(document.querySelectorAll('.note-strip-card'));
+            const card = document.getElementById(`strip-card-node-${index}`);
+            if(card && layer) {
+                const editor = card.querySelector('.strip-content-editor');
+                layer.innerHTML = runLuaHighlighter(editor.innerText, '');
+            }
         }
 
         function openColorModal(e, index) {
             e.preventDefault();
             activePickerIndex = index;
             const currentColor = noteItems[index].data.title_color || '#58a6ff';
-            
             document.getElementById('modal-native-picker').value = currentColor;
             const hexInput = document.getElementById('modal-hex-input');
             hexInput.value = currentColor.toUpperCase();
-            
             document.getElementById('custom-color-modal').style.display = 'flex';
             setTimeout(() => { hexInput.select(); }, 50);
         }
@@ -323,17 +507,16 @@
         function applyTitleColorFromModal() {
             if (activePickerIndex === null) return;
             let finalColor = document.getElementById('modal-hex-input').value.trim();
-            
             if (!finalColor.startsWith('#')) finalColor = '#' + finalColor;
             if (!/^#[0-9A-Fa-f]{6}$/.test(finalColor)) {
-                alert("请输入标准的 6 位 Hex 颜色参数值！例如：#FF0000");
+                alert("请输入标准的 6 位 Hex 颜色参数值！");
                 return;
             }
-
             noteItems[activePickerIndex].data.title_color = finalColor;
-            const titles = document.querySelectorAll('.strip-title-field');
-            if (titles[activePickerIndex]) {
-                titles[activePickerIndex].style.color = finalColor;
+            const card = document.getElementById(`strip-card-node-${activePickerIndex}`);
+            if(card) {
+                const titleInput = card.querySelector('.strip-title-field');
+                if(titleInput) titleInput.style.color = finalColor;
             }
             closeColorModal();
         }
@@ -342,12 +525,10 @@
             e.preventDefault(); 
             const clipboardData = e.clipboardData || window.clipboardData;
             const plainText = clipboardData.getData('text/plain');
-            
             const sel = window.getSelection();
             if (!sel.rangeCount) return;
             const range = sel.getRangeAt(0);
             range.deleteContents();
-            
             const textNode = document.createTextNode(plainText);
             range.insertNode(textNode);
             range.setStartAfter(textNode);
@@ -381,16 +562,20 @@
             }
         }
 
+        // 录入新行时，自动绑定当前的分类标签页！
         function addNewNoteStrip() {
             noteItems.unshift({
                 id: null,
                 sort_order: 0,
-                data: { title: '', content: '', title_color: '#58a6ff' }
+                data: { title: '', content: '', title_color: '#58a6ff', category: currentTab }
             });
             renderStream();
             setTimeout(() => {
-                const firstTitle = document.querySelector('.strip-title-field');
-                if (firstTitle) firstTitle.focus();
+                const card = document.querySelector('.note-strip-card');
+                if (card) {
+                    const title = card.querySelector('.strip-title-field');
+                    if(title) title.focus();
+                }
             }, 50);
         }
 
@@ -426,26 +611,32 @@
                 if (dragSrcCard) dragSrcCard.classList.remove('dragging');
 
                 const allCurrentDOMs = Array.from(container.querySelectorAll('.note-strip-card'));
-                const reorderedItems = [];
-
-                allCurrentDOMs.forEach((dom, newOrder) => {
-                    const originalIndex = parseInt(dom.getAttribute('data-index'));
-                    const targetItem = noteItems[originalIndex];
-                    if (targetItem) {
-                        targetItem.sort_order = newOrder; 
-                        reorderedItems.push(targetItem);
+                
+                // 局部排序引擎：将当前可见项拉出，按照DOM树的相对位置重新给原noteItems赋值排序
+                const visibleIndexes = allCurrentDOMs.map(dom => parseInt(dom.getAttribute('data-index')));
+                const preservedItems = [];
+                
+                // 复制一份总数组进行重排组织
+                let finalReordered = [...noteItems];
+                
+                // 按照当前看到的顺序重新排布对应的节点
+                const pickedItems = visibleIndexes.map(idx => noteItems[idx]);
+                
+                // 重新刷新其排序权重
+                allCurrentDOMs.forEach((dom, newViewOrder) => {
+                    const gIdx = visibleIndexes[newViewOrder];
+                    if(noteItems[gIdx]) {
+                        noteItems[gIdx].sort_order = newViewOrder;
                     }
                 });
 
-                noteItems = reorderedItems;
-                renderStream();
-                document.getElementById('sync-indicator').textContent = "⏳ 排序已发生变更，请及时同步保存云端";
+                document.getElementById('sync-indicator').textContent = "⏳ 当前分类行排序已发生变更，请及时同步保存云端";
             });
         }
 
         async function syncStreamToD1() {
             const indicator = document.getElementById('sync-indicator');
-            indicator.textContent = "⏳ 正在对齐云端数据定序...";
+            indicator.textContent = "⏳ 正在对齐 D1 存储群集数据...";
             try {
                 for (let item of noteItems) {
                     await fetch('/api/code-grid', {
@@ -456,7 +647,7 @@
                 }
                 indicator.textContent = "⚡ 云端记事资产已完全对齐";
                 await fetchStreamData();
-                alert("✨ 同步成功！干净的新格式记事数据已安全持久化写入 D1。");
+                alert("✨ 同步成功！干净的分页标签资产已被无缝写入 D1 分布式集群中。");
             } catch (e) {
                 indicator.textContent = "❌ 级联更新同步失败";
             }
