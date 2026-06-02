@@ -38,7 +38,7 @@
             overflow-x: hidden;
         }
 
-        /* --- 顶部紧凑控制台状态栏 --- */
+        /* --- 顶部紧凑状态栏 --- */
         header {
             display: flex;
             justify-content: space-between;
@@ -52,17 +52,12 @@
         .sys-status {
             display: flex;
             align-items: center;
-            gap: 15px;
-        }
-        .status-tag {
-            color: var(--accent-color);
-            font-weight: bold;
         }
         .status-sync-indicator {
             font-size: 11px;
             color: var(--text-muted);
             background: #1f242c;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 4px;
             border: 1px solid var(--border-color);
         }
@@ -94,6 +89,10 @@
         .ctrl-btn:hover {
             border-color: var(--accent-color);
             color: var(--accent-color);
+        }
+        .ctrl-btn.btn-logout:hover {
+            border-color: var(--accent-danger);
+            color: var(--accent-danger);
         }
         body:not(.logged-in) .top-controls { display: none; }
 
@@ -379,22 +378,20 @@
             background: var(--bg-card); border: 1px solid var(--border-color);
             border-radius: 6px; padding: 20px; width: 360px;
         }
-        .modal-footer { margin-top: 15px; display: flex; justify-content: flex-end; gap: 8px; }
+        .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
     </style>
 </head>
 <body>
 
     <header>
         <div class="sys-status">
-            <span>ROOT@NAV_PANEL:~$</span>
-            <span class="status-tag" id="welcome-msg">VISITOR_MODE</span>
             <span class="status-sync-indicator cached" id="sync-status">⚠️ 离线浏览 // 当前正使用本地缓存加载</span>
         </div>
         <div class="top-controls">
             <button class="ctrl-btn" onclick="openSettingsModal()"><i class="fas fa-sliders-h"></i> 全局设置</button>
             <button class="ctrl-btn" onclick="toggleEditMode()" id="edit-mode-btn"><i class="fas fa-terminal"></i> 开启管理</button>
             <button class="ctrl-btn" onclick="toggleNotesSidebar()"><i class="fas fa-code-branch"></i> 策划笔记本</button>
-            <button class="ctrl-btn" onclick="logout()"><i class="fas fa-power-off"></i> 注销</button>
+            <button class="ctrl-btn btn-logout" onclick="logout()" id="logout-btn"><i class="fas fa-power-off"></i> 注销</button>
         </div>
     </header>
 
@@ -488,7 +485,7 @@
 
             <div class="form-group">
                 <label class="form-label">// CATEGORY_ORDER / 分类展示优先级顺序</label>
-                <input type="text" id="setting-category-order" class="form-input" placeholder="例如: 云盘, 流量卡, 宣传, LUA">
+                <input type="text" id="setting-category-order" class="form-input" placeholder="例如: 常用, LUA, 宣传">
                 <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">用中英文逗号隔开。未列出的剩余分类将自动靠后追加。</div>
             </div>
 
@@ -537,7 +534,8 @@
         function showUI() {
             const user = localStorage.getItem('nav_user');
             document.body.classList.add('logged-in');
-            document.getElementById('welcome-msg').textContent = `${user.toUpperCase()}@EDGE_NODE`;
+            // 将当前用户名大写，直接注入到注销按钮文本内
+            document.getElementById('logout-btn').innerHTML = `<i class="fas fa-power-off"></i> [ ${user.toUpperCase()} ] 注销`;
         }
 
         function switchAuthMode(mode) {
@@ -573,7 +571,6 @@
                 try {
                     allLinks = JSON.parse(cachedLinks);
                     renderLinks();
-                    // 样式设置为橙色缓存状态
                     indicator.className = "status-sync-indicator cached";
                     indicator.textContent = "⚠️ 离线浏览 // 当前正使用本地缓存加载";
                 } catch(e) { console.error("缓存校验失败", e); }
@@ -591,7 +588,6 @@
                     localStorage.setItem('cached_links_data', JSON.stringify(freshLinks));
                     renderLinks();
                 }
-                // 样式设置为蓝色同步成功状态
                 indicator.className = "status-sync-indicator synced";
                 indicator.textContent = "⚙️ 系统就绪 // 已实时同步远程云端数据库 (Cloudflare D1)";
             } catch (err) {
@@ -730,7 +726,7 @@
             
             localStorage.setItem('nav_settings', JSON.stringify(userSettings));
             document.getElementById('settings-modal').style.display = 'none';
-            renderLinks(); // 触发就地刷新排版
+            renderLinks(); 
             
             try {
                 const token = localStorage.getItem('nav_token');
@@ -756,7 +752,7 @@
             
             const cachedNotes = localStorage.getItem('cached_notes_data');
             if (cachedNotes) {
-                try { renderNotesUI(JSON.parse(cachedNotes)); } catch(e) {}
+                try { renderNotesUI(JSON.parse(cachedNotes)); } catch(e){}
             }
 
             try {
