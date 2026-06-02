@@ -13,7 +13,7 @@
             --font-mono: 'Consolas', 'Fira Code', 'Ubuntu Mono', monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-mono); }
-        body { background-color: var(--bg-main); color: var(--text-main); padding: 10px 15px; min-height: 100vh; }
+        body { background-color: var(--bg-main); color: var(--text-main); padding: 10px 15px; min-height: 100vh; position: relative; }
         
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; }
         .terminal-title { font-size: 13px; color: var(--accent-color); font-weight: bold; }
@@ -25,83 +25,105 @@
         .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: bold; }
         .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
         
-        /* 📜 极致紧凑流水线容器 */
+        /* 📜 流式画布容器 */
         .note-stream-list { display: flex; flex-direction: column; gap: 2px; width: 100%; }
         
-        /* 🎯 核心优化：单行横向并排结构，间距压减到极致 */
+        /* 单条卡片 */
         .note-strip-card { 
             display: flex; gap: 8px; background: var(--bg-card); border: 1px solid var(--border-color); 
             border-radius: 3px; padding: 2px 8px; align-items: center; position: relative; height: 28px;
+            overflow: hidden;
         }
         .note-strip-card:hover { border-color: #444c56; }
         
-        /* 🔀 智能拖拽手柄缩减 */
+        /* 🔀 拖拽手柄 */
         .drag-handle { color: var(--text-muted); padding: 2px; font-size: 12px; user-select: none; display: flex; align-items: center; cursor: grab; }
         .drag-handle:active { cursor: grabbing; color: var(--accent-color); }
         .note-strip-card.dragging { opacity: 0.3; border: 1px dashed var(--accent-color); background: #1f242c; }
         
-        /* 🎯 一行流主体区 */
-        .strip-main-body { flex: 1; display: flex; gap: 12px; align-items: center; min-width: 0; padding-right: 50px; }
+        /* 主体一行流区 */
+        .strip-main-body { flex: 1; display: flex; gap: 12px; align-items: center; min-width: 0; padding-right: 50px; height: 100%; }
         
-        /* 🎯 标题独立样式：支持右键或点击修改独立颜色 */
+        /* 标题独立控制区 */
         .strip-title-field { 
             font-size: 13px; font-weight: bold; color: var(--accent-color); background: transparent;
             border: none; outline: none; width: 180px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
-            border-right: 1px solid var(--border-color); padding-right: 6px; flex-shrink: 0;
+            border-right: 1px solid var(--border-color); padding-right: 6px; flex-shrink: 0; cursor: pointer;
         }
         .strip-title-field:focus { color: #fff; }
         
-        /* 🛠️ IDE级渲染器基础 */
+        /* 🛠️ 核心同步双层画布架构 */
         .editor-wrapper { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; height: 100%; }
         
-        /* 真正用来打字编辑的透明隐形层 */
+        /* 顶层打字框：任何状态文字完全透明，只保留光标 */
         .strip-content-editor { 
-            width: 100%; height: 22px; background: transparent; color: transparent; /* 🎯 隐藏原生文字，把舞台留给下方的着色层 */
-            caret-color: #fff; /* 保持白色光标可见 */
-            outline: none; font-size: 13px; line-height: 22px;
+            width: 100%; height: 22px; background: transparent; color: transparent !important; 
+            caret-color: #fff; outline: none; font-size: 13px; line-height: 22px;
             white-space: nowrap; overflow: hidden; position: relative; z-index: 2;
         }
         
-        /* 🎯 新增：Notepad++风格语法着色渲染层 */
+        /* 底层高亮渲染画布：跟随状态联动伸缩 */
         .code-highlight-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 22px;
             font-size: 13px; line-height: 22px; white-space: nowrap; overflow: hidden;
             text-overflow: ellipsis; pointer-events: none; z-index: 1; color: #e6edf3;
         }
 
-        /* 💡 激活展开状态下的高度和换流覆盖 */
-        .note-strip-card.expanded { height: auto; min-height: 28px; align-items: flex-start; padding-top: 4px; padding-bottom: 4px; }
-        .note-strip-card.expanded .strip-main-body { align-items: flex-start; }
+        /* 💡 联动展开覆盖：让双层容器同步换行，保证无论缩放都有完美着色 */
+        .note-strip-card.expanded { height: auto; min-height: 28px; align-items: flex-start; padding-top: 4px; padding-bottom: 4px; overflow: visible; }
+        .note-strip-card.expanded .strip-main-body { align-items: flex-start; height: auto; }
+        .note-strip-card.expanded .editor-wrapper { align-items: flex-start; height: auto; }
         .note-strip-card.expanded .strip-title-field { border-right: 1px dashed var(--border-color); }
-        .note-strip-card.expanded .strip-content-editor { height: auto; min-height: 38px; color: #e6edf3; white-space: pre-wrap; word-break: break-all; }
-        .note-strip-card.expanded .code-highlight-layer { display: none; /* 展开编辑时，为了绝对平滑，切回原生多行文本模式 */ }
+        
+        .note-strip-card.expanded .strip-content-editor,
+        .note-strip-card.expanded .code-highlight-layer { 
+            height: auto; min-height: 22px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; overflow: visible; 
+        }
+        .note-strip-card.expanded .strip-content-editor { padding-bottom: 2px; }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
-        /* 🎨 Lua IDE 着色色板 */
-        .lua-kw { color: #ff79c6; font-weight: bold; } /* if, then, end, local */
-        .lua-func { color: #50fa7b; }                 /* BeeRun, BeelsRun */
-        .lua-str { color: #f1fa8c; }                  /* "心灵冰冻" */
+        /* 🎨 IDE 级硬核高亮配色板 */
+        .lua-kw { color: #ff79c6; font-weight: bold; }       /* 核心判定逻辑: if, then */
+        .lua-macro { color: #ff5555; font-weight: bold; }    /* 🎯 宏指令核心: /click, /cast, /use */
+        .lua-func { color: #50fa7b; }                       /* 判定引擎函数 */
+        .lua-str { color: #f1fa8c; }                        /* 字符串法术名称 */
         .lua-comment { color: #6272a4; font-style: italic; } /* -- 注释 */
         .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; }
         
-        /* 右侧悬浮控制区 */
-        .strip-action-group { position: absolute; right: 8px; display: flex; gap: 4px; align-items: center; height: 100%; top: 0; }
+        /* 工具按钮 */
+        .strip-action-group { position: absolute; right: 8px; display: flex; gap: 4px; align-items: center; height: 24px; top: 2px; }
         .toggle-expand-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); width: 18px; height: 18px; border-radius: 3px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
         .toggle-expand-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
-
         .strip-del-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; display: inline-flex; align-items: center; justify-content: center; opacity: 0; }
         .note-strip-card:hover .strip-del-btn { opacity: 1; }
         .strip-del-btn:hover { color: var(--accent-danger); }
         
-        /* 隐藏的原生原色选择器触发孔 */
-        .title-color-picker { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+        /* 🪐 核心新增：带安全输入/复制参数框的暗黑自定义拾色器面板 */
+        .color-picker-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(1px); z-index: 99999;
+            justify-content: center; align-items: center;
+        }
+        .color-picker-box {
+            background: #1c2128; border: 1px solid var(--border-color); border-radius: 6px;
+            padding: 15px; width: 28px0; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .picker-title { font-size: 12px; font-weight: bold; color: var(--accent-color); }
+        .picker-body { display: flex; gap: 10px; align-items: center; }
+        .picker-preview-input { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; color: #fff; font-size: 13px; flex: 1; text-align: center; outline: none; }
+        .picker-preview-input:focus { border-color: var(--accent-color); }
+        .native-color-well { width: 34px; height: 34px; border: 1px solid var(--border-color); background: transparent; border-radius: 4px; cursor: pointer; }
+        .picker-footer { display: flex; justify-content: flex-end; gap: 6px; }
+        .picker-btn { background: transparent; border: 1px solid var(--border-color); color: #fff; padding: 4px 10px; font-size: 12px; border-radius: 4px; cursor: pointer; }
+        .picker-btn.save { border-color: var(--accent-green); color: var(--accent-green); }
     </style>
 </head>
 <body>
 
     <header>
         <div class="terminal-title"><i class="fas fa-code"></i> D1_NOTE_STREAM_FLOW // 极致紧凑高密度记事终端</div>
-        <div id="sync-indicator" style="font-size:11px; color:var(--text-muted);">⚡ 系统就绪 // 左击标题打字，右键或双击标题独立赋予标签颜色</div>
+        <div id="sync-indicator" style="font-size:11px; color:var(--text-muted);">⚡ 系统就绪 // 双击或右键功能标题唤醒“带复制参数框”的分类颜色管理层</div>
     </header>
 
     <div class="toolbar">
@@ -112,13 +134,28 @@
 
     <div class="note-stream-list" id="note-stream-container"></div>
 
+    <div id="custom-color-modal" class="color-picker-modal">
+        <div class="color-picker-box">
+            <div class="picker-title">// CONFIG_LABEL_COLOR // 标签色校准</div>
+            <div class="picker-body">
+                <input type="color" id="modal-native-picker" class="native-color-well" oninput="syncColorInputFromWell(this.value)">
+                <input type="text" id="modal-hex-input" class="picker-preview-input" placeholder="#ffffff" maxlength="7">
+            </div>
+            <div class="picker-footer">
+                <button class="picker-btn" onclick="closeColorModal()">取消</button>
+                <button class="picker-btn save" onclick="applyTitleColorFromModal()">应用色值</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let noteItems = [];
         const token = localStorage.getItem('nav_token');
+        let activePickerIndex = null; // 当前正在为哪一行修改颜色
 
         window.onload = async function() {
             if (!token) {
-                alert("未检测到有效登录验证态，请返回主页建立统一鉴权连接！");
+                alert("身份授权丢失，请返回导航主页登录！");
                 return;
             }
             await fetchStreamData();
@@ -136,19 +173,18 @@
                         id: null,
                         sort_order: 0,
                         data: {
-                            title: "默认宏判定",
+                            title: "默认动作判定",
                             title_color: "#58a6ff",
-                            content: "local j = BeeStringFind(jineng, BeeUnitCastSpellName(target)) --判定\nif BeelsRun(\"心灵冰冻\") and j then BeeRun(\"心灵冰冻\") end"
+                            content: "/click MultiBarBottomLeftButton1\nlocal j = BeeStringFind(jineng, BeeUnitCastSpellName(\"target\"))\nif BeelsRun(\"心灵冰冻\") and j then BeeRun(\"心灵冰冻\") end"
                         }
                     }];
                 }
                 renderStream();
             } catch (e) {
-                document.getElementById('sync-indicator').textContent = "❌ 存储网络群集连接断开";
+                document.getElementById('sync-indicator').textContent = "❌ D1 群集连接异常";
             }
         }
 
-        // 核心高密度单行渲染引擎
         function renderStream(keyword = '') {
             const container = document.getElementById('note-stream-container');
             container.innerHTML = '';
@@ -156,7 +192,7 @@
             noteItems.forEach((item, index) => {
                 const titleText = item.data.title || '';
                 const contentText = item.data.content || '';
-                const titleColor = item.data.title_color || '#58a6ff'; // 默认经典蓝
+                const titleColor = item.data.title_color || '#58a6ff';
 
                 if (keyword) {
                     const lowerKey = keyword.toLowerCase();
@@ -177,12 +213,8 @@
                                style="color: ${titleColor}"
                                placeholder="// 输入功能标题"
                                onchange="updateMemory(${index}, 'title', this.value)"
-                               oncontextmenu="triggerColorPicker(event, ${index})"
-                               ondblclick="triggerColorPicker(event, ${index})">
-                        
-                        <input type="color" class="title-color-picker" id="color-picker-${index}" 
-                               value="${titleColor}" 
-                               onchange="updateTitleColor(${index}, this.value)">
+                               oncontextmenu="openColorModal(event, ${index})"
+                               ondblclick="openColorModal(event, ${index})">
                         
                         <div class="editor-wrapper">
                             <div class="strip-content-editor" 
@@ -206,34 +238,39 @@
             });
         }
 
-        // 🎨 极其轻量且强悍的本地 Lua 关键字着色规则引擎
+        // 🎨 核心重构：扩充魔兽宏专属关键字着色规则
         function runLuaHighlighter(text, keyword) {
             if (!text) return '';
-            
-            // 转义 HTML 防止代码里有尖括号破坏 DOM 结构
             let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-            // 1. 匹配字符串 "..."
             html = html.replace(/(".*?")/g, '<span class="lua-str">$1</span>');
 
-            // 2. 匹配 Lua 关键字
+            // 1. 基础编译关键字
             const keywords = ['local', 'if', 'then', 'end', 'and', 'or', 'else', 'elseif', 'return', 'function'];
             keywords.forEach(kw => {
                 const reg = new RegExp(`\\b(${kw})\\b`, 'g');
                 html = html.replace(reg, '<span class="lua-kw">$1</span>');
             });
 
-            // 3. 匹配你的专属内置函数
+            // 2. 🎯 新增：宏命令敏感处理高亮
+            const macroCommands = ['/click', '/cast', '/use', '/run', '/script', '/target', '/clearfocus'];
+            macroCommands.forEach(cmd => {
+                // 利用转义保护斜杠
+                const escapedCmd = cmd.replace('/', '\\/');
+                const reg = new RegExp(`(${escapedCmd})\\b`, 'g');
+                html = html.replace(reg, '<span class="lua-macro">$1</span>');
+            });
+
+            // 3. 自定义触发核心函数
             const specialFuncs = ['BeeRun', 'BeelsRun', 'BeeStringFind', 'BeeUnitCastSpellName'];
             specialFuncs.forEach(func => {
                 const reg = new RegExp(`\\b(${func})\\b`, 'g');
                 html = html.replace(reg, '<span class="lua-func">$1</span>');
             });
 
-            // 4. 匹配单行注释 --
+            // 4. 注释线
             html = html.replace(/(--.*)$/g, '<span class="lua-comment">$1</span>');
 
-            // 5. 叠加全局搜索过滤高亮
             if (keyword) {
                 const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 const searchReg = new RegExp(`(${escapedKeyword})`, 'gi');
@@ -243,7 +280,6 @@
             return html;
         }
 
-        // 实时追踪打字，保持高亮层和输入层文字严格同步
         function syncRealtimeText(index, text) {
             const layer = document.getElementById(`highlight-layer-${index}`);
             if (layer) layer.innerHTML = runLuaHighlighter(text, '');
@@ -255,23 +291,52 @@
             if (layer && editor) layer.innerHTML = runLuaHighlighter(editor.innerText, '');
         }
 
-        // 唤醒独立标题调色盘
-        function triggerColorPicker(e, index) {
+        // 🪐 弹出带复制输入框的颜色面板
+        function openColorModal(e, index) {
             e.preventDefault();
-            const picker = document.getElementById(`color-picker-${index}`);
-            if (picker) picker.click();
+            activePickerIndex = index;
+            const currentColor = noteItems[index].data.title_color || '#58a6ff';
+            
+            document.getElementById('modal-native-picker').value = currentColor;
+            const hexInput = document.getElementById('modal-hex-input');
+            hexInput.value = currentColor.toUpperCase();
+            
+            document.getElementById('custom-color-modal').style.display = 'flex';
+            
+            // 自动全选，方便你 Ctrl+C 复制或者直接按键粘贴覆盖
+            setTimeout(() => { hexInput.select(); }, 50);
         }
 
-        // 更改独立标题颜色写回内存
-        function updateTitleColor(index, colorHex) {
-            if (noteItems[index]) {
-                noteItems[index].data.title_color = colorHex;
-                const titleField = document.querySelectorAll('.strip-title-field')[index];
-                if (titleField) titleField.style.color = colorHex;
+        function closeColorModal() {
+            document.getElementById('custom-color-modal').style.display = 'none';
+            activePickerIndex = null;
+        }
+
+        function syncColorInputFromWell(colorHex) {
+            document.getElementById('modal-hex-input').value = colorHex.toUpperCase();
+        }
+
+        // 确认保存色值
+        function applyTitleColorFromModal() {
+            if (activePickerIndex === null) return;
+            let finalColor = document.getElementById('modal-hex-input').value.trim();
+            
+            // 简易格式洗白保护
+            if (!finalColor.startsWith('#')) finalColor = '#' + finalColor;
+            if (!/^#[0-9A-Fa-f]{6}$/.test(finalColor)) {
+                alert("请输入标准的 6 位 Hex 颜色参数值！例如：#FF0000");
+                return;
             }
+
+            noteItems[activePickerIndex].data.title_color = finalColor;
+            const titles = document.querySelectorAll('.strip-title-field');
+            if (titles[activePickerIndex]) {
+                titles[activePickerIndex].style.color = finalColor;
+            }
+            closeColorModal();
         }
 
-        // 展开与折叠控制
+        // 联动切换展开折叠
         function toggleCardExpand(index) {
             const card = document.getElementById(`strip-card-node-${index}`);
             const btn = document.getElementById(`expand-btn-node-${index}`);
@@ -295,7 +360,6 @@
             
             const textNode = document.createTextNode(plainText);
             range.insertNode(textNode);
-            
             range.setStartAfter(textNode);
             range.setEndAfter(textNode);
             sel.removeAllRanges();
@@ -402,7 +466,7 @@
                 }
                 indicator.textContent = "⚡ 云端记事资产已完全对齐";
                 await fetchStreamData();
-                alert("✨ 同步成功！高密度着色数据已安全持久化写入 D1。");
+                alert("✨ 同步成功！干净的新格式记事数据已安全持久化写入 D1。");
             } catch (e) {
                 indicator.textContent = "❌ 级联更新同步失败";
             }
