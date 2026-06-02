@@ -18,18 +18,21 @@
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
         .terminal-title { font-size: 14px; color: var(--accent-color); font-weight: bold; }
         
-        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
         .search-box { background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 4px; width: 320px; font-size: 13px; outline: none; }
         .search-box:focus { border-color: var(--accent-color); }
-        .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px; }
-        .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
         
-        /* 高密度暗黑表格 */
+        /* 符号化专属按钮样式 */
+        .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: bold; }
+        .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        .ctrl-btn.danger-zone:hover { border-color: var(--accent-danger); color: var(--accent-danger); }
+        
+        /* High-Density 工业表格网格 */
         .grid-table { width: 100%; border-collapse: collapse; background: var(--bg-card); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
         .grid-table th, .grid-table td { border: 1px solid var(--border-color); padding: 8px 12px; vertical-align: top; }
         .grid-table th { background: #1f242c; color: var(--accent-color); font-size: 12px; text-align: left; padding: 10px; }
         
-        /* 针对代码排版、格式缩进特制的可编辑框 */
+        /* 自由富文本编辑器容器 */
         .code-editable-cell {
             width: 100%; min-height: 50px; background: transparent; color: #e6edf3;
             outline: none; font-family: var(--font-mono); font-size: 13px;
@@ -39,10 +42,12 @@
         .code-editable-cell:focus { background: rgba(56, 139, 253, 0.08); }
         .code-editable-cell[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
-        /* ✨ 强对比明黄检索着色 */
+        /* 搜索关键字黄底高亮着色 */
         .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
-        .mini-del-btn { color: var(--accent-danger); border: 1px solid #f8514933; background: transparent; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .mini-del-btn:hover { background: #f8514922; border-color: var(--accent-danger); }
+        
+        /* 纯符号减号按钮样式 */
+        .symbol-del-btn { background: transparent; border: 1px solid #f8514933; color: var(--accent-danger); width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; transition: all 0.2s; }
+        .symbol-del-btn:hover { background: #f8514922; border-color: var(--accent-danger); box-shadow: 0 0 8px rgba(248, 81, 73, 0.3); }
     </style>
 </head>
 <body>
@@ -53,10 +58,13 @@
     </header>
 
     <div class="toolbar">
-        <input type="text" id="global-search" class="search-box" placeholder="🔍 输入关键函数或批注全局过滤并高亮..." oninput="handleSearch()">
-        <button class="ctrl-btn" onclick="addDimension()"><i class="fas fa-columns"></i> ＋添加自定义列</button>
-        <button class="ctrl-btn" onclick="addCodeRow()"><i class="fas fa-plus"></i> ＋插入新数据行</button>
-        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green);" onclick="syncGridToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量同步到云端 D1</button>
+        <input type="text" id="global-search" class="search-box" placeholder="🔍 输入关键字全局筛选并精确定位高亮代码..." oninput="handleSearch()">
+        
+        <button class="ctrl-btn" onclick="addDimension()"><i class="fas fa-plus"></i> 列</button>
+        <button class="ctrl-btn danger-zone" onclick="removeDimension()"><i class="fas fa-minus"></i> 列</button>
+        <button class="ctrl-btn" onclick="addCodeRow()"><i class="fas fa-plus"></i> 行</button>
+        
+        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green); margin-left: auto;" onclick="syncGridToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量数据保存 (同步D1)</button>
     </div>
 
     <table class="grid-table">
@@ -71,12 +79,13 @@
 
         window.onload = async function() {
             if (!token) {
-                alert("未检测到有效验证身份，请返回主页执行统一登录鉴定！");
+                alert("未检测到安全身份授权，请返回主页执行统一登录鉴定！");
                 return;
             }
             await fetchGridData();
         };
 
+        // 数据异步加载
         async function fetchGridData() {
             try {
                 const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -84,6 +93,7 @@
                 columns = result.columns;
                 rows = result.rows;
                 
+                // 默认初始化三大核心代码维度
                 if (columns.length === 0) {
                     columns = [
                         { col_key: 'col_title', col_name: '功能/宏名称' },
@@ -97,13 +107,14 @@
             }
         }
 
+        // 视窗核心渲染引擎
         function renderTable(keyword = '') {
             const head = document.getElementById('grid-head');
             const body = document.getElementById('grid-body');
             
             let headHtml = '<tr>';
             columns.forEach(col => { headHtml += `<th>// ${col.col_name.toUpperCase()}</th>`; });
-            headHtml += '<th style="width:70px; text-align:center;">CANCELLATION</th></tr>';
+            headHtml += '<th style="width:50px; text-align:center;">－</th></tr>';
             head.innerHTML = headHtml;
 
             let bodyHtml = '';
@@ -131,9 +142,10 @@
                     `;
                 });
                 
+                // 行删除精简为纯符号 [ - ] 按钮
                 bodyHtml += `
                     <td style="text-align:center; vertical-align:middle;">
-                        <button class="mini-del-btn" onclick="deleteRow(${row.id}, ${rowIndex})">擦除</button>
+                        <button class="symbol-del-btn" title="擦除此行" onclick="deleteRow(${row.id}, ${rowIndex})"><i class="fas fa-minus"></i></button>
                     </td>
                 </tr>`;
             });
@@ -151,6 +163,7 @@
             if (rows[rowIndex]) { rows[rowIndex].data[colKey] = val; }
         }
 
+        // 拦截原生 Tab 焦点跳跃事件，优雅注入 4 空格缩进
         function handleTabKey(e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -165,6 +178,7 @@
             }
         }
 
+        // [ ＋ 行 ] 增加数据记录
         function addCodeRow() {
             let emptyData = {};
             columns.forEach(col => emptyData[col.col_key] = '');
@@ -172,8 +186,9 @@
             renderTable();
         }
 
+        // [ ＋ 列 ] 动态广播新维度
         async function addDimension() {
-            let name = prompt("请输入新增自定义维度的显示列名称（如：触发按键、适用职业）：");
+            let name = prompt("请输入新增自定义列维度的展示名称（如：触发按键、适用版本）：");
             if (!name) return;
             try {
                 const res = await fetch('/api/code-grid/column', {
@@ -185,15 +200,48 @@
             } catch(e) {}
         }
 
+        // [ － 列 ] 自定义维度反向物理裁剪机制
+        function removeDimension() {
+            if (columns.length <= 1) {
+                alert("系统保护：必须保留至少一个核心维度列！");
+                return;
+            }
+            
+            // 列出当前所有可删列名称提示用户
+            let colNames = columns.map((c, i) => `${i + 1}. ${c.col_name}`).join('\n');
+            let targetName = prompt(`请输入您想要擦除的“列名称”（注意：该列下所有代码数据将被丢弃）：\n\n当前已有列清单：\n${colNames}`);
+            if (!targetName) return;
+
+            let colIndex = columns.findIndex(c => c.col_name.trim() === targetName.trim());
+            if (colIndex === -1) {
+                alert("未匹配到该列名称，请确保输入的字样完全一致。");
+                return;
+            }
+
+            if (confirm(`⚠️ 警告：确认要物理裁撤【${targetName}】列吗？此操作不可逆！`)) {
+                let targetKey = columns[colIndex].col_key;
+                
+                // 1. 内存中将该列配置剪掉
+                columns.splice(colIndex, 1);
+                // 2. 清理所有行中关于该键值下的残留字符串
+                rows.forEach(r => { if(r.data[targetKey]) delete r.data[targetKey]; });
+                
+                renderTable();
+                alert(`✨ 【${targetName}】列已临时裁撤。请点击右上角“批量数据保存”将该架构物理同步回传至 D1 数据库！`);
+            }
+        }
+
         function handleSearch() {
             const query = document.getElementById('global-search').value.trim();
             renderTable(query);
         }
 
+        // 串行写入持久层
         async function syncGridToD1() {
             const indicator = document.getElementById('sync-indicator');
-            indicator.textContent = "⏳ 正在批量写入边缘存储数据库...";
+            indicator.textContent = "⏳ 正在同步全量网格画布至 D1 数据层...";
             try {
+                // 如果在前端删除了列配置，同步时全量对齐
                 for (let row of rows) {
                     await fetch('/api/code-grid', {
                         method: 'POST',
@@ -203,15 +251,20 @@
                 }
                 indicator.textContent = "⚡ 云端数据已全部对齐";
                 await fetchGridData();
-                alert("✨ 全量同步成功！当前所有多维代码资产已安全存放至边缘存储集群。");
+                alert("✨ 同步对齐成功！所有变动资产已托管写入边缘存储。");
             } catch (e) {
-                indicator.textContent = "❌ 串行同步终止";
+                indicator.textContent = "❌ 串行同步失败";
             }
         }
 
+        // [ － ] 物理擦除行
         async function deleteRow(id, index) {
-            if (!confirm("是否将此条记录从云端执行物理擦除？")) return;
-            if (!id) { rows.splice(index, 1); renderTable(); return; }
+            if (!confirm("是否将此条代码画布记录从云端执行物理擦除？")) return;
+            if (!id) {
+                rows.splice(index, 1);
+                renderTable();
+                return;
+            }
             try {
                 const res = await fetch('/api/code-grid', {
                     method: 'DELETE',
