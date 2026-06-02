@@ -37,12 +37,12 @@
         .note-strip-card:hover { border-color: #444c56; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         
         /* 🔀 智能拖拽换位手柄 */
-        .drag-handle { color: var(--text-muted); padding: 4px; font-size: 14px; user-select: none; display: flex; align-items: center; height: 32px; cursor: grab; }
+        .drag-handle { color: var(--text-muted); cursor: grab; padding: 4px; font-size: 14px; user-select: none; display: flex; align-items: center; height: 32px; }
         .drag-handle:active { cursor: grabbing; color: var(--accent-color); }
         .note-strip-card.dragging { opacity: 0.3; border: 1px dashed var(--accent-color); background: #1f242c; }
         
         /* 记事条内部内容区 */
-        .strip-main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .strip-main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-right: 40px; /* 留出空间给右侧悬浮按钮 */ }
         
         /* 功能标题输入框字段 */
         .strip-title-field { 
@@ -51,33 +51,51 @@
         }
         .strip-title-field:focus { border-bottom-color: var(--accent-color); color: #fff; }
         
-        /* 高密度智能限高、防超长代码框 */
+        /* 🛠️ 核心魔改：默认死锁在一行、彻底隐藏滑条的代码编辑器 */
         .strip-content-editor { 
             width: 100%; 
-            max-height: 240px; 
-            min-height: 38px; 
+            min-height: 22px;
             background: transparent; 
             color: #e6edf3;
             outline: none; 
             font-size: 13px;
-            line-height: 1.5; 
-            white-space: pre-wrap; 
-            word-break: break-all;
+            line-height: 1.6; 
+            white-space: nowrap; /* 🎯 默认强行锁定单行，不换行 */
+            overflow: hidden;    /* 🎯 隐藏溢出，不留滑条 */
+            text-overflow: ellipsis;
             tab-size: 4; -moz-tab-size: 4; 
             padding: 2px 0;
-            overflow-y: auto; 
-            transition: max-height 0.2s ease;
         }
-        .strip-content-editor:focus { max-height: 600px; background: rgba(56, 139, 253, 0.02); }
+        
+        /* 💡 当处于展开激活状态（expanded）时的样式覆盖 */
+        .note-strip-card.expanded .strip-content-editor {
+            white-space: pre-wrap; /* 展开后恢复正常多行排版 */
+            overflow: visible;     /* 消除裁剪 */
+            text-overflow: clip;
+        }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
         
         /* 🔍 检索黄色高亮 */
         .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; padding: 0 1px; }
         
+        /* 右侧独立控制按钮组容器 */
+        .strip-action-group {
+            position: absolute; top: 10px; right: 12px; display: flex; gap: 6px; align-items: center;
+        }
+
+        /* 🛠️ 新增：极其精致的 ＋ / － 原生控制按钮 */
+        .toggle-expand-btn {
+            background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);
+            width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold; transition: all 0.15s ease;
+        }
+        .toggle-expand-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
         /* 隐藏感应式擦除按钮 */
         .strip-del-btn { 
-            position: absolute; top: 10px; right: 12px; background: transparent; border: none;
-            color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 4px;
+            background: transparent; border: none; color: var(--text-muted); 
+            cursor: pointer; font-size: 13px; padding: 4px; display: inline-flex; align-items: center; justify-content: center;
             opacity: 0; transition: opacity 0.15s ease, color 0.15s;
         }
         .note-strip-card:hover .strip-del-btn { opacity: 1; }
@@ -87,8 +105,8 @@
 <body>
 
     <header>
-        <div class="terminal-title"><i class="fas fa-stream"></i> D1_NOTE_STREAM_FLOW // 流式记事终端</div>
-        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 选中左侧 ☰ 题头激活插队，粘贴时会自动清洗背景和颜色格式</div>
+        <div class="terminal-title"><i class="fas fa-stream"></i> D1_NOTE_STREAM_FLOW // 紧凑流式记事终端</div>
+        <div id="sync-indicator" style="font-size:12px; color:var(--text-muted);">⚡ 系统就绪 // 默认单行紧凑。点击右侧 [＋] 展开代码，点击 [－] 折叠。</div>
     </header>
 
     <div class="toolbar">
@@ -112,6 +130,7 @@
             initDragAndDropEngine();
         };
 
+        // 从 D1 加载数据
         async function fetchStreamData() {
             try {
                 const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -124,7 +143,7 @@
                         sort_order: 0,
                         data: {
                             title: "欢迎使用全新流式记事终端",
-                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 📢 复制带有复杂颜色背景的代码进来时，系统会自动洗掉格式，只存纯文本！"
+                            content: "-- 在这里录入你的第一条 Lua 代码片段或随身随手笔记\n-- 录入完成后点击右上角同步到云端 D1\n-- 📢 长代码默认精简压缩为单行。点击最右侧的 [ ＋ ] 即可瞬间满血伸展！"
                         }
                     }];
                 }
@@ -152,6 +171,7 @@
                 const card = document.createElement('div');
                 card.className = 'note-strip-card';
                 card.setAttribute('data-index', index);
+                card.setAttribute('id', `strip-card-node-${index}`);
 
                 card.innerHTML = `
                     <div class="drag-handle" draggable="true"><i class="fas fa-bars"></i></div>
@@ -164,25 +184,53 @@
                         <div class="strip-content-editor" 
                              contenteditable="true"
                              onblur="updateMemory(${index}, 'content', this.innerText)"
+                             onfocus="autoExpandCard(${index})"
                              onkeydown="handleTabKey(event)"
                              onpaste="handlePureTextPaste(event)"
-                             placeholder="// 点击此处录入随身备忘逻辑、代码判定宏...">${highlightText(contentText, keyword)}</div>
+                             placeholder="// 点击此处录入随身备忘逻辑...">${highlightText(contentText, keyword)}</div>
                     </div>
-                    <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
+                    
+                    <div class="strip-action-group">
+                        <button class="toggle-expand-btn" id="expand-btn-node-${index}" title="展开/收起代码" onclick="toggleCardExpand(${index})">＋</button>
+                        <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${index})"><i class="fas fa-trash-alt"></i></button>
+                    </div>
                 `;
                 container.appendChild(card);
             });
         }
 
-        // 🛠️ 终极修正：采用 clipboardData 抓取剪贴板字符，彻底修复粘贴失效BUG
+        // 💡 ＋ / － 核心伸缩引擎切换
+        function toggleCardExpand(index) {
+            const card = document.getElementById(`strip-card-node-${index}`);
+            const btn = document.getElementById(`expand-btn-node-${index}`);
+            if (!card || !btn) return;
+
+            const isExpanded = card.classList.toggle('expanded');
+            btn.textContent = isExpanded ? '－' : '＋';
+            btn.style.color = isExpanded ? 'var(--accent-color)' : 'var(--text-muted)';
+            btn.style.borderColor = isExpanded ? 'var(--accent-color)' : 'var(--border-color)';
+        }
+
+        // 💡 辅助交互：当鼠标点击代码框进去光标准备修改时，自动执行 [ + ] 展开
+        function autoExpandCard(index) {
+            const card = document.getElementById(`strip-card-node-${index}`);
+            const btn = document.getElementById(`expand-btn-node-${index}`);
+            if (card && !card.classList.contains('expanded')) {
+                card.classList.add('expanded');
+                if (btn) {
+                    btn.textContent = '－';
+                    btn.style.color = 'var(--accent-color)';
+                    btn.style.borderColor = 'var(--accent-color)';
+                }
+            }
+        }
+
+        // 粘贴干净纯文本
         function handlePureTextPaste(e) {
-            e.preventDefault(); // 拦截默认富文本行为
-            
-            // 正确获取系统底层剪贴板的纯文本
+            e.preventDefault(); 
             const clipboardData = e.clipboardData || window.clipboardData;
             const plainText = clipboardData.getData('text/plain');
             
-            // 执行光标处定点插入
             const sel = window.getSelection();
             if (!sel.rangeCount) return;
             const range = sel.getRangeAt(0);
@@ -191,13 +239,11 @@
             const textNode = document.createTextNode(plainText);
             range.insertNode(textNode);
             
-            // 移动光标到末尾
             range.setStartAfter(textNode);
             range.setEndAfter(textNode);
             sel.removeAllRanges();
             sel.addRange(range);
             
-            // 抛出通知，写回内存数组
             const editor = e.target.closest('.strip-content-editor');
             if (editor) {
                 const index = parseInt(editor.closest('.note-strip-card').getAttribute('data-index'));
@@ -305,7 +351,7 @@
                 }
                 indicator.textContent = "⚡ 云端记事资产已完全对齐";
                 await fetchStreamData();
-                alert("✨ 同步成功！干净的新格式记事数据已安全持久化。");
+                alert("✨ 同步成功！拖拽校准后的干净行格式记事数据已持久化写入 D1。");
             } catch (e) {
                 indicator.textContent = "❌ 级联更新同步失败";
             }
