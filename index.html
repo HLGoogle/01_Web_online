@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Console // 私有云导航</title>
+    <title>Console // 健壮导航终端</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* --- 极简暗黑硬核高密度终端风格 --- */
         :root {
             --bg-main: #0d1117; --bg-card: #161b22; --bg-input: #21262d;      
             --border-color: #30363d; --text-main: #c9d1d9; --text-muted: #8b949e;    
@@ -22,7 +21,6 @@
         .top-controls { display: flex; gap: 10px; }
         .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; font-family: var(--font-mono); }
         .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
-        .ctrl-btn.btn-logout:hover { border-color: var(--accent-danger); color: var(--accent-danger); }
         body:not(.logged-in) .top-controls { display: none; }
         
         #auth-panel { max-width: 400px; margin: 100px auto; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 30px; width: 100%; }
@@ -118,7 +116,7 @@
                 <input type="text" id="link-url" class="form-input">
             </div>
             <div class="form-group">
-                <label class="form-label">// ICON_SOURCE / 图标配置 (文字降级方案或自动填入图片ID)</label>
+                <label class="form-label">// ICON_SOURCE / 图标配置</label>
                 <input type="text" id="link-icon" class="form-input">
             </div>
             <div class="form-group">
@@ -126,7 +124,7 @@
                 <input type="text" id="link-comment" class="form-input">
             </div>
             <div class="form-group">
-                <label class="form-label">// SECRETS_NOTE / 开发备注数据</label>
+                <label class="form-label">// SECRETS_NOTE / 注释信息</label>
                 <textarea id="link-note" class="form-input" style="height:60px; resize:none;"></textarea>
             </div>
             <div class="form-group">
@@ -160,7 +158,7 @@
 
     <script>
         const API_AUTH = '/api/auth'; const API_LINKS = '/api/links'; const API_USER = '/api/user';
-        const CACHE_NAME = 'nav-icon-assets-v1'; // 独立沙盒图片二进制缓存库名称
+        const CACHE_NAME = 'nav-icon-assets-v1';
         let authMode = 'login'; let allLinks = []; let isEditMode = false;
         let userSettings = { sensitivity: 50, categoryOrder: "" }; let currentTargetLinkId = null;
         const mouseTrack = { x: 0, y: 0, t: 0, vx: 0 };
@@ -198,12 +196,10 @@
             else if (mode === 'reset') { title.textContent = '// RESET_CREDENTIALS'; oldPwdGroup.style.display = 'none'; resetGroup.style.display = 'block'; pwdGroup.style.display = 'block'; }
         }
 
-        // 高级先缓存、后同步数据对齐逻辑
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
             const indicator = document.getElementById('sync-status');
             
-            // 🔄 一级策略：优先秒开本地缓存
             const cachedLinks = localStorage.getItem('cached_links_data');
             if (cachedLinks) {
                 try {
@@ -214,13 +210,11 @@
                 } catch(e){}
             }
 
-            // 🔄 二级策略：静默连接边缘数据库核对
             try {
                 const res = await fetch(API_LINKS, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401) { logout(); return; }
                 const freshLinks = await res.json();
 
-                // 核心：若有新图标发布，执行无感对齐
                 if (JSON.stringify(freshLinks) !== cachedLinks) {
                     allLinks = freshLinks;
                     localStorage.setItem('cached_links_data', JSON.stringify(freshLinks));
@@ -248,7 +242,7 @@
             }
             if (types.length === 0 && allLinks.length === 0) {
                 if (isEditMode) types.push('常用');
-                else { content.innerHTML = '<div style="text-align:center;padding:50px;color:var(--text-muted);">[ END_POINT_EMPTY ] <br>环境就绪，请调出终端录入数据</div>'; return; }
+                else { content.innerHTML = '<div style="text-align:center;padding:50px;color:var(--text-muted);">[ END_POINT_EMPTY ] <br>请开启管理终端录入导航数据</div>'; return; }
             }
             types.forEach(type => {
                 const section = document.createElement('section'); section.className = 'type-section';
@@ -271,11 +265,10 @@
             let iconHtml = '';
             
             if (link.icon && link.icon.startsWith('user_')) {
-                // 一级图片方案：预留位置，通过高性能 Cache 异步机制加载
+                // 默认加载暗黑透明占位符
                 iconHtml = `<img id="${imgId}" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><rect width='24' height='24' fill='%2321262d'/></svg>">`;
                 fetchAndCacheIcon(`/api/icon/${link.icon}`, imgId);
             } else {
-                // 二级降级方案：文字图标
                 const textIcon = link.icon ? link.icon.slice(0, 2) : (link.comment || '无').slice(0, 2);
                 iconHtml = `<span class="text-icon-wrapper">${textIcon}</span>`;
             }
@@ -311,48 +304,66 @@
             return item;
         }
 
-        // 🚀 核心完美拦截逻辑：实现先找缓存，后同步网络的 Cache 拦截引擎
+        // 🚀 终极健壮拦截逻辑：防内存泄漏 + 强制后台网络校验机制
         async function fetchAndCacheIcon(url, targetImgId) {
             if (!('caches' in window)) {
-                document.getElementById(targetImgId).src = url;
+                const imgNode = document.getElementById(targetImgId);
+                if (imgNode) imgNode.src = url;
                 return;
             }
+            
             const cache = await caches.open(CACHE_NAME);
             const cachedResponse = await cache.match(url);
 
-            if (cachedResponse) {
-                // ⚡ 本地有缓存，转换二进制流（Blob），实现1微秒极速上屏
-                const blob = await cachedResponse.blob();
+            const mountAndReleaseBlob = async (responseObj) => {
+                const blob = await responseObj.blob();
                 const blobUrl = URL.createObjectURL(blob);
                 const imgNode = document.getElementById(targetImgId);
-                if (imgNode) imgNode.src = blobUrl;
+                if (imgNode) {
+                    imgNode.src = blobUrl;
+                    // 🛡️ 健壮性防线：当图片完成 DOM 节点挂载后，立刻注销临时 Blob URL，释放系统运行内存！
+                    imgNode.onload = () => { URL.revokeObjectURL(blobUrl); };
+                }
+            };
+
+            if (cachedResponse) {
+                // 1微秒极速离线闪开
+                await mountAndReleaseBlob(cachedResponse);
                 
-                // 📡 后台静默跟网络对齐，检查文件是否异常（如果网络正常则不进行重绘，保障绝对流畅度）
-                fetch(url).then(networkResponse => {
-                    if (networkResponse.status === 200) cache.put(url, networkResponse);
+                // 📡 强制网络背景对齐线：加入时间戳防止强缓存锁死，实现真正的 Stale-While-Revalidate 机制
+                const bypassUrl = url + '?_ts=' + Date.now();
+                fetch(bypassUrl).then(networkResponse => {
+                    if (networkResponse.status === 200) {
+                        cache.put(url, networkResponse); // 静默重写底层二进制缓存沙盒
+                    }
                 }).catch(()=>{});
             } else {
-                // 🌍 首次加载，走网路，并静默写入本地沙盒
+                // 首次拉取，走网络安全通道
                 try {
                     const response = await fetch(url);
                     if (response.status === 200) {
                         await cache.put(url, response.clone());
-                        const blob = await response.blob();
-                        const blobUrl = URL.createObjectURL(blob);
-                        const imgNode = document.getElementById(targetImgId);
-                        if (imgNode) imgNode.src = blobUrl;
+                        await mountAndReleaseBlob(response);
                     }
                 } catch(e) {
-                    document.getElementById(targetImgId).src = url; // 降级硬加载
+                    const imgNode = document.getElementById(targetImgId);
+                    if (imgNode) imgNode.src = url;
                 }
             }
         }
 
         function triggerIconUpload(linkId) { currentTargetLinkId = linkId; document.getElementById('hidden-icon-uploader').click(); }
 
-        // 异步直传隔离处理
         async function handleIconFileSelected(inputElement) {
             const file = inputElement.files[0]; if (!file || !currentTargetLinkId) return;
+            
+            // 🛑 前端健壮性第一道拦截：文件超过 2MB 直接弹窗警告，不再向后端发送请求
+            if (file.size > 2 * 1024 * 1024) {
+                alert("安全拦截：图标文件过大（不可超过 2MB），已终止直传！");
+                inputElement.value = '';
+                return;
+            }
+
             const token = localStorage.getItem('nav_token');
             document.getElementById('sync-status').textContent = "⏳ 正在直传图片资产至 Workers KV 空间...";
 
@@ -360,6 +371,12 @@
                 const res = await fetch(`/api/user/upload-icon?name=${encodeURIComponent(file.name)}`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: file
                 });
+                
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || "服务器拒绝接收");
+                }
+                
                 const uploadResult = await res.json();
                 
                 if (uploadResult.success) {
@@ -370,15 +387,14 @@
                             method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify(targetLink)
                         });
-                        // 清理该 URL 的旧缓存（防止重绘时出现错觉）
                         if ('caches' in window) {
                             const cache = await caches.open(CACHE_NAME);
                             await cache.delete(`/api/icon/${uploadResult.kvKey}`);
                         }
-                        loadLinks(); // 刷新画布
+                        loadLinks();
                     }
                 } else { alert('直传终止: ' + uploadResult.error); }
-            } catch (e) { alert('存储资产时出现故障'); }
+            } catch (e) { alert('存储资产失败: ' + e.message); }
             finally { inputElement.value = ''; currentTargetLinkId = null; }
         }
 
@@ -426,13 +442,13 @@
                 icon: document.getElementById('link-icon').value.trim(), comment: document.getElementById('link-comment').value.trim(),
                 note: document.getElementById('link-note').value.trim(), sort_order: parseInt(document.getElementById('link-sort').value) || 0
             };
-            if (!payload.type || !payload.url) return alert('必填参数缺失');
+            if (!payload.type || !payload.url) return alert('核心参数配置缺失');
             if (id) payload.id = id;
             const res = await fetch(API_LINKS, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
             if (res.ok) { closeLinkModal(); loadLinks(); }
         }
         async function deleteLink(id) {
-            if (!confirm('确认要物理移除此卡片资产？')) return;
+            if (!confirm('确认要物理注销此卡片记录？')) return;
             const token = localStorage.getItem('nav_token');
             const res = await fetch(API_LINKS, { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id }) });
             if (res.ok) loadLinks();
