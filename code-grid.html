@@ -27,19 +27,23 @@
 
         /* 🏷️ 极致紧凑的动态分类页签栏 */
         .tabs-bar { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #21262d; padding-bottom: 4px; flex-wrap: wrap; }
+        
+        /* 🔄 页签支持拖拽的样式反馈 */
         .tab-item { 
             display: flex; align-items: center; gap: 6px; background: #1f242c; border: 1px solid var(--border-color);
-            padding: 2px 10px; border-radius: 3px 3px 0 0; font-size: 12px; cursor: pointer; color: var(--text-muted);
+            padding: 2px 10px; border-radius: 3px 3px 0 0; font-size: 12px; cursor: grab; color: var(--text-muted);
             position: relative; transition: all 0.15s ease; user-select: none; height: 24px;
         }
+        .tab-item:active { cursor: grabbing; }
         .tab-item:hover { color: #fff; border-color: #444c56; }
         .tab-item.active { background: var(--bg-card); color: var(--accent-color); border-color: var(--border-color) var(--border-color) var(--bg-card) var(--border-color); font-weight: bold; height: 25px; margin-bottom: -1px; z-index: 2; }
-        
+        .tab-item.tab-dragging { opacity: 0.4; border: 1px dashed var(--accent-color); background: #161b22; }
+
         /* 页签内置轻量输入框（用于改名） */
         .tab-rename-input { 
             background: var(--bg-input); border: 1px solid var(--accent-color); color: #fff; 
             font-size: 12px; font-weight: bold; outline: none; width: 80px; padding: 0 4px; 
-            border-radius: 2px; height: 18px; margin: 0;
+            border-radius: 2px; height: 18px; margin: 0; cursor: text;
         }
         
         /* 页签内小垃圾桶（删除分类） */
@@ -194,6 +198,7 @@
             }
             await fetchStreamData();
             initDragAndDropEngine();
+            initTabDragAndDropEngine(); // 初始化页签拖拽引擎
         };
 
         async function fetchStreamData() {
@@ -226,13 +231,22 @@
 
         function extractCategories() {
             const set = new Set();
+            // 先按当前内存中的 categories 顺序提取，如果没有，再追加，保持用户拖拽后的相对顺序
+            const tempCategories = [...categories];
+            
             noteItems.forEach(item => {
                 if(item.data && item.data.category) {
                     set.add(item.data.category);
                 }
             });
+            
             if(set.size > 0) {
-                categories = Array.from(set);
+                // 过滤出依然存在的分类，再合并新生成的分类
+                const activeSetList = Array.from(set);
+                categories = tempCategories.filter(c => activeSetList.includes(c));
+                activeSetList.forEach(c => {
+                    if(!categories.includes(c)) categories.push(c);
+                });
             } else {
                 categories = ["文本1"];
             }
@@ -245,11 +259,14 @@
             const zone = document.getElementById('dynamic-tabs-zone');
             zone.innerHTML = '';
 
-            categories.forEach(cat => {
+            categories.forEach((cat, index) => {
                 const isTxt1 = (cat === "文本1");
                 const activeClass = (cat === currentTab) ? 'active' : '';
                 const tab = document.createElement('div');
                 tab.className = `tab-item ${activeClass}`;
+                tab.setAttribute('draggable', 'true'); // 让页签可拖拽
+                tab.setAttribute('data-tab-index', index);
+                tab.setAttribute('data-category', cat);
                 
                 tab.onclick = function(e) {
                     if (this.querySelector('input')) return; 
@@ -314,6 +331,8 @@
             const span = tabEl.querySelector('span');
             if (!span || tabEl.querySelector('input')) return; 
 
+            tabEl.setAttribute('draggable', 'false'); // 改名时禁用拖拽防止冲突
+
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'tab-rename-input';
@@ -327,6 +346,7 @@
             const done = () => {
                 if (isFinished) return;
                 isFinished = true;
+                tabEl.setAttribute('draggable', 'true');
                 finishRenameTab(input, oldName);
             };
 
@@ -338,6 +358,7 @@
                 }
                 if (ev.key === 'Escape') {
                     isFinished = true;
+                    tabEl.setAttribute('draggable', 'true');
                     renderTabs();
                 }
             };
@@ -371,14 +392,12 @@
             document.getElementById('sync-indicator').textContent = "⏳ 页签重命名成功，请点击批量保存同步到云端";
         }
 
-        /* 🔒 优化：删除页签安全校验机制（类似 Cloudflare） */
         function deleteTab(e, catName) {
             e.stopPropagation();
             
-            // 引导式输入校验
             const confirmInput = prompt(`⚠️ 高危操作：该动作将物理销毁页签 [${catName}] 以及其下的所有记事条目！\n\n如果确认删除，请输入该页签的完整名称进行确认:`);
             
-            if (confirmInput === null) return; // 用户取消了输入框
+            if (confirmInput === null) return; 
             
             if (confirmInput.trim() !== catName) {
                 alert("❌ 输入名称不匹配，操作已安全熔断终止。");
@@ -391,6 +410,45 @@
             renderTabs();
             renderStream();
             document.getElementById('sync-indicator').textContent = "⏳ 页签已清空，请点击批量保存提交到集群";
+        }
+
+        /* 🔄 核心新增：页签横向拖拽交换排序引擎 */
+        function initTabDragAndDropEngine() {
+            const tabsBar = document.getElementById('dynamic-tabs-zone');
+            let dragSrcTab = null;
+
+            tabsBar.addEventListener('dragstart', function(e) {
+                const tabItem = e.target.closest('.tab-item');
+                if (!tabItem || tabItem.querySelector('input')) { e.preventDefault(); return; }
+                
+                dragSrcTab = tabItem;
+                dragSrcTab.classList.add('tab-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            tabsBar.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                const overTab = e.target.closest('.tab-item');
+                if (!overTab || overTab === dragSrcTab) return;
+                
+                // 判断鼠标位置是在目标页签的左半侧还是右半侧，决定插入方向
+                const rect = overTab.getBoundingClientRect();
+                const next = (e.clientX - rect.left) / (rect.right - rect.left) > 0.5;
+                tabsBar.insertBefore(dragSrcTab, next ? overTab.nextSibling : overTab);
+            });
+
+            tabsBar.addEventListener('dragend', function(e) {
+                if (dragSrcTab) dragSrcTab.classList.remove('tab-dragging');
+
+                // 重新扫描 DOM 树节点，重构内存中的页签分类数组顺序
+                const allCurrentTabs = Array.from(tabsBar.querySelectorAll('.tab-item'));
+                const newCategoriesOrder = allCurrentTabs.map(tab => tab.getAttribute('data-category'));
+                
+                if (newCategoriesOrder.length > 0) {
+                    categories = newCategoriesOrder;
+                    document.getElementById('sync-indicator').textContent = "⏳ 页签视图层序列已变动，请及时保存对齐集群";
+                }
+            });
         }
 
         function renderStream(keyword = '') {
@@ -649,6 +707,7 @@
             const indicator = document.getElementById('sync-indicator');
             indicator.textContent = "⏳ 正在对齐 D1 存储群集数据...";
             try {
+                // 批量入库时，后台直接采用内存更新后的有序序列
                 for (let item of noteItems) {
                     await fetch('/api/code-grid', {
                         method: 'POST',
@@ -664,22 +723,19 @@
             }
         }
 
-        /* 🔒 优化：单条记事删除安全校验机制 */
         async function deleteStripAction(id, index) {
             const targetTitle = noteItems[index]?.data?.title || '';
             const verifyPrompt = targetTitle.trim() === '' ? '无标题项目' : targetTitle;
             
-            // 引导式输入校验
             const confirmInput = prompt(`⚠️ 确定要物理清除本条记事数据吗？该操作不可逆！\n\n请输入该项标题 [ ${verifyPrompt} ] 进行确认:`);
             
-            if (confirmInput === null) return; // 用户取消
+            if (confirmInput === null) return; 
             
             if (confirmInput.trim() !== verifyPrompt) {
                 alert("❌ 输入标题不匹配，删除已被熔断。");
                 return;
             }
 
-            // 校验通过，执行原删除逻辑
             if (!id) {
                 noteItems.splice(index, 1);
                 renderStream();
