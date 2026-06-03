@@ -1,4 +1,4 @@
-// 🏷️ 定义本地防空洞的存储版本和需要死死锁在本地的网页资产框架
+// 🏷️ 定义本地脱机离线缓存的存储版本和需要死死锁在本地的网页资产框架，非常重要
 const CACHE_NAME = 'terminal-offline-v1';
 const ASSETS_TO_CACHE = [
     '/',
