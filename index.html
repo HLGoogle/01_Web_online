@@ -64,13 +64,6 @@
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(2px); z-index: 3000; justify-content: center; align-items: center; }
         .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; width: 360px; }
         .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
-
-        /* 🆕 为主页追加高密度流式记事模块专用的 CSS 配套样式结构 */
-        .main-note-panel { margin-top: 30px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; width: 100%; }
-        .note-list-wrapper { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-        .main-strip-card { background: #1c2128; border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 12px; display: flex; flex-direction: column; gap: 4px; }
-        .main-strip-card-title { font-size: 12px; font-weight: bold; font-family: var(--font-mono); }
-        .main-strip-code-block { background: #0d1117; border: 1px solid #21262d; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #e6edf3; font-family: var(--font-mono); overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -112,14 +105,7 @@
 
     <div id="content">
         <div id="links-render-zone"></div>
-
-        <div class="main-note-panel">
-            <div class="type-header" style="color:var(--accent-green)">// LIVE_DATA_STREAM // 云端全量同步资产</div>
-            <div class="note-list-wrapper" id="main-page-note-list">
-                <div style="font-size:12px; color:var(--text-muted); padding:10px 0;">⏳ 正在连接 D1 存储集群加载数据流...</div>
-            </div>
         </div>
-    </div>
 
     <div id="global-note-popup" class="note-popup"></div>
     <input type="file" id="hidden-icon-uploader" accept="image/*" style="display: none;" onchange="handleIconFileSelected(this)">
@@ -173,7 +159,7 @@
                 if (cachedSettings) { try { userSettings = JSON.parse(cachedSettings); } catch(e){} }
                 showUI(); 
                 loadLinks(); 
-                fetchMainPageNotes(); // 同时加载底部的记事卡片流
+                // 💡 移除了 window.onload 时调用加载底部资产的逻辑
             }
         };
 
@@ -330,69 +316,6 @@
             }
         }
 
-        // =========================================================
-        // ✨ 完全对齐 D1 嵌套 rows 结构的记事卡片流加载引擎
-        // =========================================================
-        async function fetchMainPageNotes() {
-            const noteListZone = document.getElementById('main-page-note-list');
-            if (!noteListZone) return;
-            const token = localStorage.getItem('nav_token');
-
-            try {
-                const response = await fetch(API_CODE_GRID, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error(`HTTP 状态异常: ${response.status}`);
-
-                const result = await response.json();
-                
-                // 核心闭环：新版后端的全量资产被包裹在独有的 rows 大数池里].js]
-                const rows = result.rows || [];
-                noteListZone.innerHTML = '';
-
-                if (rows.length === 0) {
-                    noteListZone.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding:10px 0;">// NO_DATA_ASSETS // 暂无记录，请进入上方代码画布终端添加</div>';
-                    return;
-                }
-
-                // 循环处理解析结构].js]
-                rows.forEach(item => {
-                    const data = item.data || {};
-                    const title = data.title || '未命名行项';
-                    const content = data.content || '';
-                    const titleColor = data.title_color || '#58a6ff';
-                    const category = data.category || '文本1';
-
-                    const card = document.createElement('div');
-                    card.className = 'main-strip-card';
-                    card.style.borderLeft = `3px solid ${titleColor}`;
-
-                    card.innerHTML = `
-                        <div class="main-strip-card-title" style="color: ${titleColor}">
-                            <i class="fas fa-terminal" style="font-size:10px; opacity:0.7;"></i> [${category}] ${title}
-                        </div>
-                        <pre class="main-strip-code-block"><code>${escapeHtml(content)}</code></pre>
-                    `;
-                    noteListZone.appendChild(card);
-                });
-
-            } catch (error) {
-                console.error('主页记事流中继加载异常:', error);
-                noteListZone.innerHTML = `<div style="font-size:12px; color:var(--accent-danger); padding:10px 0;">❌ 级联记事流资产载入失败: ${error.message}</div>`;
-            }
-        }
-
-        // 字符逃逸保护
-        function escapeHtml(text) {
-            if (!text) return '';
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
         function triggerIconUpload(linkId) { currentTargetLinkId = linkId; document.getElementById('hidden-icon-uploader').click(); }
 
         async function handleIconFileSelected(inputElement) {
@@ -487,7 +410,8 @@
                     if (authMode === 'login') {
                         localStorage.setItem('nav_token', data.token); localStorage.setItem('nav_user', data.username);
                         if (data.settings) { localStorage.setItem('nav_settings', data.settings); try { userSettings = JSON.parse(data.settings); } catch(e){} }
-                        document.getElementById('auth-panel').style.display = 'none'; showUI(); loadLinks(); fetchMainPageNotes();
+                        document.getElementById('auth-panel').style.display = 'none'; showUI(); loadLinks();
+                        // 💡 移除了登录成功后调用加载资产数据流的逻辑
                     } else { alert('指令验证执行通过'); switchAuthMode('login'); }
                 } else { msg.textContent = `>> ERROR: ${data.error || 'BAD_REQUEST'}`; }
             } catch(e) { msg.textContent = '>> ERROR: CONN_TIMEOUT'; }
