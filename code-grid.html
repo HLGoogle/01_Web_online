@@ -156,12 +156,10 @@
     <input type="text" id="global-search" class="search-box" placeholder="🔍 全局跨分类搜索过滤并精确定位..." oninput="handleSearch()">
     <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 录入新行</button>
     
-    <!-- 🛠️ 核心修改：把 margin-left: auto 挪到“回首页”按钮上，后面紧跟“批量保存” -->
     <button class="ctrl-btn" style="margin-left: auto; color: var(--accent-color); border-color: #388bfd4d;" onclick="window.location.href='/index.html'"><i class="fas fa-home"></i> 回首页</button>
     <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green);" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量保存</button>
 </div>
 
-    <!-- 🏷️ 全动态页签导航栏区 -->
     <div class="tabs-bar" id="dynamic-tabs-zone"></div>
 
     <div class="note-stream-list" id="note-stream-container"></div>
@@ -187,7 +185,6 @@
         const token = localStorage.getItem('nav_token');
         let activePickerIndex = null; 
         
-        // 用于解决 Click 和 Dblclick 冲突的单机定时器句柄[cite: 2]
         let tabClickTimer = null;
 
         window.onload = async function() {
@@ -244,7 +241,6 @@
             }
         }
 
-        // 🎨 渲染页签栏 (高内聚防冲突版)
         function renderTabs() {
             const zone = document.getElementById('dynamic-tabs-zone');
             zone.innerHTML = '';
@@ -255,17 +251,15 @@
                 const tab = document.createElement('div');
                 tab.className = `tab-item ${activeClass}`;
                 
-                // 单击逻辑内置防抖阀门[cite: 2]
                 tab.onclick = function(e) {
-                    if (this.querySelector('input')) return; // 正改名时锁死点击切换
+                    if (this.querySelector('input')) return; 
                     
                     clearTimeout(tabClickTimer);
                     tabClickTimer = setTimeout(() => {
                         switchTab(cat);
-                    }, 180); // 180ms 延迟足以区分双击[cite: 2]
+                    }, 180); 
                 };
                 
-                // 双击直接熔断单击定时器并开始原地改名[cite: 2]
                 tab.ondblclick = function(e) {
                     clearTimeout(tabClickTimer);
                     startRenameTab(e, this, cat);
@@ -313,7 +307,6 @@
             document.getElementById('sync-indicator').textContent = "⏳ 建立了新分类，请记得点击批量保存入库";
         }
 
-        // ✏️ 原地双击改页签名核心注入[cite: 2]
         function startRenameTab(e, tabEl, oldName) {
             e.stopPropagation(); 
             e.preventDefault();
@@ -350,7 +343,6 @@
             };
         }
 
-        // 💾 完成命名替换同步内存池核心闭环[cite: 2]
         function finishRenameTab(inputEl, oldName) {
             const newName = inputEl.value.trim();
             if (!newName || newName === oldName) {
@@ -379,9 +371,19 @@
             document.getElementById('sync-indicator').textContent = "⏳ 页签重命名成功，请点击批量保存同步到云端";
         }
 
+        /* 🔒 优化：删除页签安全校验机制（类似 Cloudflare） */
         function deleteTab(e, catName) {
             e.stopPropagation();
-            if (!confirm(`确定要物理销毁 [${catName}] 页签以及它里面的全部记事吗？该操作不可逆！`)) return;
+            
+            // 引导式输入校验
+            const confirmInput = prompt(`⚠️ 高危操作：该动作将物理销毁页签 [${catName}] 以及其下的所有记事条目！\n\n如果确认删除，请输入该页签的完整名称进行确认:`);
+            
+            if (confirmInput === null) return; // 用户取消了输入框
+            
+            if (confirmInput.trim() !== catName) {
+                alert("❌ 输入名称不匹配，操作已安全熔断终止。");
+                return;
+            }
 
             noteItems = noteItems.filter(item => !(item.data && item.data.category === catName));
             
@@ -424,7 +426,7 @@
                         <input type="text" class="strip-title-field" 
                                value="${titleText}" 
                                style="color: ${titleColor}"
-                               placeholder="// 输入功能标题"
+                               placeholder="// 无标题项目"
                                onchange="updateMemory(${globalIndex}, 'title', this.value)"
                                oncontextmenu="openColorModal(event, ${globalIndex})"
                                ondblclick="openColorModal(event, ${globalIndex})">
@@ -662,8 +664,22 @@
             }
         }
 
+        /* 🔒 优化：单条记事删除安全校验机制 */
         async function deleteStripAction(id, index) {
-            if (!confirm("确认要物理清除本条记事数据吗？")) return;
+            const targetTitle = noteItems[index]?.data?.title || '';
+            const verifyPrompt = targetTitle.trim() === '' ? '无标题项目' : targetTitle;
+            
+            // 引导式输入校验
+            const confirmInput = prompt(`⚠️ 确定要物理清除本条记事数据吗？该操作不可逆！\n\n请输入该项标题 [ ${verifyPrompt} ] 进行确认:`);
+            
+            if (confirmInput === null) return; // 用户取消
+            
+            if (confirmInput.trim() !== verifyPrompt) {
+                alert("❌ 输入标题不匹配，删除已被熔断。");
+                return;
+            }
+
+            // 校验通过，执行原删除逻辑
             if (!id) {
                 noteItems.splice(index, 1);
                 renderStream();
