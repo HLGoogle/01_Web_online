@@ -105,7 +105,7 @@
 
     <div id="content">
         <div id="links-render-zone"></div>
-        </div>
+    </div>
 
     <div id="global-note-popup" class="note-popup"></div>
     <input type="file" id="hidden-icon-uploader" accept="image/*" style="display: none;" onchange="handleIconFileSelected(this)">
@@ -151,6 +151,15 @@
         let authMode = 'login'; let allLinks = []; let isEditMode = false;
         let userSettings = { sensitivity: 50, categoryOrder: "" }; let currentTargetLinkId = null;
 
+        // 🆕 注入主页浏览器 Service Worker 本地离线强拦截引擎（网络尚未发出前即完成本地网页框架载入）
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('>> 主页离线防白板引擎部署就绪: ', reg.scope))
+                    .catch(err => console.log('>> 主页离线引擎安装失败: ', err));
+            });
+        }
+
         window.onload = function() {
             const token = localStorage.getItem('nav_token');
             if (token) {
@@ -159,7 +168,6 @@
                 if (cachedSettings) { try { userSettings = JSON.parse(cachedSettings); } catch(e){} }
                 showUI(); 
                 loadLinks(); 
-                // 💡 移除了 window.onload 时调用加载底部资产的逻辑
             }
         };
 
@@ -181,24 +189,29 @@
             else if (mode === 'reset') { title.textContent = '// RESET_CREDENTIALS'; oldPwdGroup.style.display = 'none'; resetGroup.style.display = 'block'; pwdGroup.style.display = 'block'; }
         }
 
+        // 🆕 升级双轨并行数据流逻辑：本地强缓存0延迟速显，后台静默向外联网同步
         async function loadLinks() {
             const token = localStorage.getItem('nav_token');
             const indicator = document.getElementById('sync-status');
             const cachedLinks = localStorage.getItem('cached_links_data');
+            
+            // 轨道一：一毫秒内无缝调取本地强缓存渲染画面，不让页面产生任何白板与转圈等待
             if (cachedLinks) {
                 try {
                     allLinks = JSON.parse(cachedLinks);
                     renderLinks(); 
                     indicator.className = "status-sync-indicator cached";
-                    indicator.textContent = "⚠️ 离线浏览 // 当前正使用本地缓存渲染画布";
+                    indicator.textContent = "⚠️ 离线浏览 // 维持本地强缓存运行";
                 } catch(e){}
             }
 
+            // 轨道二：后台静默尝试跨网握手云端数据库，完全不打扰用户当前在界面的点击行为
             try {
                 const res = await fetch(API_LINKS, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401) { logout(); return; }
                 const freshLinks = await res.json();
 
+                // 云端对齐：如果网络畅通抓到了最新的资产，且跟本地缓存不一致，默默将新资产同步写入存储并刷新
                 if (JSON.stringify(freshLinks) !== cachedLinks) {
                     allLinks = freshLinks;
                     localStorage.setItem('cached_links_data', JSON.stringify(freshLinks));
@@ -207,8 +220,8 @@
                 indicator.className = "status-sync-indicator synced";
                 indicator.textContent = "⚙️ 系统就绪 // 已实时对齐 D1 数据库独立账号层";
             } catch (err) {
-                indicator.className = "status-sync-indicator cached";
-                indicator.textContent = "⚠️ 离线浏览 // 维持本地强缓存运行";
+                // 如果外网延迟过高或者断网崩溃，由于刚才画面已经秒开了，直接不打扰用户默默死守本地数据
+                console.log(">> 后台联网握手挂起或高延迟超时，静默维持本地高速强缓存运行。");
             }
         }
 
@@ -411,7 +424,6 @@
                         localStorage.setItem('nav_token', data.token); localStorage.setItem('nav_user', data.username);
                         if (data.settings) { localStorage.setItem('nav_settings', data.settings); try { userSettings = JSON.parse(data.settings); } catch(e){} }
                         document.getElementById('auth-panel').style.display = 'none'; showUI(); loadLinks();
-                        // 💡 移除了登录成功后调用加载资产数据流的逻辑
                     } else { alert('指令验证执行通过'); switchAuthMode('login'); }
                 } else { msg.textContent = `>> ERROR: ${data.error || 'BAD_REQUEST'}`; }
             } catch(e) { msg.textContent = '>> ERROR: CONN_TIMEOUT'; }
