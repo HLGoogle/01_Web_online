@@ -287,7 +287,7 @@
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = () => {
                     if (isEditMode) return;
-                    popup.innerHTML = `// DEPLOY_NOTE:\n${link.note.replace(/\n/g, '<br>')}`;
+                    popup.innerHTML = `//  备注:\n${link.note.replace(/\n/g, '<br>')}`;
                     const rect = item.getBoundingClientRect(); 
                     let left = rect.right + 8;
                     if (left + 260 > window.innerWidth) left = rect.left - 270;
