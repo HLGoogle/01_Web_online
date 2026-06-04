@@ -51,7 +51,9 @@
         .note-strip-card.expanded .strip-content-editor, .note-strip-card.expanded .code-highlight-layer { height: auto; min-height: 22px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; overflow: visible; }
         .note-strip-card.expanded .strip-content-editor { padding-bottom: 2px; }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
-        .lua-kw { color: #ff79c6; font-weight: bold; } .lua-macro { color: #ff5555; font-weight: bold; } .lua-func { color: #50fa7b; } .lua-str { color: #f1fa8c; } .lua-comment { color: #6272a4; font-style: italic; } .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; }
+        .lua-kw { color: #ff79c6; font-weight: bold; } .lua-macro { color: #ff5555; font-weight: bold; } .lua-func { color: #50fa7b; } .lua-str { color: #f1fa8c; } 
+        .lua-comment, .lua-comment * { color: #7ee787 !important; font-style: italic; }
+        .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; }
         .color-picker-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(1px); z-index: 99999; justify-content: center; align-items: center; }
         .color-picker-box { background: #1c2128; border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 12px; }
         .picker-title { font-size: 12px; font-weight: bold; color: var(--accent-color); }
@@ -235,18 +237,47 @@
 
         function handleHandleClick(e, index) { if (e.defaultPrevented) return; const card = document.getElementById(`strip-card-node-${index}`); if (card) card.classList.toggle('expanded'); }
 
-        function runLuaHighlighter(text, keyword) {
-            if (!text) return '';
-            let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            html = html.replace(/(".*?")/g, '<span class="lua-str">$1</span>');
-            const keywords = ['local', 'if', 'then', 'end', 'and', 'or', 'else', 'elseif', 'return', 'function'];
-            keywords.forEach(kw => { const reg = new RegExp(`\\b(${kw})\\b`, 'g'); html = html.replace(reg, '<span class="lua-kw">$1</span>'); });
-            ['/click', '/cast', '/use', '/run', '/script', '/target', '/clearfocus'].forEach(cmd => { const reg = new RegExp(`(${cmd.replace('/', '\\/')})\\b`, 'g'); html = html.replace(reg, '<span class="lua-macro">$1</span>'); });
-            ['BeeRun', 'BeelsRun', 'BeeStringFind', 'BeeUnitCastSpellName'].forEach(func => { const reg = new RegExp(`\\b(${func})\\b`, 'g'); html = html.replace(reg, '<span class="lua-func">$1</span>'); });
-            html = html.replace(/(--.*)$/g, '<span class="lua-comment">$1</span>');
-            if (keyword) { const searchReg = new RegExp(`(${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi'); html = html.replace(searchReg, '<span class="txt-highlight">$1</span>'); }
-            return html;
-        }
+function runLuaHighlighter(text, keyword) {
+    if (!text) return '';
+    
+    // 1. 转义基础 HTML 字符，防御渲染报错和 XSS
+    let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    
+    // 2. 匹配字符串 ("...") 优先处理，避免内部符号被错误高亮
+    html = html.replace(/(".*?")/g, '<span class="lua-str">$1</span>');
+
+    // 3. 动态识别全部 WoW 宏命令 (支持自动缩进，自动兼容所有的 /加单词)
+    // 使用 ^(\s*) 捕获行首及可能存在的缩进空格，确保不破坏原有格式，且有效避开数学除法符号
+    html = html.replace(/^(\s*)(\/\w+)\b/gm, '$1<span class="lua-macro">$2</span>');
+
+    // 4. 匹配 Lua 关键字
+    const keywords = ['local', 'if', 'then', 'end', 'and', 'or', 'else', 'elseif', 'return', 'function'];
+    keywords.forEach(kw => { 
+        const reg = new RegExp(`\\b(${kw})\\b`, 'g'); 
+        html = html.replace(reg, '<span class="lua-kw">$1</span>'); 
+    });
+
+    // 5. 匹配特定的 Bee 函数库
+    const functions = ['BeeRun', 'BeelsRun', 'BeeStringFind', 'BeeUnitCastSpellName'];
+    functions.forEach(func => { 
+        const reg = new RegExp(`\\b(${func})\\b`, 'g'); 
+        html = html.replace(reg, '<span class="lua-func">$1</span>'); 
+    });
+
+    // 6. 匹配 Lua 注释 (-- 开头直到行尾)
+    // JS正则的 . 默认不包含换行符，所以天然按行截取，完全不影响前面原本存在的缩进空格
+    html = html.replace(/(--.*)/g, '<span class="lua-comment">$1</span>');
+
+    // 7. 匹配全局搜索关键字精确定位
+    if (keyword) { 
+        const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); 
+        // 核心级防破损机制：(?![^<]*>) 判定当前位置是否处于 HTML 标签内部。确保绝对不会匹配到 class="lua-str" 等结构代码
+        const searchReg = new RegExp(`(?![^<]*>)(${escapedKeyword})`, 'gi'); 
+        html = html.replace(searchReg, '<span class="txt-highlight">$1</span>'); 
+    }
+
+    return html;
+}
 
         function syncRealtimeText(index, text) { const layer = document.getElementById(`highlight-layer-${index}`); if (layer) layer.innerHTML = runLuaHighlighter(text, ''); }
         function refreshHighlight(index) { const layer = document.getElementById(`highlight-layer-${index}`); const card = document.getElementById(`strip-card-node-${index}`); if(card && layer) layer.innerHTML = runLuaHighlighter(card.querySelector('.strip-content-editor').innerText, ''); }
