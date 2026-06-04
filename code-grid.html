@@ -704,25 +704,36 @@
         }
 
         async function syncStreamToD1() {
-            const indicator = document.getElementById('sync-indicator');
-            indicator.textContent = "⏳ 正在对齐 D1 存储群集数据...";
-            try {
-                // 批量入库时，后台直接采用内存更新后的有序序列
-                for (let item of noteItems) {
-                    await fetch('/api/code-grid', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                        body: JSON.stringify(item)
-                    });
-                }
-                indicator.textContent = "⚡ 云端记事资产已完全对齐";
-                await fetchStreamData();
-                alert("✨ 同步成功！干净的分页标签资产已被无缝写入 D1 分布式集群中。");
-            } catch (e) {
-                indicator.textContent = "❌ 级联更新同步失败";
-            }
-        }
+    const indicator = document.getElementById('sync-indicator');
+    indicator.textContent = "⏳ 正在对齐 D1 存储群集数据...";
+    try {
+        // 🛠️ 修复点：在保存前，根据当前的 categories 顺序重新计算每条笔记的 sort_order
+        // 让排在前面的页签，其下的笔记 sort_order 整体更小
+        noteItems.forEach((item, index) => {
+            const catIndex = categories.indexOf(item.data.category || '文本1');
+            // 基础权重（catIndex * 1000）保证分类顺序，后面的 index 保证分类内部的顺序
+            item.sort_order = (catIndex !== -1 ? catIndex : 99) * 1000 + index; 
+        });
 
+        // 然后再执行原有的批量保存操作
+        for (let item of noteItems) {
+            await fetch('/api/code-grid', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(item)
+            });
+        }
+        indicator.textContent = "⚡ 云端记事资产已完全对齐";
+        await fetchStreamData();
+        
+        // 强制确保按照提取的 categories 渲染一次，保证顺序正确
+        renderTabs(); 
+        
+        alert("✨ 同步成功！干净的分页标签资产已被无缝写入 D1 分布式集群中。");
+    } catch (e) {
+        indicator.textContent = "❌ 级联更新同步失败";
+    }
+}
         async function deleteStripAction(id, index) {
             const targetTitle = noteItems[index]?.data?.title || '';
             const verifyPrompt = targetTitle.trim() === '' ? '无标题项目' : targetTitle;
