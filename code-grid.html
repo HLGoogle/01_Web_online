@@ -6,139 +6,54 @@
     <title>记事本</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root {
-            --bg-main: #0d1117; --bg-card: #161b22; --bg-input: #21262d;      
-            --border-color: #30363d; --text-main: #c9d1d9; --text-muted: #8b949e;    
-            --accent-color: #58a6ff; --accent-green: #2ea44f; --accent-danger: #f85149;
-            --font-mono: 'Consolas', 'Fira Code', 'Ubuntu Mono', monospace;
-        }
+        :root { --bg-main: #0d1117; --bg-card: #161b22; --bg-input: #21262d; --border-color: #30363d; --text-main: #c9d1d9; --text-muted: #8b949e; --accent-color: #58a6ff; --accent-green: #2ea44f; --accent-danger: #f85149; --font-mono: 'Consolas', 'Fira Code', 'Ubuntu Mono', monospace; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-mono); }
         body { background-color: var(--bg-main); color: var(--text-main); padding: 10px 15px; min-height: 100vh; position: relative; }
-        
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; }
         .terminal-title { font-size: 13px; color: var(--accent-color); font-weight: bold; }
-        
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
         .search-box { background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; padding: 4px 10px; border-radius: 4px; width: 350px; font-size: 12px; outline: none; }
         .search-box:focus { border-color: var(--accent-color); }
-        
         .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-weight: bold; }
         .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
-
-        /* 🏷️ 极致紧凑的动态分类页签栏 */
         .tabs-bar { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #21262d; padding-bottom: 4px; flex-wrap: wrap; }
-        
-        /* 🔄 页签支持拖拽的样式反馈 */
-        .tab-item { 
-            display: flex; align-items: center; gap: 6px; background: #1f242c; border: 1px solid var(--border-color);
-            padding: 2px 10px; border-radius: 3px 3px 0 0; font-size: 12px; cursor: grab; color: var(--text-muted);
-            position: relative; transition: all 0.15s ease; user-select: none; height: 24px;
-        }
+        .tab-item { display: flex; align-items: center; gap: 6px; background: #1f242c; border: 1px solid var(--border-color); padding: 2px 10px; border-radius: 3px 3px 0 0; font-size: 12px; cursor: grab; color: var(--text-muted); position: relative; transition: all 0.15s ease; user-select: none; height: 24px; }
         .tab-item:active { cursor: grabbing; }
         .tab-item:hover { color: #fff; border-color: #444c56; }
         .tab-item.active { background: var(--bg-card); color: var(--accent-color); border-color: var(--border-color) var(--border-color) var(--bg-card) var(--border-color); font-weight: bold; height: 25px; margin-bottom: -1px; z-index: 2; }
         .tab-item.tab-dragging { opacity: 0.4; border: 1px dashed var(--accent-color); background: #161b22; }
-
-        /* 页签内置轻量输入框（用于改名） */
-        .tab-rename-input { 
-            background: var(--bg-input); border: 1px solid var(--accent-color); color: #fff; 
-            font-size: 12px; font-weight: bold; outline: none; width: 80px; padding: 0 4px; 
-            border-radius: 2px; height: 18px; margin: 0; cursor: text;
-        }
-        
-        /* 页签内小垃圾桶（删除分类） */
+        .tab-rename-input { background: var(--bg-input); border: 1px solid var(--accent-color); color: #fff; font-size: 12px; font-weight: bold; outline: none; width: 80px; padding: 0 4px; border-radius: 2px; height: 18px; margin: 0; cursor: text; }
         .tab-close-btn { font-size: 10px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px; border-radius: 2px; }
         .tab-close-btn:hover { background: rgba(248,81,73,0.15); color: var(--accent-danger); }
-        
         .add-tab-btn { background: transparent; border: 1px dashed var(--border-color); color: var(--text-muted); padding: 2px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; height: 20px; display: flex; align-items: center; justify-content: center; }
         .add-tab-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
-        
-        /* 📜 流式画布容器 */
         .note-stream-list { display: flex; flex-direction: column; gap: 2px; width: 100%; }
-        
-        /* 单条卡片 */
-        .note-strip-card { 
-            display: flex; gap: 8px; background: var(--bg-card); border: 1px solid var(--border-color); 
-            border-radius: 3px; padding: 2px 8px; align-items: center; position: relative; height: 28px;
-            overflow: hidden;
-        }
+        .note-strip-card { display: flex; gap: 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 3px; padding: 2px 8px; align-items: center; position: relative; height: 28px; overflow: hidden; }
         .note-strip-card:hover { border-color: #444c56; }
-        
-        /* 🔀 三合一功能拖拽手柄 */
         .drag-handle { color: var(--text-muted); padding: 2px 6px; font-size: 12px; user-select: none; display: flex; align-items: center; cursor: grab; height: 100%; }
         .drag-handle:active { cursor: grabbing; color: var(--accent-color); }
         .note-strip-card.dragging { opacity: 0.3; border: 1px dashed var(--accent-color); background: #1f242c; }
-        
-        /* 主体一行流区 */
         .strip-main-body { flex: 1; display: flex; gap: 8px; align-items: center; min-width: 0; height: 100%; }
-        
-        /* 标题独立控制区 */
-        .strip-title-field { 
-            font-size: 13px; font-weight: bold; color: var(--accent-color); background: transparent;
-            border: none; outline: none; width: 180px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
-            padding-right: 2px; flex-shrink: 0; cursor: pointer; height: 22px;
-        }
+        .strip-title-field { font-size: 13px; font-weight: bold; color: var(--accent-color); background: transparent; border: none; outline: none; width: 180px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding-right: 2px; flex-shrink: 0; cursor: pointer; height: 22px; }
         .strip-title-field:focus { color: #fff; }
-
-        /* 🗑️ 垃圾桶删除键摆放至标题右侧位置 */
-        .strip-del-container {
-            display: flex; align-items: center; justify-content: center; width: 22px; height: 22px;
-            border-right: 1px solid var(--border-color); padding-right: 6px; flex-shrink: 0;
-        }
+        .strip-del-container { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-right: 1px solid var(--border-color); padding-right: 6px; flex-shrink: 0; }
         .strip-del-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s ease; }
         .note-strip-card:hover .strip-del-btn { opacity: 1; }
         .strip-del-btn:hover { color: var(--accent-danger); }
-        
-        /* 🛠️ 核心同步双层画布架构 */
         .editor-wrapper { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; height: 100%; }
-        
-        /* 顶层打字框 */
-        .strip-content-editor { 
-            width: 100%; height: 22px; background: transparent; color: transparent !important; 
-            caret-color: #fff; outline: none; font-size: 13px; line-height: 22px;
-            white-space: nowrap; overflow: hidden; position: relative; z-index: 2;
-        }
-        
-        /* 底层高亮渲染画布 */
-        .code-highlight-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 22px;
-            font-size: 13px; line-height: 22px; white-space: nowrap; overflow: hidden;
-            text-overflow: ellipsis; pointer-events: none; z-index: 1; color: #e6edf3;
-        }
-
-        /* 💡 联动展开覆盖 */
+        .strip-content-editor { width: 100%; height: 22px; background: transparent; color: transparent !important; caret-color: #fff; outline: none; font-size: 13px; line-height: 22px; white-space: nowrap; overflow: hidden; position: relative; z-index: 2; }
+        .code-highlight-layer { position: absolute; top: 0; left: 0; width: 100%; height: 22px; font-size: 13px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; z-index: 1; color: #e6edf3; }
         .note-strip-card.expanded { height: auto; min-height: 28px; align-items: flex-start; padding-top: 4px; padding-bottom: 4px; overflow: visible; }
         .note-strip-card.expanded .drag-handle { height: 22px; }
         .note-strip-card.expanded .strip-main-body { align-items: flex-start; height: auto; }
         .note-strip-card.expanded .editor-wrapper { align-items: flex-start; height: auto; }
         .note-strip-card.expanded .strip-del-container { border-right: 1px dashed var(--border-color); height: 22px; }
-        
-        .note-strip-card.expanded .strip-content-editor,
-        .note-strip-card.expanded .code-highlight-layer { 
-            height: auto; min-height: 22px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; overflow: visible; 
-        }
+        .note-strip-card.expanded .strip-content-editor, .note-strip-card.expanded .code-highlight-layer { height: auto; min-height: 22px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; overflow: visible; }
         .note-strip-card.expanded .strip-content-editor { padding-bottom: 2px; }
         .strip-content-editor[placeholder]:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; }
-        
-        /* 🎨 IDE 级高亮配色板 */
-        .lua-kw { color: #ff79c6; font-weight: bold; }       
-        .lua-macro { color: #ff5555; font-weight: bold; }    
-        .lua-func { color: #50fa7b; }                       
-        .lua-str { color: #f1fa8c; }                        
-        .lua-comment { color: #6272a4; font-style: italic; } 
-        .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; }
-        
-        /* 暗黑自定义拾色器面板 */
-        .color-picker-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(1px); z-index: 99999;
-            justify-content: center; align-items: center;
-        }
-        .color-picker-box {
-            background: #1c2128; border: 1px solid var(--border-color); border-radius: 6px;
-            padding: 15px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            display: flex; flex-direction: column; gap: 12px;
-        }
+        .lua-kw { color: #ff79c6; font-weight: bold; } .lua-macro { color: #ff5555; font-weight: bold; } .lua-func { color: #50fa7b; } .lua-str { color: #f1fa8c; } .lua-comment { color: #6272a4; font-style: italic; } .txt-highlight { background: #ffeb3b !important; color: #000 !important; font-weight: bold !important; border-radius: 2px; }
+        .color-picker-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(1px); z-index: 99999; justify-content: center; align-items: center; }
+        .color-picker-box { background: #1c2128; border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 12px; }
         .picker-title { font-size: 12px; font-weight: bold; color: var(--accent-color); }
         .picker-body { display: flex; gap: 10px; align-items: center; }
         .picker-preview-input { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; color: #fff; font-size: 13px; flex: 1; text-align: center; outline: none; }
@@ -150,614 +65,245 @@
     </style>
 </head>
 <body>
-
     <header>
         <div class="terminal-title"><i class="fas fa-code"></i> 代码记事本</div>
         <div id="sync-indicator" style="font-size:11px; color:var(--text-muted);">⚡ 系统就绪 // 双击页签可以修改名字，点击手柄可伸缩行项目</div>
     </header>
-
-<div class="toolbar">
-    <input type="text" id="global-search" class="search-box" placeholder="🔍 全局跨分类搜索过滤并精确定位..." oninput="handleSearch()">
-    <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 录入新行</button>
-    
-    <button class="ctrl-btn" style="margin-left: auto; color: var(--accent-color); border-color: #388bfd4d;" onclick="window.location.href='/index.html'"><i class="fas fa-home"></i> 回首页</button>
-    <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green);" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量保存</button>
-</div>
-
+    <div class="toolbar">
+        <input type="text" id="global-search" class="search-box" placeholder="🔍 全局跨分类搜索过滤并精确定位..." oninput="handleSearch()">
+        <button class="ctrl-btn" onclick="addNewNoteStrip()"><i class="fas fa-plus"></i> 录入新行</button>
+        <button class="ctrl-btn" style="margin-left: auto; color: var(--accent-color); border-color: #388bfd4d;" onclick="window.location.href='/index.html'"><i class="fas fa-home"></i> 回首页</button>
+        <button class="ctrl-btn" style="color:var(--accent-green); border-color:var(--accent-green);" onclick="syncStreamToD1()"><i class="fas fa-cloud-upload-alt"></i> 批量保存</button>
+    </div>
     <div class="tabs-bar" id="dynamic-tabs-zone"></div>
-
     <div class="note-stream-list" id="note-stream-container"></div>
-
     <div id="custom-color-modal" class="color-picker-modal">
         <div class="color-picker-box">
             <div class="picker-title">// CONFIG_LABEL_COLOR // 标签色校准</div>
-            <div class="picker-body">
-                <input type="color" id="modal-native-picker" class="native-color-well" oninput="syncColorInputFromWell(this.value)">
-                <input type="text" id="modal-hex-input" class="picker-preview-input" placeholder="#ffffff" maxlength="7">
-            </div>
-            <div class="picker-footer">
-                <button class="picker-btn" onclick="closeColorModal()">取消</button>
-                <button class="picker-btn save" onclick="applyTitleColorFromModal()">应用色值</button>
-            </div>
+            <div class="picker-body"><input type="color" id="modal-native-picker" class="native-color-well" oninput="syncColorInputFromWell(this.value)"><input type="text" id="modal-hex-input" class="picker-preview-input" placeholder="#ffffff" maxlength="7"></div>
+            <div class="picker-footer"><button class="picker-btn" onclick="closeColorModal()">取消</button><button class="picker-btn save" onclick="applyTitleColorFromModal()">应用色值</button></div>
         </div>
     </div>
-
     <script>
-        let noteItems = [];
-        let categories = ["文本1"]; 
-        let currentTab = "文本1";    
-        const token = localStorage.getItem('nav_token');
-        let activePickerIndex = null; 
-        
-        let tabClickTimer = null;
+        let noteItems = []; let categories = ["文本1"]; let currentTab = "文本1";    
+        const token = localStorage.getItem('nav_token'); let activePickerIndex = null; let tabClickTimer = null;
+        function escapeHTML(str) { return str ? String(str).replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[m]) : ''; }
 
         window.onload = async function() {
-            if (!token) {
-                alert("身份授权丢失，请返回导航主页登录！");
-                return;
-            }
+            if (!token) return alert("身份授权丢失，请返回导航主页登录！");
             await fetchStreamData();
-            initDragAndDropEngine();
-            initTabDragAndDropEngine(); // 初始化页签拖拽引擎
+            initDragAndDropEngine(); initTabDragAndDropEngine();
         };
 
         async function fetchStreamData() {
             try {
                 const res = await fetch('/api/code-grid', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.status === 401) { location.href='/index.html'; return; }
                 const result = await res.json();
                 noteItems = result.rows || [];
-                
                 extractCategories();
-                
                 if (noteItems.length === 0) {
-                    noteItems = [{
-                        id: null,
-                        sort_order: 0,
-                        data: {
-                            title: "默认动作判定",
-                            title_color: "#58a6ff",
-                            category: "文本1",
-                            content: "/click MultiBarBottomLeftButton1\nlocal j = BeeStringFind(jineng, BeeUnitCastSpellName(\"target\"))\nif BeelsRun(\"心灵冰冻\") and j then BeeRun(\"心灵冰冻\") end"
-                        }
-                    }];
+                    noteItems = [{ id: null, sort_order: 0, data: { title: "默认动作判定", title_color: "#58a6ff", category: "文本1", content: "/click MultiBarBottomLeftButton1\nlocal j = BeeStringFind(jineng, BeeUnitCastSpellName(\"target\"))\nif BeelsRun(\"心灵冰冻\") and j then BeeRun(\"心灵冰冻\") end" } }];
                     extractCategories();
                 }
-                renderTabs();
-                renderStream();
-            } catch (e) {
-                document.getElementById('sync-indicator').textContent = "❌ D1 群集连接异常";
-            }
+                renderTabs(); renderStream();
+            } catch (e) { document.getElementById('sync-indicator').textContent = "❌ D1 群集连接异常"; }
         }
 
         function extractCategories() {
-            const set = new Set();
-            // 先按当前内存中的 categories 顺序提取，如果没有，再追加，保持用户拖拽后的相对顺序
-            const tempCategories = [...categories];
-            
-            noteItems.forEach(item => {
-                if(item.data && item.data.category) {
-                    set.add(item.data.category);
-                }
-            });
-            
+            const set = new Set(); const tempCategories = [...categories];
+            noteItems.forEach(item => { if(item.data && item.data.category) set.add(item.data.category); });
             if(set.size > 0) {
-                // 过滤出依然存在的分类，再合并新生成的分类
                 const activeSetList = Array.from(set);
                 categories = tempCategories.filter(c => activeSetList.includes(c));
-                activeSetList.forEach(c => {
-                    if(!categories.includes(c)) categories.push(c);
-                });
-            } else {
-                categories = ["文本1"];
-            }
-            if (!categories.includes(currentTab)) {
-                currentTab = categories[0];
-            }
+                activeSetList.forEach(c => { if(!categories.includes(c)) categories.push(c); });
+            } else { categories = ["文本1"]; }
+            if (!categories.includes(currentTab)) currentTab = categories[0];
         }
 
         function renderTabs() {
             const zone = document.getElementById('dynamic-tabs-zone');
-            zone.innerHTML = '';
-
+            const frag = document.createDocumentFragment(); // 性能提升
             categories.forEach((cat, index) => {
                 const isTxt1 = (cat === "文本1");
-                const activeClass = (cat === currentTab) ? 'active' : '';
                 const tab = document.createElement('div');
-                tab.className = `tab-item ${activeClass}`;
-                tab.setAttribute('draggable', 'true'); // 让页签可拖拽
-                tab.setAttribute('data-tab-index', index);
-                tab.setAttribute('data-category', cat);
+                tab.className = `tab-item ${cat === currentTab ? 'active' : ''}`;
+                tab.setAttribute('draggable', 'true'); tab.setAttribute('data-tab-index', index); tab.setAttribute('data-category', cat);
+                tab.onclick = function(e) { if (this.querySelector('input')) return; clearTimeout(tabClickTimer); tabClickTimer = setTimeout(() => switchTab(cat), 180); };
+                tab.ondblclick = function(e) { clearTimeout(tabClickTimer); startRenameTab(e, this, cat); };
                 
-                tab.onclick = function(e) {
-                    if (this.querySelector('input')) return; 
-                    
-                    clearTimeout(tabClickTimer);
-                    tabClickTimer = setTimeout(() => {
-                        switchTab(cat);
-                    }, 180); 
-                };
-                
-                tab.ondblclick = function(e) {
-                    clearTimeout(tabClickTimer);
-                    startRenameTab(e, this, cat);
-                };
-
-                tab.innerHTML = `
-                    <span>${cat}</span>
-                    ${!isTxt1 ? `<div class="tab-close-btn" title="删除该页签及其下所有行" onclick="deleteTab(event, '${cat.replace(/'/g, "\\'")}')"><i class="fas fa-times"></i></div>` : ''}
-                `;
-                zone.appendChild(tab);
+                // 修复：脱离内联onclick，采用 dataset 规避引号断裂漏洞
+                const labelSafe = escapeHTML(cat);
+                tab.innerHTML = `<span>${labelSafe}</span>${!isTxt1 ? `<div class="tab-close-btn" data-cat="${labelSafe}" title="删除该页签" onclick="deleteTab(event, this.getAttribute('data-cat'))"><i class="fas fa-times"></i></div>` : ''}`;
+                frag.appendChild(tab);
             });
-
-            const addBtn = document.createElement('button');
-            addBtn.className = 'add-tab-btn';
-            addBtn.innerHTML = `<i class="fas fa-plus"></i> 新增页签`;
-            addBtn.onclick = createNewTab;
-            zone.appendChild(addBtn);
+            const addBtn = document.createElement('button'); addBtn.className = 'add-tab-btn'; addBtn.innerHTML = `<i class="fas fa-plus"></i> 新增页签`; addBtn.onclick = createNewTab;
+            frag.appendChild(addBtn);
+            zone.innerHTML = ''; zone.appendChild(frag);
         }
 
-        function switchTab(catName) {
-            currentTab = catName;
-            renderTabs();
-            renderStream();
-        }
+        function switchTab(catName) { currentTab = catName; renderTabs(); renderStream(); }
 
         function createNewTab() {
             const newName = prompt("请输入新分类页签的名称:", "新页签");
             if (!newName || newName.trim() === "") return;
-            const cleanName = newName.trim();
-            if (categories.includes(cleanName)) {
-                alert("该页签名称已存在！");
-                return;
-            }
-            categories.push(cleanName);
-            currentTab = cleanName;
-            
-            noteItems.unshift({
-                id: null,
-                sort_order: 0,
-                data: { title: '新行项', content: '', title_color: '#58a6ff', category: currentTab }
-            });
-
-            renderTabs();
-            renderStream();
+            if (categories.includes(newName.trim())) return alert("该页签名称已存在！");
+            categories.push(newName.trim()); currentTab = newName.trim();
+            noteItems.unshift({ id: null, sort_order: 0, data: { title: '新行项', content: '', title_color: '#58a6ff', category: currentTab } });
+            renderTabs(); renderStream();
             document.getElementById('sync-indicator').textContent = "⏳ 建立了新分类，请记得点击批量保存入库";
         }
 
         function startRenameTab(e, tabEl, oldName) {
-            e.stopPropagation(); 
-            e.preventDefault();
-
-            const span = tabEl.querySelector('span');
-            if (!span || tabEl.querySelector('input')) return; 
-
-            tabEl.setAttribute('draggable', 'false'); // 改名时禁用拖拽防止冲突
-
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'tab-rename-input';
-            input.value = oldName;
-            
-            tabEl.replaceChild(input, span);
-            input.focus();
-            input.select();
-
+            e.stopPropagation(); e.preventDefault();
+            const span = tabEl.querySelector('span'); if (!span || tabEl.querySelector('input')) return; 
+            tabEl.setAttribute('draggable', 'false');
+            const input = document.createElement('input'); input.type = 'text'; input.className = 'tab-rename-input'; input.value = oldName;
+            tabEl.replaceChild(input, span); input.focus(); input.select();
             let isFinished = false;
-            const done = () => {
-                if (isFinished) return;
-                isFinished = true;
-                tabEl.setAttribute('draggable', 'true');
-                finishRenameTab(input, oldName);
-            };
-
-            input.onblur = done;
-            input.onkeydown = (ev) => {
-                if (ev.key === 'Enter') {
-                    ev.preventDefault();
-                    done();
-                }
-                if (ev.key === 'Escape') {
-                    isFinished = true;
-                    tabEl.setAttribute('draggable', 'true');
-                    renderTabs();
-                }
-            };
+            const done = () => { if (isFinished) return; isFinished = true; tabEl.setAttribute('draggable', 'true'); finishRenameTab(input, oldName); };
+            input.onblur = done; input.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); done(); } if (ev.key === 'Escape') { isFinished = true; tabEl.setAttribute('draggable', 'true'); renderTabs(); } };
         }
 
         function finishRenameTab(inputEl, oldName) {
             const newName = inputEl.value.trim();
-            if (!newName || newName === oldName) {
-                renderTabs(); 
-                return;
-            }
-            if (categories.includes(newName)) {
-                alert("目标页签名字与其他冲突！");
-                renderTabs();
-                return;
-            }
-
-            const idx = categories.indexOf(oldName);
-            if(idx !== -1) categories[idx] = newName;
-
-            noteItems.forEach(item => {
-                if (item.data && item.data.category === oldName) {
-                    item.data.category = newName;
-                }
-            });
-
+            if (!newName || newName === oldName) return renderTabs();
+            if (categories.includes(newName)) { alert("目标页签名字与其他冲突！"); return renderTabs(); }
+            const idx = categories.indexOf(oldName); if(idx !== -1) categories[idx] = newName;
+            noteItems.forEach(item => { if (item.data && item.data.category === oldName) item.data.category = newName; });
             if (currentTab === oldName) currentTab = newName;
-
-            renderTabs();
-            renderStream();
+            renderTabs(); renderStream();
             document.getElementById('sync-indicator').textContent = "⏳ 页签重命名成功，请点击批量保存同步到云端";
         }
 
         function deleteTab(e, catName) {
             e.stopPropagation();
-            
-            const confirmInput = prompt(`⚠️ 高危操作：该动作将物理销毁页签 [${catName}] 以及其下的所有记事条目！\n\n如果确认删除，请输入该页签的完整名称进行确认:`);
-            
+            // 反向还原可能被转义的名字用于比对
+            const rawName = document.createElement('textarea'); rawName.innerHTML = catName; const unescapedName = rawName.value;
+            const confirmInput = prompt(`⚠️ 高危操作：该动作将物理销毁页签 [${unescapedName}] 以及其下的所有记事条目！\n\n如果确认删除，请输入该页签的完整名称进行确认:`);
             if (confirmInput === null) return; 
-            
-            if (confirmInput.trim() !== catName) {
-                alert("❌ 输入名称不匹配，操作已安全熔断终止。");
-                return;
-            }
-
-            noteItems = noteItems.filter(item => !(item.data && item.data.category === catName));
-            
-            extractCategories();
-            renderTabs();
-            renderStream();
+            if (confirmInput.trim() !== unescapedName) return alert("❌ 输入名称不匹配，操作已安全熔断终止。");
+            noteItems = noteItems.filter(item => !(item.data && item.data.category === unescapedName));
+            extractCategories(); renderTabs(); renderStream();
             document.getElementById('sync-indicator').textContent = "⏳ 页签已清空，请点击批量保存提交到集群";
         }
 
-        /* 🔄 核心新增：页签横向拖拽交换排序引擎 */
         function initTabDragAndDropEngine() {
-            const tabsBar = document.getElementById('dynamic-tabs-zone');
-            let dragSrcTab = null;
-
+            const tabsBar = document.getElementById('dynamic-tabs-zone'); let dragSrcTab = null;
             tabsBar.addEventListener('dragstart', function(e) {
-                const tabItem = e.target.closest('.tab-item');
-                if (!tabItem || tabItem.querySelector('input')) { e.preventDefault(); return; }
-                
-                dragSrcTab = tabItem;
-                dragSrcTab.classList.add('tab-dragging');
-                e.dataTransfer.effectAllowed = 'move';
+                const tabItem = e.target.closest('.tab-item'); if (!tabItem || tabItem.querySelector('input')) { e.preventDefault(); return; }
+                dragSrcTab = tabItem; dragSrcTab.classList.add('tab-dragging'); e.dataTransfer.effectAllowed = 'move';
             });
-
             tabsBar.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                const overTab = e.target.closest('.tab-item');
-                if (!overTab || overTab === dragSrcTab) return;
-                
-                // 判断鼠标位置是在目标页签的左半侧还是右半侧，决定插入方向
-                const rect = overTab.getBoundingClientRect();
-                const next = (e.clientX - rect.left) / (rect.right - rect.left) > 0.5;
+                e.preventDefault(); const overTab = e.target.closest('.tab-item'); if (!overTab || overTab === dragSrcTab) return;
+                const rect = overTab.getBoundingClientRect(); const next = (e.clientX - rect.left) / (rect.right - rect.left) > 0.5;
                 tabsBar.insertBefore(dragSrcTab, next ? overTab.nextSibling : overTab);
             });
-
             tabsBar.addEventListener('dragend', function(e) {
                 if (dragSrcTab) dragSrcTab.classList.remove('tab-dragging');
-
-                // 重新扫描 DOM 树节点，重构内存中的页签分类数组顺序
-                const allCurrentTabs = Array.from(tabsBar.querySelectorAll('.tab-item'));
-                const newCategoriesOrder = allCurrentTabs.map(tab => tab.getAttribute('data-category'));
-                
-                if (newCategoriesOrder.length > 0) {
-                    categories = newCategoriesOrder;
-                    document.getElementById('sync-indicator').textContent = "⏳ 页签视图层序列已变动，请及时保存对齐集群";
-                }
+                const newCategoriesOrder = Array.from(tabsBar.querySelectorAll('.tab-item')).map(tab => tab.getAttribute('data-category'));
+                if (newCategoriesOrder.length > 0) { categories = newCategoriesOrder; document.getElementById('sync-indicator').textContent = "⏳ 页签视图层序列已变动，请及时保存对齐集群"; }
             });
         }
 
         function renderStream(keyword = '') {
             const container = document.getElementById('note-stream-container');
-            container.innerHTML = '';
+            const frag = document.createDocumentFragment(); // 核心性能升级：全量离线DOM加载
 
-            let filteredItems = noteItems;
-            if (!keyword) {
-                filteredItems = noteItems.filter(item => (item.data.category || '文本1') === currentTab);
-            }
+            let filteredItems = keyword ? noteItems : noteItems.filter(item => (item.data.category || '文本1') === currentTab);
 
             filteredItems.forEach((item, viewIndex) => {
                 const globalIndex = noteItems.indexOf(item);
+                const titleText = item.data.title || ''; const contentText = item.data.content || ''; const titleColor = item.data.title_color || '#58a6ff';
+                if (keyword) { const lowerKey = keyword.toLowerCase(); if (!titleText.toLowerCase().includes(lowerKey) && !contentText.toLowerCase().includes(lowerKey)) return; }
                 
-                const titleText = item.data.title || '';
-                const contentText = item.data.content || '';
-                const titleColor = item.data.title_color || '#58a6ff';
-
-                if (keyword) {
-                    const lowerKey = keyword.toLowerCase();
-                    if (!titleText.toLowerCase().includes(lowerKey) && !contentText.toLowerCase().includes(lowerKey)) return; 
-                }
-
-                const card = document.createElement('div');
-                card.className = 'note-strip-card';
-                card.setAttribute('data-index', globalIndex); 
-                card.setAttribute('id', `strip-card-node-${globalIndex}`);
-
+                const card = document.createElement('div'); card.className = 'note-strip-card'; card.setAttribute('data-index', globalIndex); card.setAttribute('id', `strip-card-node-${globalIndex}`);
                 card.innerHTML = `
                     <div class="drag-handle" draggable="true" onclick="handleHandleClick(event, ${globalIndex})"><i class="fas fa-bars"></i></div>
-                    
                     <div class="strip-main-body">
-                        <input type="text" class="strip-title-field" 
-                               value="${titleText}" 
-                               style="color: ${titleColor}"
-                               placeholder="// 无标题项目"
-                               onchange="updateMemory(${globalIndex}, 'title', this.value)"
-                               oncontextmenu="openColorModal(event, ${globalIndex})"
-                               ondblclick="openColorModal(event, ${globalIndex})">
-                        
-                        <div class="strip-del-container">
-                            <button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${globalIndex})"><i class="fas fa-trash-alt"></i></button>
-                        </div>
-                        
+                        <input type="text" class="strip-title-field" value="${escapeHTML(titleText)}" style="color: ${titleColor}" placeholder="// 无标题项目" onchange="updateMemory(${globalIndex}, 'title', this.value)" oncontextmenu="openColorModal(event, ${globalIndex})" ondblclick="openColorModal(event, ${globalIndex})">
+                        <div class="strip-del-container"><button class="strip-del-btn" title="擦除此项" onclick="deleteStripAction(${item.id}, ${globalIndex})"><i class="fas fa-trash-alt"></i></button></div>
                         <div class="editor-wrapper">
-                            <div class="strip-content-editor" 
-                                 contenteditable="true"
-                                 onblur="updateMemory(${globalIndex}, 'content', this.innerText); refreshHighlight(${globalIndex})"
-                                 oninput="syncRealtimeText(${globalIndex}, this.innerText)"
-                                 onkeydown="handleTabKey(event)"
-                                 onpaste="handlePureTextPaste(event)"
-                                 placeholder="// 点击录入代码段...">${contentText}</div>
-                            
+                            <div class="strip-content-editor" contenteditable="true" onblur="updateMemory(${globalIndex}, 'content', this.innerText); refreshHighlight(${globalIndex})" oninput="syncRealtimeText(${globalIndex}, this.innerText)" onkeydown="handleTabKey(event)" onpaste="handlePureTextPaste(event)" placeholder="// 点击录入代码段...">${escapeHTML(contentText)}</div>
                             <div class="code-highlight-layer" id="highlight-layer-${globalIndex}">${runLuaHighlighter(contentText, keyword)}</div>
                         </div>
-                    </div>
-                `;
-                container.appendChild(card);
+                    </div>`;
+                frag.appendChild(card);
             });
+            container.innerHTML = ''; container.appendChild(frag);
         }
 
-        function handleHandleClick(e, index) {
-            if (e.defaultPrevented) return;
-            const card = document.getElementById(`strip-card-node-${index}`);
-            if (card) card.classList.toggle('expanded');
-        }
+        function handleHandleClick(e, index) { if (e.defaultPrevented) return; const card = document.getElementById(`strip-card-node-${index}`); if (card) card.classList.toggle('expanded'); }
 
         function runLuaHighlighter(text, keyword) {
             if (!text) return '';
             let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             html = html.replace(/(".*?")/g, '<span class="lua-str">$1</span>');
-
             const keywords = ['local', 'if', 'then', 'end', 'and', 'or', 'else', 'elseif', 'return', 'function'];
-            keywords.forEach(kw => {
-                const reg = new RegExp(`\\b(${kw})\\b`, 'g');
-                html = html.replace(reg, '<span class="lua-kw">$1</span>');
-            });
-
-            const macroCommands = ['/click', '/cast', '/use', '/run', '/script', '/target', '/clearfocus'];
-            macroCommands.forEach(cmd => {
-                const escapedCmd = cmd.replace('/', '\\/');
-                const reg = new RegExp(`(${escapedCmd})\\b`, 'g');
-                html = html.replace(reg, '<span class="lua-macro">$1</span>');
-            });
-
-            const specialFuncs = ['BeeRun', 'BeelsRun', 'BeeStringFind', 'BeeUnitCastSpellName'];
-            specialFuncs.forEach(func => {
-                const reg = new RegExp(`\\b(${func})\\b`, 'g');
-                html = html.replace(reg, '<span class="lua-func">$1</span>');
-            });
-
+            keywords.forEach(kw => { const reg = new RegExp(`\\b(${kw})\\b`, 'g'); html = html.replace(reg, '<span class="lua-kw">$1</span>'); });
+            ['/click', '/cast', '/use', '/run', '/script', '/target', '/clearfocus'].forEach(cmd => { const reg = new RegExp(`(${cmd.replace('/', '\\/')})\\b`, 'g'); html = html.replace(reg, '<span class="lua-macro">$1</span>'); });
+            ['BeeRun', 'BeelsRun', 'BeeStringFind', 'BeeUnitCastSpellName'].forEach(func => { const reg = new RegExp(`\\b(${func})\\b`, 'g'); html = html.replace(reg, '<span class="lua-func">$1</span>'); });
             html = html.replace(/(--.*)$/g, '<span class="lua-comment">$1</span>');
-
-            if (keyword) {
-                const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const searchReg = new RegExp(`(${escapedKeyword})`, 'gi');
-                html = html.replace(searchReg, '<span class="txt-highlight">$1</span>');
-            }
+            if (keyword) { const searchReg = new RegExp(`(${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi'); html = html.replace(searchReg, '<span class="txt-highlight">$1</span>'); }
             return html;
         }
 
-        function syncRealtimeText(index, text) {
-            const layer = document.getElementById(`highlight-layer-${index}`);
-            if (layer) layer.innerHTML = runLuaHighlighter(text, '');
-        }
-
-        function refreshHighlight(index) {
-            const layer = document.getElementById(`highlight-layer-${index}`);
-            const card = document.getElementById(`strip-card-node-${index}`);
-            if(card && layer) {
-                const editor = card.querySelector('.strip-content-editor');
-                layer.innerHTML = runLuaHighlighter(editor.innerText, '');
-            }
-        }
-
-        function openColorModal(e, index) {
-            e.preventDefault();
-            activePickerIndex = index;
-            const currentColor = noteItems[index].data.title_color || '#58a6ff';
-            document.getElementById('modal-native-picker').value = currentColor;
-            const hexInput = document.getElementById('modal-hex-input');
-            hexInput.value = currentColor.toUpperCase();
-            document.getElementById('custom-color-modal').style.display = 'flex';
-            setTimeout(() => { hexInput.select(); }, 50);
-        }
-
-        function closeColorModal() {
-            document.getElementById('custom-color-modal').style.display = 'none';
-            activePickerIndex = null;
-        }
-
-        function syncColorInputFromWell(colorHex) {
-            document.getElementById('modal-hex-input').value = colorHex.toUpperCase();
-        }
-
-        function applyTitleColorFromModal() {
-            if (activePickerIndex === null) return;
-            let finalColor = document.getElementById('modal-hex-input').value.trim();
-            if (!finalColor.startsWith('#')) finalColor = '#' + finalColor;
-            if (!/^#[0-9A-Fa-f]{6}$/.test(finalColor)) {
-                alert("请输入标准的 6 位 Hex 颜色参数值！");
-                return;
-            }
-            noteItems[activePickerIndex].data.title_color = finalColor;
-            const card = document.getElementById(`strip-card-node-${activePickerIndex}`);
-            if(card) {
-                const titleInput = card.querySelector('.strip-title-field');
-                if(titleInput) titleInput.style.color = finalColor;
-            }
-            closeColorModal();
-        }
+        function syncRealtimeText(index, text) { const layer = document.getElementById(`highlight-layer-${index}`); if (layer) layer.innerHTML = runLuaHighlighter(text, ''); }
+        function refreshHighlight(index) { const layer = document.getElementById(`highlight-layer-${index}`); const card = document.getElementById(`strip-card-node-${index}`); if(card && layer) layer.innerHTML = runLuaHighlighter(card.querySelector('.strip-content-editor').innerText, ''); }
+        function openColorModal(e, index) { e.preventDefault(); activePickerIndex = index; const currentColor = noteItems[index].data.title_color || '#58a6ff'; document.getElementById('modal-native-picker').value = currentColor; const hexInput = document.getElementById('modal-hex-input'); hexInput.value = currentColor.toUpperCase(); document.getElementById('custom-color-modal').style.display = 'flex'; setTimeout(() => hexInput.select(), 50); }
+        function closeColorModal() { document.getElementById('custom-color-modal').style.display = 'none'; activePickerIndex = null; }
+        function syncColorInputFromWell(colorHex) { document.getElementById('modal-hex-input').value = colorHex.toUpperCase(); }
+        function applyTitleColorFromModal() { if (activePickerIndex === null) return; let finalColor = document.getElementById('modal-hex-input').value.trim(); if (!finalColor.startsWith('#')) finalColor = '#' + finalColor; if (!/^#[0-9A-Fa-f]{6}$/.test(finalColor)) return alert("请输入标准的 6 位 Hex 参数值！"); noteItems[activePickerIndex].data.title_color = finalColor; const card = document.getElementById(`strip-card-node-${activePickerIndex}`); if(card) card.querySelector('.strip-title-field').style.color = finalColor; closeColorModal(); }
 
         function handlePureTextPaste(e) {
-            e.preventDefault(); 
-            const clipboardData = e.clipboardData || window.clipboardData;
-            const plainText = clipboardData.getData('text/plain');
-            const sel = window.getSelection();
-            if (!sel.rangeCount) return;
-            const range = sel.getRangeAt(0);
-            range.deleteContents();
-            const textNode = document.createTextNode(plainText);
-            range.insertNode(textNode);
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            sel.removeAllRanges();
-            sel.addRange(range);
-            
-            const editor = e.target.closest('.strip-content-editor');
-            if (editor) {
-                const index = parseInt(editor.closest('.note-strip-card').getAttribute('data-index'));
-                updateMemory(index, 'content', editor.innerText);
-                refreshHighlight(index);
-            }
+            e.preventDefault(); const plainText = (e.clipboardData || window.clipboardData).getData('text/plain'); const sel = window.getSelection(); if (!sel.rangeCount) return;
+            const range = sel.getRangeAt(0); range.deleteContents(); const textNode = document.createTextNode(plainText); range.insertNode(textNode); range.setStartAfter(textNode); range.setEndAfter(textNode); sel.removeAllRanges(); sel.addRange(range);
+            const editor = e.target.closest('.strip-content-editor'); if (editor) { const index = parseInt(editor.closest('.note-strip-card').getAttribute('data-index')); updateMemory(index, 'content', editor.innerText); refreshHighlight(index); }
         }
 
-        function updateMemory(index, field, value) {
-            if (noteItems[index]) { noteItems[index].data[field] = value; }
-        }
-
-        function handleTabKey(e) {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const sel = window.getSelection();
-                const range = sel.getRangeAt(0);
-                const tabNode = document.createTextNode("    ");
-                range.insertNode(tabNode);
-                range.setStartAfter(tabNode);
-                range.setEndAfter(tabNode); 
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-        }
-
-        function addNewNoteStrip() {
-            noteItems.unshift({
-                id: null,
-                sort_order: 0,
-                data: { title: '', content: '', title_color: '#58a6ff', category: currentTab }
-            });
-            renderStream();
-            setTimeout(() => {
-                const card = document.querySelector('.note-strip-card');
-                if (card) {
-                    const title = card.querySelector('.strip-title-field');
-                    if(title) title.focus();
-                }
-            }, 50);
-        }
-
-        function handleSearch() {
-            const query = document.getElementById('global-search').value.trim();
-            renderStream(query);
-        }
+        function updateMemory(index, field, value) { if (noteItems[index]) noteItems[index].data[field] = value; }
+        function handleTabKey(e) { if (e.key === 'Tab') { e.preventDefault(); const sel = window.getSelection(); const range = sel.getRangeAt(0); const tabNode = document.createTextNode("    "); range.insertNode(tabNode); range.setStartAfter(tabNode); sel.removeAllRanges(); sel.addRange(range); } }
+        function addNewNoteStrip() { noteItems.unshift({ id: null, sort_order: 0, data: { title: '', content: '', title_color: '#58a6ff', category: currentTab } }); renderStream(); setTimeout(() => { const card = document.querySelector('.note-strip-card'); if (card) card.querySelector('.strip-title-field')?.focus(); }, 50); }
+        function handleSearch() { renderStream(document.getElementById('global-search').value.trim()); }
 
         function initDragAndDropEngine() {
-            const container = document.getElementById('note-stream-container');
-            let dragSrcCard = null;
-
-            container.addEventListener('dragstart', function(e) {
-                const handle = e.target.closest('.drag-handle');
-                if (!handle) { e.preventDefault(); return; }
-                dragSrcCard = handle.closest('.note-strip-card');
-                if (dragSrcCard) {
-                    dragSrcCard.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                }
-            });
-
-            container.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                const overCard = e.target.closest('.note-strip-card');
-                if (!overCard || overCard === dragSrcCard) return;
-                const rect = overCard.getBoundingClientRect();
-                const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-                container.insertBefore(dragSrcCard, next ? overCard.nextSibling : overCard);
-            });
-
+            const container = document.getElementById('note-stream-container'); let dragSrcCard = null;
+            container.addEventListener('dragstart', function(e) { const handle = e.target.closest('.drag-handle'); if (!handle) { e.preventDefault(); return; } dragSrcCard = handle.closest('.note-strip-card'); if (dragSrcCard) { dragSrcCard.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; } });
+            container.addEventListener('dragover', function(e) { e.preventDefault(); const overCard = e.target.closest('.note-strip-card'); if (!overCard || overCard === dragSrcCard) return; const rect = overCard.getBoundingClientRect(); const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5; container.insertBefore(dragSrcCard, next ? overCard.nextSibling : overCard); });
             container.addEventListener('dragend', function(e) {
                 if (dragSrcCard) dragSrcCard.classList.remove('dragging');
-
-                const allCurrentDOMs = Array.from(container.querySelectorAll('.note-strip-card'));
-                const visibleIndexes = allCurrentDOMs.map(dom => parseInt(dom.getAttribute('data-index')));
-                
-                allCurrentDOMs.forEach((dom, newViewOrder) => {
-                    const gIdx = visibleIndexes[newViewOrder];
-                    if(noteItems[gIdx]) {
-                        noteItems[gIdx].sort_order = newViewOrder;
-                    }
-                });
-
+                const visibleIndexes = Array.from(container.querySelectorAll('.note-strip-card')).map(dom => parseInt(dom.getAttribute('data-index')));
+                Array.from(container.querySelectorAll('.note-strip-card')).forEach((dom, newViewOrder) => { const gIdx = visibleIndexes[newViewOrder]; if(noteItems[gIdx]) noteItems[gIdx].sort_order = newViewOrder; });
                 document.getElementById('sync-indicator').textContent = "⏳ 当前分类行排序已发生变更，请及时同步保存云端";
             });
         }
 
         async function syncStreamToD1() {
-    const indicator = document.getElementById('sync-indicator');
-    indicator.textContent = "⏳ 正在对齐 D1 存储群集数据...";
-    try {
-        // 🛠️ 修复点：在保存前，根据当前的 categories 顺序重新计算每条笔记的 sort_order
-        // 让排在前面的页签，其下的笔记 sort_order 整体更小
-        noteItems.forEach((item, index) => {
-            const catIndex = categories.indexOf(item.data.category || '文本1');
-            // 基础权重（catIndex * 1000）保证分类顺序，后面的 index 保证分类内部的顺序
-            item.sort_order = (catIndex !== -1 ? catIndex : 99) * 1000 + index; 
-        });
-
-        // 然后再执行原有的批量保存操作
-        for (let item of noteItems) {
-            await fetch('/api/code-grid', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(item)
-            });
-        }
-        indicator.textContent = "⚡ 云端记事资产已完全对齐";
-        await fetchStreamData();
-        
-        // 强制确保按照提取的 categories 渲染一次，保证顺序正确
-        renderTabs(); 
-        
-        alert("✨ 同步成功！干净的分页标签资产已被无缝写入 D1 分布式集群中。");
-    } catch (e) {
-        indicator.textContent = "❌ 级联更新同步失败";
-    }
-}
-        async function deleteStripAction(id, index) {
-            const targetTitle = noteItems[index]?.data?.title || '';
-            const verifyPrompt = targetTitle.trim() === '' ? '无标题项目' : targetTitle;
-            
-            const confirmInput = prompt(`⚠️ 确定要物理清除本条记事数据吗？该操作不可逆！\n\n请输入该项标题 [ ${verifyPrompt} ] 进行确认:`);
-            
-            if (confirmInput === null) return; 
-            
-            if (confirmInput.trim() !== verifyPrompt) {
-                alert("❌ 输入标题不匹配，删除已被熔断。");
-                return;
-            }
-
-            if (!id) {
-                noteItems.splice(index, 1);
-                renderStream();
-                return;
-            }
+            const indicator = document.getElementById('sync-indicator'); indicator.textContent = "⏳ 正在对齐 D1 存储群集数据...";
             try {
+                noteItems.forEach((item, index) => { const catIndex = categories.indexOf(item.data.category || '文本1'); item.sort_order = (catIndex !== -1 ? catIndex : 99) * 1000 + index; });
+                
+                // 🚀 核心优化：合并提交，发送完整的 items 数组解决 N+1 瓶颈
                 const res = await fetch('/api/code-grid', {
-                    method: 'DELETE',
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ id })
+                    body: JSON.stringify({ items: noteItems })
                 });
+                if (!res.ok) throw new Error();
+
+                indicator.textContent = "⚡ 云端记事资产已完全对齐";
+                await fetchStreamData(); renderTabs(); alert("✨ 同步成功！干净的分页标签资产已被无缝写入集群中。");
+            } catch (e) { indicator.textContent = "❌ 级联更新同步失败"; }
+        }
+
+        async function deleteStripAction(id, index) {
+            const targetTitle = noteItems[index]?.data?.title || ''; const verifyPrompt = targetTitle.trim() === '' ? '无标题项目' : targetTitle;
+            const confirmInput = prompt(`⚠️ 确定要物理清除本条记事数据吗？该操作不可逆！\n\n请输入该项标题 [ ${verifyPrompt} ] 进行确认:`);
+            if (confirmInput === null) return; 
+            if (confirmInput.trim() !== verifyPrompt) return alert("❌ 输入标题不匹配，删除已被熔断。");
+            if (!id) { noteItems.splice(index, 1); renderStream(); return; }
+            try {
+                const res = await fetch('/api/code-grid', { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id }) });
                 if (res.ok) await fetchStreamData();
             } catch(e){}
         }
