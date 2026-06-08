@@ -205,7 +205,7 @@
                 const popup = document.getElementById('global-note-popup');
                 item.onmouseenter = () => {
                     if (isEditMode) return;
-                    popup.innerHTML = `//  备注:\n${escapeHTML(link.note).replace(/\n/g, '<br>')}`;
+                    popup.innerHTML = `备注:\n${escapeHTML(link.note).replace(/\n/g, '<br>')}`;
                     const rect = item.getBoundingClientRect(); let left = rect.right + 8;
                     if (left + 260 > window.innerWidth) left = rect.left - 270;
                     popup.style.left = left + 'px'; popup.style.top = rect.top + 'px'; popup.style.display = 'block';
