@@ -33,13 +33,20 @@
         }
         .el-card { --el-card-bg-color: var(--bg-card); border-color: var(--border-color); color: var(--text-main); }
         
-        /* 🚀 修复核心：强制重置上传组件的宽高与点击层级，确保弹窗能够百分百触发 */
-        .el-upload { display: block; width: 100%; }
-        .el-upload-dragger { width: 100% !important; background-color: var(--bg-input) !important; border-color: var(--border-color) !important; transition: all 0.2s; position: relative; z-index: 10; }
-        .el-upload-dragger:hover { border-color: var(--accent-color) !important; }
-        .el-upload-dragger .el-upload__text { color: var(--text-muted) !important; }
-        .el-upload-dragger .el-upload__text em { color: var(--accent-color) !important; }
-        .el-icon--upload { color: var(--text-muted) !important; }
+        /* 🚀 核心修复：撤销对原生 upload 布局的破坏，仅作极其安全的背景色覆写 */
+        .el-upload-dragger {
+            background-color: var(--bg-input) !important;
+            border-color: var(--border-color) !important;
+        }
+        .el-upload-dragger:hover {
+            border-color: var(--accent-color) !important;
+        }
+        .el-upload__text {
+            color: var(--text-muted) !important;
+        }
+        .el-upload__text em {
+            color: var(--accent-color) !important;
+        }
         
         .storage-track { height: 6px; background-color: var(--bg-input); border-radius: 9999px; overflow: hidden; border: 1px solid var(--border-color); }
         .storage-bar { height: 100%; background-color: var(--accent-color); border-radius: 9999px; transition: width 0.3s ease; box-shadow: 0 0 8px rgba(88,166,255,0.5); }
@@ -75,11 +82,11 @@
                     <el-upload
                         class="upload-demo"
                         drag
-                        action="#"
+                        action="/api/cloud/upload"
                         :http-request="customUpload"
                         :show-file-list="false"
                         multiple>
-                        <i class="fas fa-cloud-upload-alt el-icon--upload" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <i class="fas fa-cloud-upload-alt text-gray-500" style="font-size: 40px; margin-bottom: 10px;"></i>
                         <div class="el-upload__text text-sm">
                             拖拽资产到此终端，或 <em>点击上传</em>
                         </div>
@@ -137,7 +144,6 @@
 
         createApp({
             setup() {
-                // 1. 优先加载工具函数，防止作用域错误导致 Vue 挂载崩溃
                 const getAuthHeaders = () => {
                     const token = localStorage.getItem('nav_token');
                     return token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -156,7 +162,6 @@
                     return new Date(dateStr).toLocaleString();
                 };
 
-                // 2. 初始化核心变量
                 const files = ref([]);
                 const loading = ref(false);
                 const TOTAL_CAPACITY_BYTES = 10 * 1024 * 1024 * 1024; 
@@ -165,7 +170,6 @@
                 rawUser = rawUser.replace(/['"]/g, ''); 
                 const username = ref(rawUser.toUpperCase()); 
                 
-                // 3. 计算属性 (进度条与存储量)
                 const totalUsedBytes = computed(() => {
                     return files.value.reduce((sum, file) => sum + (parseInt(file.file_size) || 0), 0);
                 });
@@ -176,7 +180,6 @@
                     return Math.min(parseFloat(pct.toFixed(2)), 100);
                 });
 
-                // 4. API 请求与交互动作
                 const fetchFiles = async () => {
                     loading.value = true;
                     try {
@@ -191,9 +194,17 @@
                     }
                 };
 
-                // 🚀 核心修复：完全手动掌控上传通道，规避框架 Bug
+                // 🚀 核心拦截器：完全捕获操作并抛出实时进度，决不装死
                 const customUpload = async (options) => {
                     const { file, onSuccess, onError } = options;
+                    
+                    // 只要点开或拖入选了文件，立马给出 UI 反馈！
+                    const notify = ElMessage({
+                        message: `正在建立数据通道: ${file.name} ...`,
+                        type: 'info',
+                        duration: 0 // 持续显示直到执行完毕
+                    });
+
                     const formData = new FormData();
                     formData.append('file', file);
 
@@ -203,15 +214,24 @@
                             headers: getAuthHeaders(),
                             body: formData
                         });
-                        const json = await res.json();
+                        
+                        let json;
+                        try {
+                            json = await res.json();
+                        } catch (parseErr) {
+                            throw new Error(`服务端异常 (HTTP ${res.status}: 可能由于文件过大被拦截)`);
+                        }
+
                         if (json.success) {
-                            onSuccess(json); // 消除加载动画
+                            onSuccess(json); 
+                            notify.close();
                             ElMessage.success(`资产入库成功: ${file.name}`);
-                            fetchFiles();    // 立即刷新进度条和列表
+                            fetchFiles();
                         } else {
                             throw new Error(json.error || '后端拒绝了此请求');
                         }
                     } catch (error) {
+                        notify.close();
                         console.error(error);
                         onError(error);
                         ElMessage.error(`上传被中止: ${error.message}`);
