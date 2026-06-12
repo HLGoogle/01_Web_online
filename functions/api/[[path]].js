@@ -1,7 +1,7 @@
 /**
  * functions/api/[[path]].js
  * 企业级重构版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
- * 新增模块 - D1+R2 私有云盘双端联动
+ * 新增模块 - D1+R2 私有云盘双端联动 (修复了流断点 500 错误 & 启用 R2 目录树)
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -58,7 +58,6 @@ export async function onRequest(context) {
   // 🛡️ 鉴权网关：严格校验 HMAC 签名 Token
   // ==========================================
   let userId = null;
-  // 🚀 [核心更新]: 将 /api/cloud 加入保护路由，确保云盘接口受凭证保护
   const isProtected = path.startsWith('/api/links') || path.startsWith('/api/user') || path.startsWith('/api/code-grid') || path.startsWith('/api/cloud');
   
   if (isProtected) {
@@ -95,20 +94,24 @@ export async function onRequest(context) {
       if (path === '/api/cloud/upload' && method === 'POST') {
         const formData = await request.formData();
         const file = formData.get("file");
-        if (!file) return new Response(JSON.stringify({ success: false, error: "没有接收到文件" }), { status: 400, headers });
+        if (!file || !file.name) return new Response(JSON.stringify({ success: false, error: "没有接收到有效文件" }), { status: 400, headers });
 
-        // 生成 R2 中的唯一 Key，包含 userId 确保隔离
-        const r2Key = `cloud_${userId}_${Date.now()}_${file.name}`;
+        // 🌟 采纳建议：采用目录结构存储！以 user_id 作为顶级文件夹
+        // 在 R2 后台看起来就是：cloud01 / [你的用户ID] / 时间戳_文件名.jpg
+        const r2Key = `${userId}/${Date.now()}_${file.name}`;
+
+        // 🚀 核心修复：坚决不使用极易崩溃的 file.stream()，强制转换成纯净的底层 ArrayBuffer 写入
+        const fileBuffer = await file.arrayBuffer();
 
         // A. 写入 R2 存储桶
-        await env.MY_BUCKET.put(r2Key, file.stream(), {
-          httpMetadata: { contentType: file.type }
+        await env.MY_BUCKET.put(r2Key, fileBuffer, {
+          httpMetadata: { contentType: file.type || 'application/octet-stream' }
         });
 
         // B. 写入 D1 数据库
         await env.DB.prepare(
           'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
-        ).bind(userId, file.name, r2Key, file.size, file.type).run();
+        ).bind(userId, file.name, r2Key, file.size, file.type || 'unknown').run();
 
         return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
       }
@@ -118,14 +121,12 @@ export async function onRequest(context) {
         const id = url.searchParams.get("id");
         if (!id) return new Response(JSON.stringify({ success: false, error: "缺少文件ID" }), { status: 400, headers });
 
-        // 查询 R2_key 并严格校验 user_id (防止越权删除)
         const fileInfo = await env.DB.prepare(
           'SELECT r2_key FROM cloud_files WHERE id = ? AND user_id = ?'
         ).bind(id, userId).first();
 
         if (!fileInfo) return new Response(JSON.stringify({ success: false, error: "文件不存在或无权操作" }), { status: 404, headers });
 
-        // 双端抹除
         await env.MY_BUCKET.delete(fileInfo.r2_key);
         await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
 
