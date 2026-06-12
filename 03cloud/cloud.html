@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的私有云盘</title>
+    <title>私有云盘</title>
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/element-plus"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@aws-sdk/client-s3@3.450.0/dist/umd/aws-sdk-client-s3.min.js"></script>
     <style>
-        body { background-color: #121212; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; }
         .el-table { --el-table-bg-color: #1e1e1e; --el-table-tr-bg-color: #1e1e1e; --el-table-header-bg-color: #2a2a2a; --el-table-text-color: #e0e0e0; --el-table-header-text-color: #ffffff; --el-table-border-color: #333333; }
         .el-card { --el-card-bg-color: #1e1e1e; border-color: #333333; color: #e0e0e0; }
     </style>
@@ -19,59 +18,51 @@
     <div id="app" class="max-w-6xl mx-auto">
         <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-800">
             <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-                📦 我的私有云盘 <span class="text-sm bg-blue-600 text-white px-2 py-0.5 rounded">R2 10GB 免费版</span>
+                📦 我的私有网盘 <span class="text-sm bg-purple-600 text-white px-2 py-0.5 rounded">D1 SQL + R2(cloud01)</span>
             </h1>
-            <el-button type="primary" @click="fetchFiles" :loading="loading">刷新列表</el-button>
+            <div class="flex gap-2">
+                <el-button type="info" @click="goHome">返回主页</el-button>
+                <el-button type="primary" @click="fetchFiles" :loading="loading">刷新列表</el-button>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="md:col-span-1">
-                <el-card shadow="never" class="mb-4">
-                    <template #header><span class="font-bold text-white">上传文件</span></template>
+                <el-card shadow="never">
+                    <template #header><span class="font-bold text-white">文件上传</span></template>
                     <el-upload
                         class="upload-demo"
                         drag
-                        action="#"
-                        :http-request="uploadFile"
-                        :show-file-list="false"
+                        action="/api/cloud/upload"
+                        name="file"
+                        :on-success="handleUploadSuccess"
+                        :on-error="handleUploadError"
                         multiple>
-                        <el-icon class="el-icon--upload" style="font-size: 48px; color: #888;"><upload-filled /></el-icon>
-                        <div class="el-upload__text text-gray-400 text-sm mt-2">
-                            将文件拖到此处，或 <em>点击上传</em>
+                        <div class="el-upload__text text-gray-400 text-sm">
+                            拖拽到此，或 <em>点击上传</em>
                         </div>
                     </el-upload>
-                </el-card>
-
-                <el-card shadow="never">
-                    <div class="text-sm text-gray-400">
-                        <p class="mb-1">总额度：10 GB</p>
-                        <p>特点：下载不限速、不计流量费</p>
-                    </div>
                 </el-card>
             </div>
 
             <div class="md:col-span-3">
                 <el-table :data="files" v-loading="loading" style="width: 100%" border>
-                    <el-table-column prop="Key" label="文件名" min-width="180" show-overflow-tooltip>
+                    <el-table-column prop="file_name" label="文件名" min-width="180" show-overflow-tooltip>
                         <template #default="scope">
-                            <span class="text-white font-medium">{{ scope.row.Key }}</span>
+                            <span class="text-white font-medium">{{ scope.row.file_name }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column prop="Size" label="大小" width="120">
-                        <template #default="scope">
-                            {{ formatSize(scope.row.Size) }}
-                        </template>
+                    <el-table-column label="大小" width="120">
+                        <template #default="scope">{{ formatSize(scope.row.file_size) }}</template>
                     </el-table-column>
-                    <el-table-column prop="LastModified" label="修改时间" width="180">
-                        <template #default="scope">
-                            {{ formatDate(scope.row.LastModified) }}
-                        </template>
+                    <el-table-column label="上传时间" width="180">
+                        <template #default="scope">{{ formatDate(scope.row.created_at) }}</template>
                     </el-table-column>
                     <el-table-column label="操作" width="160" align="center">
                         <template #default="scope">
                             <el-button-group>
-                                <el-button size="small" type="success" @click="downloadFile(scope.row.Key)">下载</el-button>
-                                <el-button size="small" type="danger" @click="deleteFile(scope.row.Key)">删除</el-button>
+                                <el-button size="small" type="success" @click="downloadFile(scope.row.id)">下载</el-button>
+                                <el-button size="small" type="danger" @click="deleteFile(scope.row.id)">删除</el-button>
                             </el-button-group>
                         </template>
                     </el-table-column>
@@ -81,15 +72,6 @@
     </div>
 
     <script>
-        // ==================== 🛠️ 核心配置区域 ====================
-        const R2_CONFIG = {
-            accessKeyId: "你在第二步复制的 Access Key ID",
-            secretAccessKey: "你在第二步复制的 Secret Access Key",
-            endpoint: "你在第二步复制的 整个Endpoint网址 (例如 https://xxxx.r2.cloudflarestorage.com)",
-            bucketName: "你刚刚创建的存储桶英文名称"
-        };
-        // ========================================================
-
         const { createApp, ref, onMounted } = Vue;
         const { ElMessage, ElMessageBox } = ElementPlus;
 
@@ -97,103 +79,53 @@
             setup() {
                 const files = ref([]);
                 const loading = ref(false);
-                let s3Client = null;
 
-                // 初始化 S3 客户端连接 R2
-                const initS3 = () => {
-                    const { ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = AWS.S3;
-                    
-                    s3Client = new AWS.S3.S3({
-                        region: "auto",
-                        endpoint: R2_CONFIG.endpoint,
-                        credentials: {
-                            accessKeyId: R2_CONFIG.accessKeyId,
-                            secretAccessKey: R2_CONFIG.secretAccessKey,
-                        }
-                    });
-                };
-
-                // 获取存储桶文件列表
                 const fetchFiles = async () => {
-                    if (!s3Client) return;
                     loading.value = true;
                     try {
-                        const response = await s3Client.listObjectsV2({ Bucket: R2_CONFIG.bucketName });
-                        files.value = response.Contents || [];
+                        const res = await fetch('/api/cloud/list');
+                        const json = await res.json();
+                        if (json.success) files.value = json.data;
+                        else throw new Error(json.error);
                     } catch (error) {
-                        console.error(error);
-                        ElMessage.error("获取文件列表失败，请检查 R2 配置或跨域(CORS)设置");
+                        ElMessage.error("拉取失败: " + error.message);
                     } finally {
                         loading.value = false;
                     }
                 };
 
-                // 上传文件
-                const uploadFile = async (options) => {
-                    const { file } = options;
-                    const notify = ElMessage({ message: `正在上传: ${file.name}...`, type: 'info', duration: 0 });
-                    try {
-                        await s3Client.putObject({
-                            Bucket: R2_CONFIG.bucketName,
-                            Key: file.name,
-                            Body: file,
-                            ContentType: file.type
-                        });
-                        ElMessage.success(`上传成功: ${file.name}`);
-                        fetchFiles();
-                    } catch (error) {
-                        console.error(error);
-                        ElMessage.error(`上传失败: ${file.name}`);
-                    } finally {
-                        notify.close();
-                    }
+                const handleUploadSuccess = () => {
+                    ElMessage.success("上传成功，已同步至 SQL 数据库");
+                    fetchFiles();
                 };
 
-                // 下载文件 (通过生成一个临时直链在浏览器下载)
-                const downloadFile = async (key) => {
-                    try {
-                        const response = await s3Client.getObject({ Bucket: R2_CONFIG.bucketName, Key: key });
-                        // 将文件流转换为本地可下载对象
-                        const blob = await response.Body.transformToWebStream();
-                        const reader = blob.getReader();
-                        const chunks = [];
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            chunks.push(value);
-                        }
-                        const downloadUrl = URL.createObjectURL(new Blob(chunks));
-                        const a = document.createElement('a');
-                        a.href = downloadUrl;
-                        a.download = key;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(downloadUrl);
-                    } catch (error) {
-                        console.error(error);
-                        ElMessage.error("下载文件失败");
-                    }
+                const handleUploadError = () => {
+                    ElMessage.error("上传失败，请检查是否登录过期");
                 };
 
-                // 删除文件
-                const deleteFile = (key) => {
-                    ElMessageBox.confirm(`确定要彻底删除文件 [${key}] 吗？`, '警告', {
+                const downloadFile = (id) => {
+                    window.open(`/api/cloud/download?id=${id}`, '_blank');
+                };
+
+                const deleteFile = (id) => {
+                    ElMessageBox.confirm('确定要永久删除该文件吗？', '提示', {
                         confirmButtonText: '确定',
                         cancelButtonText: '取消',
                         type: 'warning',
                     }).then(async () => {
                         try {
-                            await s3Client.deleteObject({ Bucket: R2_CONFIG.bucketName, Key: key });
-                            ElMessage.success("删除成功");
-                            fetchFiles();
+                            const res = await fetch(`/api/cloud/delete?id=${id}`, { method: 'DELETE' });
+                            const json = await res.json();
+                            if (json.success) {
+                                ElMessage.success("删除成功");
+                                fetchFiles();
+                            } else throw new Error(json.error);
                         } catch (error) {
-                            ElMessage.error("删除失败");
+                            ElMessage.error("删除失败: " + error.message);
                         }
                     }).catch(() => {});
                 };
 
-                // 辅助函数：格式化文件大小
                 const formatSize = (bytes) => {
                     if (!bytes) return "0 B";
                     const k = 1024;
@@ -202,19 +134,16 @@
                     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
                 };
 
-                // 辅助函数：格式化时间
                 const formatDate = (dateStr) => {
                     if (!dateStr) return "-";
-                    const d = new Date(dateStr);
-                    return d.toLocaleString();
+                    return new Date(dateStr).toLocaleString();
                 };
 
-                onMounted(() => {
-                    initS3();
-                    fetchFiles();
-                });
+                const goHome = () => { window.location.href = '/'; };
 
-                return { files, loading, fetchFiles, uploadFile, downloadFile, deleteFile, formatSize, formatDate };
+                onMounted(() => { fetchFiles(); });
+
+                return { files, loading, fetchFiles, handleUploadSuccess, handleUploadError, downloadFile, deleteFile, formatSize, formatDate, goHome };
             }
         }).use(ElementPlus).mount('#app');
     </script>
