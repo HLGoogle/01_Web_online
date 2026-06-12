@@ -1,13 +1,12 @@
 /**
  * functions/api/[[path]].js
  * 企业级重构版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
+ * 新增模块 - D1+R2 私有云盘双端联动
  */
 
-// 秘钥：用于 HMAC 签名 (如果在生产环境，请配置到 Cloudflare 环境变量 env.JWT_SECRET)
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
 const PWD_SALT = "_nav_salt_2026";
 
-// Web Crypto API 辅助函数
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -36,7 +35,7 @@ export async function onRequest(context) {
   if (method === 'OPTIONS') return new Response(null, { headers });
 
   // ==========================================
-  // 📸 读取 KV 自定义图片 (保持不变)
+  // 📸 读取 KV 自定义图片
   // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
@@ -59,7 +58,8 @@ export async function onRequest(context) {
   // 🛡️ 鉴权网关：严格校验 HMAC 签名 Token
   // ==========================================
   let userId = null;
-  const isProtected = path.startsWith('/api/links') || path.startsWith('/api/user') || path.startsWith('/api/code-grid');
+  // 🚀 [核心更新]: 将 /api/cloud 加入保护路由，确保云盘接口受凭证保护
+  const isProtected = path.startsWith('/api/links') || path.startsWith('/api/user') || path.startsWith('/api/code-grid') || path.startsWith('/api/cloud');
   
   if (isProtected) {
     const authHeader = request.headers.get('Authorization');
@@ -67,7 +67,7 @@ export async function onRequest(context) {
     try {
       const token = authHeader.split(' ')[1];
       const parts = token.split('.');
-      if (parts.length !== 2) throw new Error('Token格式非法'); // 拒绝旧版/伪造Token
+      if (parts.length !== 2) throw new Error('Token格式非法'); 
       const expectedSig = await signHMAC(parts[0], env.JWT_SECRET || SECRET_KEY);
       if (expectedSig !== parts[1]) throw new Error('Token签名防伪失败');
       userId = atob(parts[0]).split(':')[0];
@@ -79,7 +79,85 @@ export async function onRequest(context) {
 
   try {
     // ========================================== 
-    // 🎴 记事条模块 (修复并发请求洪峰 N+1 问题)
+    // ☁️ 云盘高级模块 (D1 SQL + R2 结合)
+    // ========================================== 
+    if (path.startsWith('/api/cloud')) {
+      
+      // 1. 获取文件列表
+      if (path === '/api/cloud/list' && method === 'GET') {
+        const { results } = await env.DB.prepare(
+          'SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC'
+        ).bind(userId).all();
+        return new Response(JSON.stringify({ success: true, data: results }), { headers });
+      }
+
+      // 2. 上传文件
+      if (path === '/api/cloud/upload' && method === 'POST') {
+        const formData = await request.formData();
+        const file = formData.get("file");
+        if (!file) return new Response(JSON.stringify({ success: false, error: "没有接收到文件" }), { status: 400, headers });
+
+        // 生成 R2 中的唯一 Key，包含 userId 确保隔离
+        const r2Key = `cloud_${userId}_${Date.now()}_${file.name}`;
+
+        // A. 写入 R2 存储桶
+        await env.MY_BUCKET.put(r2Key, file.stream(), {
+          httpMetadata: { contentType: file.type }
+        });
+
+        // B. 写入 D1 数据库
+        await env.DB.prepare(
+          'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
+        ).bind(userId, file.name, r2Key, file.size, file.type).run();
+
+        return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
+      }
+
+      // 3. 删除文件
+      if (path === '/api/cloud/delete' && method === 'DELETE') {
+        const id = url.searchParams.get("id");
+        if (!id) return new Response(JSON.stringify({ success: false, error: "缺少文件ID" }), { status: 400, headers });
+
+        // 查询 R2_key 并严格校验 user_id (防止越权删除)
+        const fileInfo = await env.DB.prepare(
+          'SELECT r2_key FROM cloud_files WHERE id = ? AND user_id = ?'
+        ).bind(id, userId).first();
+
+        if (!fileInfo) return new Response(JSON.stringify({ success: false, error: "文件不存在或无权操作" }), { status: 404, headers });
+
+        // 双端抹除
+        await env.MY_BUCKET.delete(fileInfo.r2_key);
+        await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
+
+        return new Response(JSON.stringify({ success: true, message: "删除成功" }), { headers });
+      }
+
+      // 4. 下载文件
+      if (path === '/api/cloud/download' && method === 'GET') {
+        const id = url.searchParams.get("id");
+        
+        const fileInfo = await env.DB.prepare(
+          'SELECT file_name, r2_key, file_type FROM cloud_files WHERE id = ? AND user_id = ?'
+        ).bind(id, userId).first();
+
+        if (!fileInfo) return new Response("文件不存在或无权限", { status: 404, headers });
+
+        const r2Object = await env.MY_BUCKET.get(fileInfo.r2_key);
+        if (!r2Object) return new Response("存储桶中未找到该文件体", { status: 404, headers });
+
+        const downloadHeaders = new Headers();
+        r2Object.writeHttpMetadata(downloadHeaders);
+        downloadHeaders.set("etag", r2Object.httpEtag);
+        // 强制浏览器作为附件下载，解决中文文件名乱码问题
+        downloadHeaders.set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileInfo.file_name)}`);
+        downloadHeaders.set('Access-Control-Allow-Origin', '*');
+
+        return new Response(r2Object.body, { headers: downloadHeaders });
+      }
+    }
+
+    // ========================================== 
+    // 🎴 记事条模块
     // ========================================== 
     if (path.startsWith('/api/code-grid')) {
       if (method === 'GET') {
@@ -91,7 +169,6 @@ export async function onRequest(context) {
       const body = await request.json();
 
       if (method === 'POST') {
-        // 🚀 核心优化：利用 D1 batch API 处理批量请求
         if (body.items && Array.isArray(body.items)) {
           const stmts = body.items.map(item => {
             const rowDataStr = JSON.stringify(item.data);
@@ -101,10 +178,9 @@ export async function onRequest(context) {
               return env.DB.prepare('INSERT INTO Web_code_rows (user_id, row_data, sort_order) VALUES (?, ?, ?)').bind(userId, rowDataStr, item.sort_order || 0);
             }
           });
-          await env.DB.batch(stmts); // 1个请求搞定所有行
+          await env.DB.batch(stmts);
           return new Response(JSON.stringify({ success: true }), { headers });
         }
-        // 兼容遗留的单条 POST 逻辑
         const rowDataStr = JSON.stringify(body.data);
         if (body.id) await env.DB.prepare('UPDATE Web_code_rows SET row_data=?, sort_order=? WHERE id=? AND user_id=?').bind(rowDataStr, body.sort_order || 0, body.id, userId).run();
         else await env.DB.prepare('INSERT INTO Web_code_rows (user_id, row_data, sort_order) VALUES (?, ?, ?)').bind(userId, rowDataStr, body.sort_order || 0).run();
@@ -118,7 +194,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 📸 用户直传图标 (修复 MIME 伪装欺骗漏洞)
+    // 📸 用户直传图标
     // ==========================================
     if (path === '/api/user/upload-icon' && method === 'POST') {
       const originalName = url.searchParams.get("name") || "icon.png";
@@ -127,7 +203,6 @@ export async function onRequest(context) {
       if (!imageBlob || imageBlob.byteLength === 0) return new Response(JSON.stringify({ success: false, error: "上传文件不可为空" }), { status: 400, headers });
       if (imageBlob.byteLength > 2 * 1024 * 1024) return new Response(JSON.stringify({ success: false, error: "体积不可超过2MB" }), { status: 400, headers });
 
-      // 🛡️ 读取前4个字节检查 Magic Number
       const arr = new Uint8Array(imageBlob).subarray(0, 4);
       const headerHex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
       let validFile = false;
@@ -144,7 +219,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🔐 用户管理模块 (修复密码明文存储漏洞)
+    // 🔐 用户管理模块
     // ==========================================
     if (path === '/api/auth' && method === 'POST') {
       const body = await request.json();
@@ -164,7 +239,6 @@ export async function onRequest(context) {
         if (!user) return new Response(JSON.stringify({ success: false, error: '账号或密码错误' }), { status: 401, headers });
         
         const hashedInput = await sha256(password + PWD_SALT);
-        // ⚠️ 数据库平滑升级机制：同时对比新Hash和老明文，匹配明文则静默帮用户升级为Hash存储
         if (user.password !== hashedInput && user.password !== password) {
             return new Response(JSON.stringify({ success: false, error: '账号或密码错误' }), { status: 401, headers });
         }
@@ -172,7 +246,6 @@ export async function onRequest(context) {
             await env.DB.prepare('UPDATE Web_online_users_00 SET password = ? WHERE id = ?').bind(hashedInput, user.id).run();
         }
 
-        // 颁发安全的签名 Token: base64(payload).signature
         const payload = btoa(`${user.id}:${user.username}`);
         const signature = await signHMAC(payload, env.JWT_SECRET || SECRET_KEY);
         const token = `${payload}.${signature}`;
@@ -190,7 +263,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🗂️ 书签与配置模块 (保持不变)
+    // 🗂️ 书签与配置模块
     // ==========================================
     if (path === '/api/links') {
       if (method === 'GET') {
