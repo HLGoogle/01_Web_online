@@ -1,7 +1,7 @@
 /**
  * functions/api/[[path]].js
  * 企业级重构版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
- * 新增模块 - D1+R2 私有云盘双端联动 (修复 405 路由未匹配漏洞 & 启用 R2 目录树)
+ * 新增模块 - D1+R2 私有云盘双端联动 (彻底修复 405 路由滑过漏洞 & 启用 R2 目录树)
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -58,7 +58,7 @@ export async function onRequest(context) {
   // 🛡️ 鉴权网关：严格校验 HMAC 签名 Token
   // ==========================================
   let userId = null;
-  const isProtected = path.startsWith('/api/links') || path.startsWith('/api/user') || path.startsWith('/api/code-grid') || path.startsWith('/api/cloud');
+  const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('api/cloud');
   
   if (isProtected) {
     const authHeader = request.headers.get('Authorization');
@@ -80,11 +80,11 @@ export async function onRequest(context) {
     // ========================================== 
     // ☁️ 云盘高级模块 (D1 SQL + R2 结合)
     // ========================================== 
-    // 🚀 [重大更新] 改用 startsWith 大范围包围式逻辑，彻底消灭 405 路由未匹配报错
-    if (path.startsWith('/api/cloud/')) {
+    // 🚀 [终极锁死]: 只要路径中包含 cloud，直接暴力切断，100%由云盘接管，杜绝滑到最底部的405
+    if (path.includes('cloud')) {
       
       // 1. 获取文件列表
-      if (path.includes('/list') && method === 'GET') {
+      if (path.includes('list') && method === 'GET') {
         const { results } = await env.DB.prepare(
           'SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC'
         ).bind(userId).all();
@@ -92,12 +92,12 @@ export async function onRequest(context) {
       }
 
       // 2. 上传文件
-      if (path.includes('/upload') && method === 'POST') {
+      if (path.includes('upload') && method === 'POST') {
         const formData = await request.formData();
         const file = formData.get("file");
         if (!file || !file.name) return new Response(JSON.stringify({ success: false, error: "没有接收到有效文件" }), { status: 400, headers });
 
-        // 以用户 ID 创建 R2 虚拟树状目录结构
+        // 采用目录结构存储，将文件归类在以当前 userId 命名的文件夹下
         const r2Key = `${userId}/${Date.now()}_${file.name}`;
         const fileBuffer = await file.arrayBuffer();
 
@@ -115,7 +115,7 @@ export async function onRequest(context) {
       }
 
       // 3. 删除文件
-      if (path.includes('/delete') && method === 'DELETE') {
+      if (path.includes('delete') && method === 'DELETE') {
         const id = url.searchParams.get("id");
         if (!id) return new Response(JSON.stringify({ success: false, error: "缺少文件ID" }), { status: 400, headers });
 
@@ -132,7 +132,7 @@ export async function onRequest(context) {
       }
 
       // 4. 下载文件
-      if (path.includes('/download') && method === 'GET') {
+      if (path.includes('download') && method === 'GET') {
         const id = url.searchParams.get("id");
         
         const fileInfo = await env.DB.prepare(
