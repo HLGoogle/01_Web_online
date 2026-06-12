@@ -10,44 +10,72 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/element-plus"></script>
     <style>
-        body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; }
-        .el-table { --el-table-bg-color: #1e1e1e; --el-table-tr-bg-color: #1e1e1e; --el-table-header-bg-color: #2a2a2a; --el-table-text-color: #e0e0e0; --el-table-header-text-color: #ffffff; --el-table-border-color: #333333; }
-        .el-card { --el-card-bg-color: #1e1e1e; border-color: #333333; color: #e0e0e0; }
+        /* 提取主页的核心暗黑配色体系 */
+        :root {
+            --bg-main: #0d1117; 
+            --bg-card: #161b22; 
+            --bg-input: #21262d; 
+            --border-color: #30363d; 
+            --text-main: #c9d1d9; 
+            --text-muted: #8b949e; 
+            --accent-color: #58a6ff; 
+            --font-mono: 'Fira Code', 'Ubuntu Mono', monospace;
+        }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: sans-serif, var(--font-mono); }
+        
+        /* 深度定制 Element Plus 的暗黑模式 */
+        .el-table { 
+            --el-table-bg-color: var(--bg-card); 
+            --el-table-tr-bg-color: var(--bg-card); 
+            --el-table-header-bg-color: var(--bg-input); 
+            --el-table-text-color: var(--text-main); 
+            --el-table-header-text-color: #ffffff; 
+            --el-table-border-color: var(--border-color); 
+            --el-table-row-hover-bg-color: #2c3138; 
+        }
+        .el-card { --el-card-bg-color: var(--bg-card); border-color: var(--border-color); color: var(--text-main); }
+        
+        /* 🚀 修复核心：强制镇压白色的拖拽上传框，改为深色极简风格 */
+        .el-upload-dragger { background-color: var(--bg-input) !important; border-color: var(--border-color) !important; transition: all 0.2s; }
+        .el-upload-dragger:hover { border-color: var(--accent-color) !important; }
+        .el-upload-dragger .el-upload__text { color: var(--text-muted) !important; }
+        .el-upload-dragger .el-upload__text em { color: var(--accent-color) !important; }
+        .el-icon--upload { color: var(--text-muted) !important; }
+        
         /* 进度条轨道定制样式 */
-        .storage-track { height: 6px; background-color: #262626; border-radius: 9999px; overflow: hidden; }
-        .storage-bar { height: 100%; background-color: #1890ff; border-radius: 9999px; transition: width 0.3s ease; }
-        /* 顶部黑客风控制台按钮风格对齐 */
-        .ctrl-btn { background: transparent; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px; }
-        .ctrl-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+        .storage-track { height: 6px; background-color: var(--bg-input); border-radius: 9999px; overflow: hidden; border: 1px solid var(--border-color); }
+        .storage-bar { height: 100%; background-color: var(--accent-color); border-radius: 9999px; transition: width 0.3s ease; box-shadow: 0 0 8px rgba(88,166,255,0.5); }
+        
+        /* 🚀 顶部控制台按钮风格：完美对齐主页 */
+        .ctrl-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--font-mono); transition: all 0.2s; }
+        .ctrl-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div id="app" class="max-w-6xl mx-auto">
-        <!-- 顶部控制栏区域 -->
+        
         <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-800">
             <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-                📦 我的私有网盘 <span class="text-sm bg-purple-600 text-white px-2 py-0.5 rounded">D1 SQL + R2(cloud01)</span>
+                📂 私有终端云 <span class="text-sm bg-purple-600 text-white px-2 py-0.5 rounded" style="background:#8957e54d; color:#a371f7; border: 1px solid #8957e54d;">D1 + R2</span>
             </h1>
             
-            <div class="flex items-center gap-3">
-                <el-button type="primary" size="small" @click="fetchFiles" :loading="loading">刷新列表</el-button>
-                <!-- 🚀 [新增]: 像素级同步主页风格的“回首页”按钮 -->
-                <button class="ctrl-btn" style="color: #58a6ff; border-color: #388bfd4d;" @click="goHome">
+            <div class="flex items-center gap-2">
+                <button class="ctrl-btn" style="color: #2ea44f; border-color: rgba(46,164,79,0.3);" @click="fetchFiles">
+                    <i class="fas fa-sync-alt" :class="{'fa-spin': loading}"></i> 刷新数据
+                </button>
+                <button class="ctrl-btn" style="color: #58a6ff; border-color: rgba(88,166,255,0.3);" @click="goHome">
                     <i class="fas fa-home"></i> 回首页
                 </button>
-                <!-- 🚀 [新增]: 同步主页风格的 账号/注销 组合按钮 -->
                 <button class="ctrl-btn" @click="logout">
-                    <i class="fas fa-power-off"></i> [ {{ username.toUpperCase() }} ] 注销
+                    <i class="fas fa-power-off"></i> [ {{ username }} ] 注销
                 </button>
             </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <!-- 左侧区域：上传与存储统计 -->
             <div class="md:col-span-1 flex flex-col gap-4">
-                <!-- 上传卡片 -->
                 <el-card shadow="never">
-                    <template #header><span class="font-bold text-white">文件上传</span></template>
+                    <template #header><span class="font-bold text-white font-mono">// UPLOAD_ASSET</span></template>
                     <el-upload
                         class="upload-demo"
                         drag
@@ -58,48 +86,51 @@
                         :on-error="handleUploadError"
                         :show-file-list="false"
                         multiple>
-                        <div class="el-upload__text text-gray-400 text-sm">
-                            拖拽到此，或 <em>点击上传</em>
+                        <i class="fas fa-cloud-upload-alt el-icon--upload" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <div class="el-upload__text text-sm">
+                            拖拽资产到此终端，或 <em>点击上传</em>
                         </div>
                     </el-upload>
                 </el-card>
 
-                <!-- 🚀 [新增]: 高仿动态空间容量监控面板 -->
                 <el-card shadow="never">
+                    <template #header><span class="font-bold text-white font-mono">// STORAGE_MONITOR</span></template>
                     <div class="text-sm">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-gray-400 font-medium">个人：{{ usedSizeFormatted }} / 10 GB</span>
-                            <span class="text-xs text-gray-500">{{ storagePercentage }}%</span>
+                        <div class="flex justify-between items-center mb-2 font-mono">
+                            <span class="text-gray-400">已用: {{ usedSizeFormatted }}</span>
+                            <span class="text-accent-color font-bold">{{ storagePercentage }}%</span>
                         </div>
-                        <!-- 自定义精细进度条 -->
                         <div class="storage-track">
                             <div class="storage-bar" :style="{ width: storagePercentage + '%' }"></div>
                         </div>
-                        <p class="text-xs text-gray-500 mt-2">特点：极速回源、下载零计费不限速</p>
+                        <div class="flex justify-between text-xs text-gray-500 mt-2 font-mono">
+                            <span>0 B</span>
+                            <span>MAX: 10 GB</span>
+                        </div>
                     </div>
                 </el-card>
             </div>
 
-            <!-- 右侧区域：文件列表 -->
             <div class="md:col-span-3">
-                <el-table :data="files" v-loading="loading" style="width: 100%" border>
-                    <el-table-column prop="file_name" label="文件名" min-width="180" show-overflow-tooltip>
+                <el-table :data="files" v-loading="loading" style="width: 100%" border empty-text="[ DATA_NOT_FOUND ] 当前终端无存储资产">
+                    <el-table-column prop="file_name" label="资源名称" min-width="180" show-overflow-tooltip>
                         <template #default="scope">
+                            <i class="far fa-file-alt mr-2 text-gray-500"></i>
                             <span class="text-white font-medium">{{ scope.row.file_name }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column label="大小" width="120">
-                        <template #default="scope">{{ formatSize(scope.row.file_size) }}</template>
+                    <el-table-column label="体积" width="120">
+                        <template #default="scope"><span class="font-mono text-gray-400">{{ formatSize(scope.row.file_size) }}</span></template>
                     </el-table-column>
-                    <el-table-column label="上传时间" width="180">
-                        <template #default="scope">{{ formatDate(scope.row.created_at) }}</template>
+                    <el-table-column label="入库时间" width="180">
+                        <template #default="scope"><span class="font-mono text-gray-400">{{ formatDate(scope.row.created_at) }}</span></template>
                     </el-table-column>
-                    <el-table-column label="操作" width="160" align="center">
+                    <el-table-column label="终端指令" width="160" align="center">
                         <template #default="scope">
-                            <el-button-group>
-                                <el-button size="small" type="success" @click="downloadFile(scope.row.id)">下载</el-button>
-                                <el-button size="small" type="danger" @click="deleteFile(scope.row.id)">删除</el-button>
-                            </el-button-group>
+                            <div class="flex justify-center gap-2">
+                                <button class="ctrl-btn" style="padding: 3px 8px; border-color: rgba(46,164,79,0.4); color: #2ea44f;" @click="downloadFile(scope.row.id)" title="下载"><i class="fas fa-download"></i></button>
+                                <button class="ctrl-btn" style="padding: 3px 8px; border-color: rgba(248,81,73,0.4); color: #f85149;" @click="deleteFile(scope.row.id)" title="删除"><i class="fas fa-trash-alt"></i></button>
+                            </div>
                         </template>
                     </el-table-column>
                 </el-table>
@@ -115,9 +146,13 @@
             setup() {
                 const files = ref([]);
                 const loading = ref(false);
-                // 动态获取本地存储的用户名，提供默认降级兜底
-                const username = ref(localStorage.getItem('nav_user') || 'HL2086'); 
-                const TOTAL_CAPACITY_BYTES = 10 * 1024 * 1024 * 1024; // 10GB 转换为字节数
+                
+                // 🚀 核心修复：精准过滤掉双引号，保证账号显示完美干净
+                let rawUser = localStorage.getItem('nav_user') || 'USER';
+                rawUser = rawUser.replace(/['"]/g, ''); // 强制剔除可能存在的 JSON 序列化多余引号
+                const username = ref(rawUser.toUpperCase()); 
+                
+                const TOTAL_CAPACITY_BYTES = 10 * 1024 * 1024 * 1024; 
 
                 const getAuthHeaders = () => {
                     const token = localStorage.getItem('nav_token');
@@ -126,22 +161,12 @@
 
                 const uploadHeaders = computed(() => getAuthHeaders());
 
-                // 🚀 [核心更新]: 动态计算已使用空间的总字节数
                 const totalUsedBytes = computed(() => {
                     return files.value.reduce((sum, file) => sum + (parseInt(file.file_size) || 0), 0);
                 });
 
-                // 🚀 [核心更新]: 格式化已用容量显示（如 123.45 MB 或 1.25 GB）
-                const usedSizeFormatted = computed(() => {
-                    const bytes = totalUsedBytes.value;
-                    if (bytes === 0) return "0 B";
-                    const k = 1024;
-                    const sizes = ["B", "KB", "MB", "GB"];
-                    const i = Math.floor(Math.log(bytes) / Math.log(k));
-                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-                });
+                const usedSizeFormatted = computed(() => formatSize(totalUsedBytes.value));
 
-                // 🚀 [核心更新]: 计算百分比（限制最高 100%）
                 const storagePercentage = computed(() => {
                     if (totalUsedBytes.value === 0) return 0;
                     const pct = (totalUsedBytes.value / TOTAL_CAPACITY_BYTES) * 100;
@@ -156,19 +181,19 @@
                         if (json.success) files.value = json.data;
                         else throw new Error(json.error);
                     } catch (error) {
-                        ElMessage.error("拉取失败: " + error.message);
-                    } final_action {
+                        ElMessage.error("链接终端失败: " + error.message);
+                    } finally {
                         loading.value = false;
                     }
                 };
 
                 const handleUploadSuccess = () => {
-                    ElMessage.success("上传成功，存储额度已实时更新");
+                    ElMessage.success("资产入库成功，节点已同步");
                     fetchFiles();
                 };
 
                 const handleUploadError = () => {
-                    ElMessage.error("上传失败，请确认是否文件过大或凭证失效");
+                    ElMessage.error("入库终止：体积超限或凭证断开");
                 };
 
                 const downloadFile = (id) => {
@@ -176,20 +201,21 @@
                 };
 
                 const deleteFile = (id) => {
-                    ElMessageBox.confirm('确定要从云端彻底删除该资产吗？', '提示', {
-                        confirmButtonText: '确定',
+                    ElMessageBox.confirm('数据将被物理抹除且无法恢复，是否执行？', '// WARNING', {
+                        confirmButtonText: '确认执行',
                         cancelButtonText: '取消',
                         type: 'warning',
+                        customClass: 'cyber-msgbox'
                     }).then(async () => {
                         try {
                             const res = await fetch(`/api/cloud/delete?id=${id}`, { method: 'DELETE', headers: getAuthHeaders() });
                             const json = await res.json();
                             if (json.success) {
-                                ElMessage.success("彻底抹除成功");
+                                ElMessage.success("抹除指令已确认");
                                 fetchFiles();
                             } else throw new Error(json.error);
                         } catch (error) {
-                            ElMessage.error("删除失败: " + error.message);
+                            ElMessage.error("指令失败: " + error.message);
                         }
                     }).catch(() => {});
                 };
@@ -207,7 +233,6 @@
                     return new Date(dateStr).toLocaleString();
                 };
 
-                // 按钮处理事件
                 const goHome = () => { window.location.href = '/'; };
                 const logout = () => {
                     localStorage.removeItem('nav_token');
