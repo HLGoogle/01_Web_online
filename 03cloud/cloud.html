@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>私有云盘</title>
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/element-plus"></script>
@@ -12,26 +13,41 @@
         body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; }
         .el-table { --el-table-bg-color: #1e1e1e; --el-table-tr-bg-color: #1e1e1e; --el-table-header-bg-color: #2a2a2a; --el-table-text-color: #e0e0e0; --el-table-header-text-color: #ffffff; --el-table-border-color: #333333; }
         .el-card { --el-card-bg-color: #1e1e1e; border-color: #333333; color: #e0e0e0; }
+        /* 进度条轨道定制样式 */
+        .storage-track { height: 6px; background-color: #262626; border-radius: 9999px; overflow: hidden; }
+        .storage-bar { height: 100%; background-color: #1890ff; border-radius: 9999px; transition: width 0.3s ease; }
+        /* 顶部黑客风控制台按钮风格对齐 */
+        .ctrl-btn { background: transparent; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px; }
+        .ctrl-btn:hover { border-color: #58a6ff; color: #58a6ff; }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div id="app" class="max-w-6xl mx-auto">
+        <!-- 顶部控制栏区域 -->
         <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-800">
             <h1 class="text-2xl font-bold text-white flex items-center gap-2">
                 📦 我的私有网盘 <span class="text-sm bg-purple-600 text-white px-2 py-0.5 rounded">D1 SQL + R2(cloud01)</span>
             </h1>
-            <div class="flex gap-2">
-                <el-button type="info" @click="goHome">返回主页</el-button>
-                <el-button type="primary" @click="fetchFiles" :loading="loading">刷新列表</el-button>
+            
+            <div class="flex items-center gap-3">
+                <el-button type="primary" size="small" @click="fetchFiles" :loading="loading">刷新列表</el-button>
+                <!-- 🚀 [新增]: 像素级同步主页风格的“回首页”按钮 -->
+                <button class="ctrl-btn" style="color: #58a6ff; border-color: #388bfd4d;" @click="goHome">
+                    <i class="fas fa-home"></i> 回首页
+                </button>
+                <!-- 🚀 [新增]: 同步主页风格的 账号/注销 组合按钮 -->
+                <button class="ctrl-btn" @click="logout">
+                    <i class="fas fa-power-off"></i> [ {{ username.toUpperCase() }} ] 注销
+                </button>
             </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <!-- 上传区 -->
-            <div class="md:col-span-1">
+            <!-- 左侧区域：上传与存储统计 -->
+            <div class="md:col-span-1 flex flex-col gap-4">
+                <!-- 上传卡片 -->
                 <el-card shadow="never">
                     <template #header><span class="font-bold text-white">文件上传</span></template>
-                    <!-- 🚀 [核心更新]: 增加了 :headers 绑定，使上传组件自动携带登录Token -->
                     <el-upload
                         class="upload-demo"
                         drag
@@ -40,15 +56,31 @@
                         :headers="uploadHeaders"
                         :on-success="handleUploadSuccess"
                         :on-error="handleUploadError"
+                        :show-file-list="false"
                         multiple>
                         <div class="el-upload__text text-gray-400 text-sm">
                             拖拽到此，或 <em>点击上传</em>
                         </div>
                     </el-upload>
                 </el-card>
+
+                <!-- 🚀 [新增]: 高仿动态空间容量监控面板 -->
+                <el-card shadow="never">
+                    <div class="text-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-400 font-medium">个人：{{ usedSizeFormatted }} / 10 GB</span>
+                            <span class="text-xs text-gray-500">{{ storagePercentage }}%</span>
+                        </div>
+                        <!-- 自定义精细进度条 -->
+                        <div class="storage-track">
+                            <div class="storage-bar" :style="{ width: storagePercentage + '%' }"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">特点：极速回源、下载零计费不限速</p>
+                    </div>
+                </el-card>
             </div>
 
-            <!-- 列表区 -->
+            <!-- 右侧区域：文件列表 -->
             <div class="md:col-span-3">
                 <el-table :data="files" v-loading="loading" style="width: 100%" border>
                     <el-table-column prop="file_name" label="文件名" min-width="180" show-overflow-tooltip>
@@ -83,64 +115,77 @@
             setup() {
                 const files = ref([]);
                 const loading = ref(false);
+                // 动态获取本地存储的用户名，提供默认降级兜底
+                const username = ref(localStorage.getItem('nav_user') || 'HL2086'); 
+                const TOTAL_CAPACITY_BYTES = 10 * 1024 * 1024 * 1024; // 10GB 转换为字节数
 
-                // 🚀 [核心更新]: 提取共享的本地 Token 凭证头部
                 const getAuthHeaders = () => {
-                    const token = localStorage.getItem('nav_token'); // 顺畅同步主页登录态
+                    const token = localStorage.getItem('nav_token');
                     return token ? { 'Authorization': `Bearer ${token}` } : {};
                 };
 
-                // 计算属性：供 Element Plus 上传组件使用的请求头
                 const uploadHeaders = computed(() => getAuthHeaders());
+
+                // 🚀 [核心更新]: 动态计算已使用空间的总字节数
+                const totalUsedBytes = computed(() => {
+                    return files.value.reduce((sum, file) => sum + (parseInt(file.file_size) || 0), 0);
+                });
+
+                // 🚀 [核心更新]: 格式化已用容量显示（如 123.45 MB 或 1.25 GB）
+                const usedSizeFormatted = computed(() => {
+                    const bytes = totalUsedBytes.value;
+                    if (bytes === 0) return "0 B";
+                    const k = 1024;
+                    const sizes = ["B", "KB", "MB", "GB"];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+                });
+
+                // 🚀 [核心更新]: 计算百分比（限制最高 100%）
+                const storagePercentage = computed(() => {
+                    if (totalUsedBytes.value === 0) return 0;
+                    const pct = (totalUsedBytes.value / TOTAL_CAPACITY_BYTES) * 100;
+                    return Math.min(parseFloat(pct.toFixed(2)), 100);
+                });
 
                 const fetchFiles = async () => {
                     loading.value = true;
                     try {
-                        // 🚀 [核心更新]: fetch 请求中注入身份凭证头
-                        const res = await fetch('/api/cloud/list', {
-                            headers: getAuthHeaders()
-                        });
+                        const res = await fetch('/api/cloud/list', { headers: getAuthHeaders() });
                         const json = await res.json();
                         if (json.success) files.value = json.data;
                         else throw new Error(json.error);
                     } catch (error) {
                         ElMessage.error("拉取失败: " + error.message);
-                    } finally {
+                    } final_action {
                         loading.value = false;
                     }
                 };
 
                 const handleUploadSuccess = () => {
-                    ElMessage.success("上传成功，已同步至 SQL 数据库");
+                    ElMessage.success("上传成功，存储额度已实时更新");
                     fetchFiles();
                 };
 
-                const handleUploadError = (err) => {
-                    console.error(err);
-                    ElMessage.error("上传失败，请确认文件大小是否超限或登录过期");
+                const handleUploadError = () => {
+                    ElMessage.error("上传失败，请确认是否文件过大或凭证失效");
                 };
 
-                // 下载由于走全新页面窗口，我们可以把凭证放入 URL 校验（但在网关处对 GET 放行更方便）
-                // 这里的下载直接通过站内完整路由进行多端鉴权
                 const downloadFile = (id) => {
                     window.open(`/api/cloud/download?id=${id}`, '_blank');
                 };
 
                 const deleteFile = (id) => {
-                    ElMessageBox.confirm('确定要永久删除该文件吗？', '提示', {
+                    ElMessageBox.confirm('确定要从云端彻底删除该资产吗？', '提示', {
                         confirmButtonText: '确定',
                         cancelButtonText: '取消',
                         type: 'warning',
                     }).then(async () => {
                         try {
-                            // 🚀 [核心更新]: 删除操作注入身份凭证头
-                            const res = await fetch(`/api/cloud/delete?id=${id}`, { 
-                                method: 'DELETE',
-                                headers: getAuthHeaders()
-                            });
+                            const res = await fetch(`/api/cloud/delete?id=${id}`, { method: 'DELETE', headers: getAuthHeaders() });
                             const json = await res.json();
                             if (json.success) {
-                                ElMessage.success("删除成功");
+                                ElMessage.success("彻底抹除成功");
                                 fetchFiles();
                             } else throw new Error(json.error);
                         } catch (error) {
@@ -162,11 +207,19 @@
                     return new Date(dateStr).toLocaleString();
                 };
 
+                // 按钮处理事件
                 const goHome = () => { window.location.href = '/'; };
+                const logout = () => {
+                    localStorage.removeItem('nav_token');
+                    localStorage.removeItem('nav_settings');
+                    localStorage.removeItem('cached_links_data');
+                    localStorage.removeItem('nav_user');
+                    window.location.href = '/';
+                };
 
                 onMounted(() => { fetchFiles(); });
 
-                return { files, loading, fetchFiles, uploadHeaders, handleUploadSuccess, handleUploadError, downloadFile, deleteFile, formatSize, formatDate, goHome };
+                return { files, loading, username, uploadHeaders, totalUsedBytes, usedSizeFormatted, storagePercentage, fetchFiles, handleUploadSuccess, handleUploadError, downloadFile, deleteFile, formatSize, formatDate, goHome, logout };
             }
         }).use(ElementPlus).mount('#app');
     </script>
