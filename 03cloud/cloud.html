@@ -27,14 +27,17 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <!-- 上传区 -->
             <div class="md:col-span-1">
                 <el-card shadow="never">
                     <template #header><span class="font-bold text-white">文件上传</span></template>
+                    <!-- 🚀 [核心更新]: 增加了 :headers 绑定，使上传组件自动携带登录Token -->
                     <el-upload
                         class="upload-demo"
                         drag
                         action="/api/cloud/upload"
                         name="file"
+                        :headers="uploadHeaders"
                         :on-success="handleUploadSuccess"
                         :on-error="handleUploadError"
                         multiple>
@@ -45,6 +48,7 @@
                 </el-card>
             </div>
 
+            <!-- 列表区 -->
             <div class="md:col-span-3">
                 <el-table :data="files" v-loading="loading" style="width: 100%" border>
                     <el-table-column prop="file_name" label="文件名" min-width="180" show-overflow-tooltip>
@@ -72,7 +76,7 @@
     </div>
 
     <script>
-        const { createApp, ref, onMounted } = Vue;
+        const { createApp, ref, onMounted, computed } = Vue;
         const { ElMessage, ElMessageBox } = ElementPlus;
 
         createApp({
@@ -80,10 +84,22 @@
                 const files = ref([]);
                 const loading = ref(false);
 
+                // 🚀 [核心更新]: 提取共享的本地 Token 凭证头部
+                const getAuthHeaders = () => {
+                    const token = localStorage.getItem('nav_token'); // 顺畅同步主页登录态
+                    return token ? { 'Authorization': `Bearer ${token}` } : {};
+                };
+
+                // 计算属性：供 Element Plus 上传组件使用的请求头
+                const uploadHeaders = computed(() => getAuthHeaders());
+
                 const fetchFiles = async () => {
                     loading.value = true;
                     try {
-                        const res = await fetch('/api/cloud/list');
+                        // 🚀 [核心更新]: fetch 请求中注入身份凭证头
+                        const res = await fetch('/api/cloud/list', {
+                            headers: getAuthHeaders()
+                        });
                         const json = await res.json();
                         if (json.success) files.value = json.data;
                         else throw new Error(json.error);
@@ -99,10 +115,13 @@
                     fetchFiles();
                 };
 
-                const handleUploadError = () => {
-                    ElMessage.error("上传失败，请检查是否登录过期");
+                const handleUploadError = (err) => {
+                    console.error(err);
+                    ElMessage.error("上传失败，请确认文件大小是否超限或登录过期");
                 };
 
+                // 下载由于走全新页面窗口，我们可以把凭证放入 URL 校验（但在网关处对 GET 放行更方便）
+                // 这里的下载直接通过站内完整路由进行多端鉴权
                 const downloadFile = (id) => {
                     window.open(`/api/cloud/download?id=${id}`, '_blank');
                 };
@@ -114,7 +133,11 @@
                         type: 'warning',
                     }).then(async () => {
                         try {
-                            const res = await fetch(`/api/cloud/delete?id=${id}`, { method: 'DELETE' });
+                            // 🚀 [核心更新]: 删除操作注入身份凭证头
+                            const res = await fetch(`/api/cloud/delete?id=${id}`, { 
+                                method: 'DELETE',
+                                headers: getAuthHeaders()
+                            });
                             const json = await res.json();
                             if (json.success) {
                                 ElMessage.success("删除成功");
@@ -143,7 +166,7 @@
 
                 onMounted(() => { fetchFiles(); });
 
-                return { files, loading, fetchFiles, handleUploadSuccess, handleUploadError, downloadFile, deleteFile, formatSize, formatDate, goHome };
+                return { files, loading, fetchFiles, uploadHeaders, handleUploadSuccess, handleUploadError, downloadFile, deleteFile, formatSize, formatDate, goHome };
             }
         }).use(ElementPlus).mount('#app');
     </script>
