@@ -1,7 +1,7 @@
 /**
  * functions/api/[[path]].js
  * 企业级重构版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
- * 新增模块 - D1+R2 私有云盘双端联动 (修复了流断点 500 错误 & 启用 R2 目录树)
+ * 新增模块 - D1+R2 私有云盘双端联动 (修复 405 路由未匹配漏洞 & 启用 R2 目录树)
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -80,10 +80,11 @@ export async function onRequest(context) {
     // ========================================== 
     // ☁️ 云盘高级模块 (D1 SQL + R2 结合)
     // ========================================== 
-    if (path.startsWith('/api/cloud')) {
+    // 🚀 [重大更新] 改用 startsWith 大范围包围式逻辑，彻底消灭 405 路由未匹配报错
+    if (path.startsWith('/api/cloud/')) {
       
       // 1. 获取文件列表
-      if (path === '/api/cloud/list' && method === 'GET') {
+      if (path.includes('/list') && method === 'GET') {
         const { results } = await env.DB.prepare(
           'SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC'
         ).bind(userId).all();
@@ -91,16 +92,13 @@ export async function onRequest(context) {
       }
 
       // 2. 上传文件
-      if (path === '/api/cloud/upload' && method === 'POST') {
+      if (path.includes('/upload') && method === 'POST') {
         const formData = await request.formData();
         const file = formData.get("file");
         if (!file || !file.name) return new Response(JSON.stringify({ success: false, error: "没有接收到有效文件" }), { status: 400, headers });
 
-        // 🌟 采纳建议：采用目录结构存储！以 user_id 作为顶级文件夹
-        // 在 R2 后台看起来就是：cloud01 / [你的用户ID] / 时间戳_文件名.jpg
+        // 以用户 ID 创建 R2 虚拟树状目录结构
         const r2Key = `${userId}/${Date.now()}_${file.name}`;
-
-        // 🚀 核心修复：坚决不使用极易崩溃的 file.stream()，强制转换成纯净的底层 ArrayBuffer 写入
         const fileBuffer = await file.arrayBuffer();
 
         // A. 写入 R2 存储桶
@@ -117,7 +115,7 @@ export async function onRequest(context) {
       }
 
       // 3. 删除文件
-      if (path === '/api/cloud/delete' && method === 'DELETE') {
+      if (path.includes('/delete') && method === 'DELETE') {
         const id = url.searchParams.get("id");
         if (!id) return new Response(JSON.stringify({ success: false, error: "缺少文件ID" }), { status: 400, headers });
 
@@ -134,7 +132,7 @@ export async function onRequest(context) {
       }
 
       // 4. 下载文件
-      if (path === '/api/cloud/download' && method === 'GET') {
+      if (path.includes('/download') && method === 'GET') {
         const id = url.searchParams.get("id");
         
         const fileInfo = await env.DB.prepare(
@@ -149,7 +147,6 @@ export async function onRequest(context) {
         const downloadHeaders = new Headers();
         r2Object.writeHttpMetadata(downloadHeaders);
         downloadHeaders.set("etag", r2Object.httpEtag);
-        // 强制浏览器作为附件下载，解决中文文件名乱码问题
         downloadHeaders.set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileInfo.file_name)}`);
         downloadHeaders.set('Access-Control-Allow-Origin', '*');
 
