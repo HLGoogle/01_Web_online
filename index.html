@@ -55,11 +55,11 @@
         
         #content { max-width: 1400px; margin: 0 auto; width: 100%; display: none; }
         body.logged-in #content { display: block; }
-        
-        .type-section { margin-bottom: 25px; border-radius: 12px; transition: background 0.3s; }
+        /* 1. 缩小大分类区域之间的垂直行距（从 25px 缩到 12px） */
+        .type-section { margin-bottom: 12px; border-radius: 12px; transition: background 0.3s; }
         
         /* 分类标题样式优化：编辑模式下可拖拽 */
-        .type-header { font-family: var(--font-mono); font-size: 13px; color: var(--accent-color); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; padding: 4px 8px; margin-left: -8px; border-radius: 6px; transition: all 0.2s; }
+        .type-header { font-family: var(--font-mono); font-size: 13px; color: var(--accent-color); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; padding: 4px 8px; margin-left: -8px; border-radius: 6px; transition: all 0.2s; }
         .type-header::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
         
         body.edit-mode .type-header { cursor: grab; background: rgba(255,255,255,0.03); }
@@ -69,12 +69,12 @@
         /* 拖拽占位符（分类与书签通用） */
         .sortable-ghost { opacity: 0.3 !important; border: 1px dashed var(--accent-color) !important; background: transparent !important; box-shadow: none !important; }
 
-        .links-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 135px)); gap: 16px; padding-bottom: 10px; }
+        .links-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 135px)); gap: 6px; padding-bottom: 4px; }
         
         .link-item { 
             position: relative; background: rgba(22, 27, 34, 0.6); 
             border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; 
-            padding: 10px; cursor: pointer; display: flex; align-items: center; height: 46px; 
+            padding: 10px; cursor: pointer; display: flex; align-items: center; height: 38px; 
             backdrop-filter: blur(10px); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .link-item:hover { 
@@ -100,7 +100,7 @@
         .mini-btn.del:hover { border-color: var(--accent-danger); color: var(--accent-danger); }
         .mini-btn.upload:hover { border-color: var(--accent-green); color: var(--accent-green); }
         
-        .add-placeholder { border: 1px dashed rgba(255,255,255,0.1); background: transparent; display: none; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); height: 46px; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+        .add-placeholder { border: 1px dashed rgba(255,255,255,0.1); background: transparent; display: none; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); height: 38px; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
         .add-placeholder:hover { border-color: var(--accent-color); color: var(--accent-color); background: rgba(88, 166, 255, 0.05); }
         body.edit-mode .add-placeholder { display: flex; }
         
