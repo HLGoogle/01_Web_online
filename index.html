@@ -95,7 +95,6 @@
             <div class="form-group"><label class="form-label">图标显示</label><input type="text" id="link-icon" class="form-input"></div>
             <div class="form-group"><label class="form-label">文字标题</label><input type="text" id="link-comment" class="form-input"></div>
             <div class="form-group"><label class="form-label">备注</label><textarea id="link-note" class="form-input" style="height:60px; resize:none;"></textarea></div>
-            <div class="form-group"><label class="form-label">排序 (手动辅助)</label><input type="number" id="link-sort" class="form-input" value="0"></div>
             <div class="modal-footer"><button class="ctrl-btn" onclick="closeLinkModal()">取消</button><button class="ctrl-btn" style="color:var(--accent-color); border-color:var(--accent-color);" onclick="submitLink()">应用配置</button></div>
         </div>
     </div>
@@ -182,25 +181,23 @@
             
             contentZone.innerHTML = ''; contentZone.appendChild(mainFrag);
 
-            // ================== 核心功能：初始化拖拽排序 ==================
+            // 核心功能：初始化拖拽排序
             if (isEditMode) {
                 document.querySelectorAll('.links-container').forEach(container => {
                     Sortable.create(container, {
-                        animation: 150,               // 动画过渡
-                        ghostClass: 'sortable-ghost', // 占位符样式
-                        draggable: '.link-item',      // 只允许拖拽实体书签卡片，忽略 [+ ADD] 占位符
+                        animation: 150,               
+                        ghostClass: 'sortable-ghost', 
+                        draggable: '.link-item',      
                         onEnd: async function (evt) {
-                            if (evt.oldIndex === evt.newIndex) return; // 位置没变，不浪费请求
+                            if (evt.oldIndex === evt.newIndex) return; 
                             
-                            // 获取当前容器内所有的 link-item 重新计算排序号
                             const items = container.querySelectorAll('.link-item');
                             const token = localStorage.getItem('nav_token');
                             
-                            // 构建批量更新载荷，同时更新本地 allLinks 以免刷新闪烁
                             const updatedData = Array.from(items).map((el, index) => {
                                 const elId = parseInt(el.dataset.id);
                                 const linkObj = allLinks.find(l => l.id === elId);
-                                if (linkObj) linkObj.sort_order = index; // 同步内存数据
+                                if (linkObj) linkObj.sort_order = index; 
                                 return { id: elId, sort_order: index };
                             });
 
@@ -211,7 +208,7 @@
                                 const res = await fetch(API_LINKS, {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                    body: JSON.stringify(updatedData) // 将数组提交给后端批量处理
+                                    body: JSON.stringify(updatedData) 
                                 });
                                 
                                 if (res.ok) {
@@ -232,7 +229,7 @@
 
         function createLinkCard(link) {
             const item = document.createElement('div'); item.className = 'link-item';
-            item.dataset.id = link.id; // 绑定数据库 ID 给拖拽使用
+            item.dataset.id = link.id; 
             const imgId = `img-node-${link.id}`; let iconHtml = '';
             
             if (link.icon && link.icon.startsWith('user_')) {
@@ -312,19 +309,73 @@
         function toggleEditMode() { isEditMode = !isEditMode; document.getElementById('edit-mode-btn').innerHTML = isEditMode ? `<i class="fas fa-desktop"></i> 退出管理` : `<i class="fas fa-terminal"></i> 开启管理`; document.body.classList.toggle('edit-mode', isEditMode); renderLinks(); }
         function openSettingsModal() { document.getElementById('setting-sensitivity').value = userSettings.sensitivity || 50; document.getElementById('setting-category-order').value = userSettings.categoryOrder || ""; document.getElementById('settings-modal').style.display = 'flex'; }
         async function saveSettings() { userSettings.sensitivity = parseInt(document.getElementById('setting-sensitivity').value); userSettings.categoryOrder = document.getElementById('setting-category-order').value.trim(); localStorage.setItem('nav_settings', JSON.stringify(userSettings)); document.getElementById('settings-modal').style.display = 'none'; renderLinks(); try { await fetch(API_USER, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('nav_token')}` }, body: JSON.stringify({ settings: userSettings }) }); } catch(e){} }
+        
         function openLinkModal(id = null, prefillType = '') {
-            document.getElementById('link-id').value = ''; document.getElementById('link-type').value = prefillType; document.getElementById('link-url').value = ''; document.getElementById('link-icon').value = ''; document.getElementById('link-comment').value = ''; document.getElementById('link-note').value = ''; document.getElementById('link-sort').value = '0';
-            if (id) { const link = allLinks.find(l => l.id === id); if (link) { document.getElementById('link-id').value = link.id; document.getElementById('link-type').value = link.type; document.getElementById('link-url').value = link.url; document.getElementById('link-icon').value = link.icon; document.getElementById('link-comment').value = link.comment; document.getElementById('link-note').value = link.note; document.getElementById('link-sort').value = link.sort_order; } }
+            // 清空旧数据
+            document.getElementById('link-id').value = ''; 
+            document.getElementById('link-type').value = prefillType; 
+            document.getElementById('link-url').value = ''; 
+            document.getElementById('link-icon').value = ''; 
+            document.getElementById('link-comment').value = ''; 
+            document.getElementById('link-note').value = ''; 
+            
+            // 如果是编辑模式，填充现有数据
+            if (id) { 
+                const link = allLinks.find(l => l.id === id); 
+                if (link) { 
+                    document.getElementById('link-id').value = link.id; 
+                    document.getElementById('link-type').value = link.type; 
+                    document.getElementById('link-url').value = link.url; 
+                    document.getElementById('link-icon').value = link.icon; 
+                    document.getElementById('link-comment').value = link.comment; 
+                    document.getElementById('link-note').value = link.note; 
+                } 
+            }
             document.getElementById('link-modal').style.display = 'flex';
         }
+        
         function closeLinkModal() { document.getElementById('link-modal').style.display = 'none'; }
+        
         async function submitLink() {
-            const id = document.getElementById('link-id').value; const token = localStorage.getItem('nav_token');
-            const payload = { type: document.getElementById('link-type').value.trim(), url: document.getElementById('link-url').value.trim(), icon: document.getElementById('link-icon').value.trim(), comment: document.getElementById('link-comment').value.trim(), note: document.getElementById('link-note').value.trim(), sort_order: parseInt(document.getElementById('link-sort').value) || 0 };
-            if (!payload.type || !payload.url) return alert('必填参数缺失'); if (id) payload.id = id;
-            const res = await fetch(API_LINKS, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
-            if (res.ok) { closeLinkModal(); loadLinks(); }
+            const id = document.getElementById('link-id').value; 
+            const token = localStorage.getItem('nav_token');
+            const typeVal = document.getElementById('link-type').value.trim();
+            
+            // 智能推断排序位置
+            let finalSortOrder = 0;
+            if (id) {
+                // 如果是编辑已有书签：保留它在内存中原有的 sort_order
+                const existingLink = allLinks.find(l => l.id == id);
+                finalSortOrder = existingLink ? existingLink.sort_order : 0;
+            } else {
+                // 如果是全新添加的书签：自动排在当前分类最后
+                finalSortOrder = allLinks.filter(l => l.type === typeVal).length;
+            }
+
+            const payload = { 
+                type: typeVal, 
+                url: document.getElementById('link-url').value.trim(), 
+                icon: document.getElementById('link-icon').value.trim(), 
+                comment: document.getElementById('link-comment').value.trim(), 
+                note: document.getElementById('link-note').value.trim(), 
+                sort_order: finalSortOrder 
+            };
+            
+            if (!payload.type || !payload.url) return alert('必填参数缺失'); 
+            if (id) payload.id = id;
+            
+            const res = await fetch(API_LINKS, { 
+                method: id ? 'PUT' : 'POST', 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+                body: JSON.stringify(payload) 
+            });
+            
+            if (res.ok) { 
+                closeLinkModal(); 
+                loadLinks(); 
+            }
         }
+        
         async function deleteLink(id) { if (!confirm('确认要物理注销此卡片记录？')) return; const res = await fetch(API_LINKS, { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('nav_token')}` }, body: JSON.stringify({ id }) }); if (res.ok) loadLinks(); }
         
         async function handleAuth() {
