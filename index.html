@@ -122,67 +122,95 @@
         .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; gap: 8px; }
 
         /* ==========================================
-           🍎 磁贴停靠区 (Dock Container) 极致极简版
+           🍎 磁贴停靠区 (Dock Container) 灵动微粒版
            ========================================== */
         #dock-container {
             position: fixed; 
             bottom: 24px; 
             right: 24px;
-            display: flex; 
-            flex-direction: column; 
-            gap: 8px; 
+            width: 14px;  /* 基础感应区大小等于微粒大小 */
+            height: 14px;
             z-index: 2000; 
-            align-items: flex-end;
+            display: none; /* 由 JS 控制是否显示 */
         }
 
+        /* 默认状态：一颗高清晰度描边的发光微粒 */
+        .dock-trigger {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: rgba(22, 27, 34, 0.6);
+            backdrop-filter: var(--apple-blur);
+            -webkit-backdrop-filter: var(--apple-blur);
+            border: 1.5px solid rgba(255, 255, 255, 0.4); /* 强化描边清晰度 */
+            box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            z-index: 2;
+        }
+
+        /* 悬停外层容器时，微粒瞬间隐身缩小 */
+        #dock-container:hover .dock-trigger {
+            opacity: 0;
+            transform: scale(0.5);
+            pointer-events: none;
+        }
+
+        /* 菜单容器：悬停前全隐藏，悬停时优雅展开 */
+        .dock-menu {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(15px) scale(0.9);
+            transform-origin: bottom right;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1;
+        }
+
+        /* 核心魔法：鼠标触碰区域时，菜单弹出 */
+        #dock-container:hover .dock-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        /* 完全体的胶囊磁贴 */
         .dock-tile {
-            background: rgba(22, 27, 34, 0.4); 
+            background: rgba(22, 27, 34, 0.85); 
             backdrop-filter: var(--apple-blur); 
             -webkit-backdrop-filter: var(--apple-blur);
-            border: 1px solid rgba(255,255,255,0.05); 
-            
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            padding: 0;
-            overflow: hidden; 
-            
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 16px;
+            padding: 8px 16px; 
             color: var(--text-muted); 
             font-size: 12px; 
             font-weight: 500;
             cursor: pointer; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
-            
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            transition: all 0.2s ease; 
             display: flex; 
             align-items: center; 
-            justify-content: flex-start;
+            gap: 8px;
             white-space: nowrap; 
         }
 
-        .dock-tile-content {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            opacity: 0;
-            padding: 0 16px; 
-            transform: translateX(10px); 
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .dock-tile-content i { color: var(--accent-color); font-size: 11px; }
+        .dock-tile i { color: var(--accent-color); font-size: 11px; }
 
         .dock-tile:hover {
-            background: rgba(30, 36, 44, 0.95); 
-            border-color: rgba(88, 166, 255, 0.3);
-            width: auto; 
-            height: 32px;
-            border-radius: 16px;
-            transform: scale(1.02) translateX(-2px); 
-            box-shadow: var(--apple-shadow);
+            background: rgba(40, 48, 58, 0.95); 
+            color: var(--text-main);
+            border-color: rgba(88, 166, 255, 0.4);
+            transform: translateX(-4px); 
         }
-
-        .dock-tile:hover .dock-tile-content { opacity: 1; transform: translateX(0); }
     </style>
 </head>
 <body>
@@ -209,7 +237,10 @@
 
     <div id="content"><div id="links-render-zone"></div></div>
     
-    <div id="dock-container"></div>
+    <div id="dock-container">
+        <div class="dock-trigger" title="悬停展开隐藏分类"></div>
+        <div id="dock-menu" class="dock-menu"></div>
+    </div>
     
     <div id="global-note-popup" class="note-popup"></div>
     <input type="file" id="hidden-icon-uploader" accept="image/*" style="display: none;" onchange="handleIconFileSelected(this)">
@@ -318,9 +349,11 @@
         function renderLinks() {
             const contentZone = document.getElementById('links-render-zone');
             const dockContainer = document.getElementById('dock-container');
+            const dockMenu = document.getElementById('dock-menu');
             const mainFrag = document.createDocumentFragment();
             
-            dockContainer.innerHTML = ''; 
+            dockMenu.innerHTML = ''; // 清空胶囊容器
+            let hasCollapsed = false;
 
             let types = [...new Set(allLinks.map(l => l.type))];
             
@@ -343,13 +376,16 @@
 
             types.forEach(type => {
                 const isCollapsed = userSettings.collapsedCategories.includes(type);
+                
+                // 处理收拢的分类，推入展开菜单
                 if (isCollapsed) {
+                    hasCollapsed = true;
                     const tile = document.createElement('div');
                     tile.className = 'dock-tile';
                     tile.title = '点击还原此分类';
-                    tile.innerHTML = `<div class="dock-tile-content"><i class="fas fa-expand-alt"></i> ${escapeHTML(type)}</div>`;
+                    tile.innerHTML = `<i class="fas fa-expand-alt"></i> ${escapeHTML(type)}`;
                     tile.onclick = () => restoreCategory(type);
-                    dockContainer.appendChild(tile);
+                    dockMenu.appendChild(tile); // 统一追加到内部菜单容器
                     return; 
                 }
 
@@ -387,6 +423,9 @@
             });
             
             contentZone.innerHTML = ''; contentZone.appendChild(mainFrag);
+            
+            // 智能控制右下角微粒是否可见
+            dockContainer.style.display = hasCollapsed ? 'block' : 'none';
 
             if (isEditMode) {
                 Sortable.create(contentZone, {
