@@ -25,7 +25,7 @@
             font-family: var(--font-apple);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            padding-bottom: 80px; /* 为右下角磁贴留出余量 */
+            padding-bottom: 80px;
         }
 
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; font-family: var(--font-mono); font-size: 13px; }
@@ -57,38 +57,40 @@
         #content { max-width: 1400px; margin: 0 auto; width: 100%; display: none; }
         body.logged-in #content { display: block; }
         
-        /* 紧凑版：大分类区域之间的垂直行距 */
         .type-section { margin-bottom: 12px; border-radius: 12px; transition: background 0.3s; }
         
-        /* 紧凑版：分类标题与下方书签的间距 */
         .type-header { 
             font-family: var(--font-mono); font-size: 13px; color: var(--accent-color); 
             margin-bottom: 6px; display: flex; align-items: center; gap: 8px; 
             padding: 4px 8px; margin-left: -8px; border-radius: 6px; transition: all 0.2s; 
         }
+        .type-header::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
         
         body.edit-mode .type-header { cursor: grab; background: rgba(255,255,255,0.03); }
         body.edit-mode .type-header:hover { background: rgba(88, 166, 255, 0.1); }
         body.edit-mode .type-header:active { cursor: grabbing; }
         
-        /* 收缩按钮 */
-        .btn-collapse {
-            margin-left: auto; /* 自动推到最右侧 */
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            color: var(--text-muted);
-            width: 24px; height: 24px; border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        /* ✨ 极简收缩横线（替代了原先的右侧大按钮） */
+        .collapse-line {
+            width: 12px;
+            height: 3px;
+            background: var(--text-muted);
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0.5;
+            flex-shrink: 0;
         }
-        .btn-collapse:hover { background: rgba(88,166,255,0.15); color: var(--accent-color); border-color: rgba(88,166,255,0.4); transform: scale(1.05); }
+        .collapse-line:hover {
+            opacity: 1;
+            background: var(--accent-color);
+            transform: scaleX(1.6); /* 悬停时微微拉长给予视觉反馈 */
+        }
 
         .sortable-ghost { opacity: 0.3 !important; border: 1px dashed var(--accent-color) !important; background: transparent !important; box-shadow: none !important; }
 
-        /* 紧凑版：书签卡片之间的网格间距 */
         .links-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 135px)); gap: 6px; padding-bottom: 4px; }
         
-        /* 紧凑版：压扁书签卡片的高度 */
         .link-item { 
             position: relative; background: rgba(22, 27, 34, 0.6); 
             border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; 
@@ -130,9 +132,6 @@
         @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; gap: 8px; }
 
-        /* ==========================================
-           🍎 磁贴停靠区 (Dock Container) 样式
-           ========================================== */
         #dock-container {
             position: fixed; bottom: 24px; right: 24px;
             display: flex; flex-direction: column; gap: 10px;
@@ -142,7 +141,7 @@
             background: rgba(22, 27, 34, 0.75);
             backdrop-filter: var(--apple-blur); -webkit-backdrop-filter: var(--apple-blur);
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px; /* 胶囊状药丸设计 */
+            border-radius: 20px;
             padding: 8px 18px;
             color: var(--text-muted); font-size: 12px; font-weight: 500;
             cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
@@ -202,8 +201,6 @@
     <script>
         const API_AUTH = '/api/auth'; const API_LINKS = '/api/links'; const API_USER = '/api/user'; const CACHE_NAME = 'nav-icon-assets-v1';
         let authMode = 'login'; let allLinks = []; let isEditMode = false; let currentTargetLinkId = null;
-        
-        // ✨ 新增 collapsedCategories 保存分类收拢状态
         let userSettings = { categoryOrder: [], collapsedCategories: [] }; 
 
         function escapeHTML(str) { return str ? String(str).replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[m]) : ''; }
@@ -253,9 +250,6 @@
             } catch (err) { console.log("静默维持缓存运行。"); }
         }
 
-        // ==========================================
-        // ☁️ 通用配置上云同步函数
-        // ==========================================
         async function syncUserSettings(silent = false) {
             localStorage.setItem('nav_settings', JSON.stringify(userSettings));
             if (!silent) renderLinks(); 
@@ -280,13 +274,10 @@
             }
         }
 
-        // ==========================================
-        // 🔄 收缩 & 展开 逻辑
-        // ==========================================
         window.collapseCategory = function(type) {
             if (!userSettings.collapsedCategories.includes(type)) {
                 userSettings.collapsedCategories.push(type);
-                syncUserSettings(false); // 触发UI重绘和云端保存
+                syncUserSettings(false); 
             }
         };
 
@@ -300,7 +291,7 @@
             const dockContainer = document.getElementById('dock-container');
             const mainFrag = document.createDocumentFragment();
             
-            dockContainer.innerHTML = ''; // 清空磁贴区准备重绘
+            dockContainer.innerHTML = ''; 
 
             let types = [...new Set(allLinks.map(l => l.type))];
             
@@ -322,7 +313,6 @@
             }
 
             types.forEach(type => {
-                // 如果该分类在收拢列表中，直接渲染成磁贴并跳过主区域渲染
                 const isCollapsed = userSettings.collapsedCategories.includes(type);
                 if (isCollapsed) {
                     const tile = document.createElement('div');
@@ -340,18 +330,20 @@
                 
                 const handleIcon = isEditMode ? '<i class="fas fa-grip-lines" style="color:var(--text-muted); font-size:10px;"></i> ' : '';
                 
-                // 构建带有收缩按钮的标题栏
                 const header = document.createElement('div');
                 header.className = 'type-header';
-                header.innerHTML = `${handleIcon}<span>${escapeHTML(type)}</span>`;
                 
-                const collapseBtn = document.createElement('div');
-                collapseBtn.className = 'btn-collapse';
-                collapseBtn.title = '收拢并隐藏该分类';
-                collapseBtn.innerHTML = '<i class="fas fa-compress-alt"></i>';
-                collapseBtn.onclick = () => collapseCategory(type);
+                // ✨ 使用极简短横线替代按钮，直接插入在标题最前方
+                const collapseLine = document.createElement('div');
+                collapseLine.className = 'collapse-line';
+                collapseLine.title = '收拢分类';
+                collapseLine.onclick = () => collapseCategory(type);
+                header.appendChild(collapseLine);
                 
-                header.appendChild(collapseBtn);
+                const titleSpan = document.createElement('span');
+                titleSpan.innerHTML = `${handleIcon}<span>${escapeHTML(type)}</span>`;
+                header.appendChild(titleSpan);
+                
                 section.appendChild(header);
                 
                 const container = document.createElement('div'); container.className = 'links-container';
@@ -369,7 +361,6 @@
             contentZone.innerHTML = ''; contentZone.appendChild(mainFrag);
 
             if (isEditMode) {
-                // 大分类区域排序
                 Sortable.create(contentZone, {
                     animation: 200,
                     handle: '.type-header', 
@@ -379,13 +370,11 @@
                         const sections = contentZone.querySelectorAll('.type-section');
                         const visibleOrder = Array.from(sections).map(sec => sec.dataset.type);
                         const collapsed = userSettings.collapsedCategories || [];
-                        // 确保收拢状态的分类不被丢失，合并可见和不可见分类
                         userSettings.categoryOrder = [...new Set([...visibleOrder, ...collapsed])];
                         syncUserSettings(true);
                     }
                 });
 
-                // 卡片排序
                 document.querySelectorAll('.links-container').forEach(container => {
                     Sortable.create(container, {
                         animation: 150,               
