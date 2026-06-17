@@ -2,6 +2,7 @@
  * functions/api/[[path]].js
  * 企业级重构版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
  * 新增模块 - D1+R2 私有云盘双端联动 (彻底修复 405 路由滑过漏洞 & 启用 R2 目录树)
+ * 新增特性 - 支持书签前端 UI 拖拽排序批量写入
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -80,10 +81,7 @@ export async function onRequest(context) {
     // ========================================== 
     // ☁️ 云盘高级模块 (D1 SQL + R2 结合)
     // ========================================== 
-    // 🚀 [终极锁死]: 只要路径中包含 cloud，直接暴力切断，100%由云盘接管，杜绝滑到最底部的405
     if (path.includes('cloud')) {
-      
-      // 1. 获取文件列表
       if (path.includes('list') && method === 'GET') {
         const { results } = await env.DB.prepare(
           'SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC'
@@ -91,22 +89,18 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, data: results }), { headers });
       }
 
-      // 2. 上传文件
       if (path.includes('upload') && method === 'POST') {
         const formData = await request.formData();
         const file = formData.get("file");
         if (!file || !file.name) return new Response(JSON.stringify({ success: false, error: "没有接收到有效文件" }), { status: 400, headers });
 
-        // 采用目录结构存储，将文件归类在以当前 userId 命名的文件夹下
         const r2Key = `${userId}/${Date.now()}_${file.name}`;
         const fileBuffer = await file.arrayBuffer();
 
-        // A. 写入 R2 存储桶
         await env.MY_BUCKET.put(r2Key, fileBuffer, {
           httpMetadata: { contentType: file.type || 'application/octet-stream' }
         });
 
-        // B. 写入 D1 数据库
         await env.DB.prepare(
           'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
         ).bind(userId, file.name, r2Key, file.size, file.type || 'unknown').run();
@@ -114,7 +108,6 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
       }
 
-      // 3. 删除文件
       if (path.includes('delete') && method === 'DELETE') {
         const id = url.searchParams.get("id");
         if (!id) return new Response(JSON.stringify({ success: false, error: "缺少文件ID" }), { status: 400, headers });
@@ -131,7 +124,6 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, message: "删除成功" }), { headers });
       }
 
-      // 4. 下载文件
       if (path.includes('download') && method === 'GET') {
         const id = url.searchParams.get("id");
         
@@ -268,17 +260,36 @@ export async function onRequest(context) {
         const { results } = await env.DB.prepare('SELECT * FROM Web_online_info_01 WHERE user_id = ? ORDER BY sort_order ASC, created_at DESC').bind(userId).all();
         return new Response(JSON.stringify(results), { headers });
       }
+
       const body = await request.json();
+
       if (method === 'POST') {
         await env.DB.prepare('INSERT INTO Web_online_info_01 (user_id, type, url, icon, comment, note, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)')
           .bind(userId, body.type, body.url, body.icon, body.comment, body.note, body.sort_order || 0).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
+
+      // ==============================================================
+      // 🚀 PUT 接口升级：兼容单条修改 与 拖拽后的批量数组更新
+      // ==============================================================
       if (method === 'PUT') {
-        await env.DB.prepare('UPDATE Web_online_info_01 SET type=?, url=?, icon=?, comment=?, note=?, sort_order=? WHERE id=? AND user_id=?')
-          .bind(body.type, body.url, body.icon, body.comment, body.note, body.sort_order, body.id, userId).run();
-        return new Response(JSON.stringify({ success: true }), { headers });
+        // 如果前端发来的是拖拽排序后的数组
+        if (Array.isArray(body)) {
+          const stmts = body.map(item => 
+            env.DB.prepare('UPDATE Web_online_info_01 SET sort_order=? WHERE id=? AND user_id=?')
+              .bind(item.sort_order, item.id, userId)
+          );
+          await env.DB.batch(stmts); // 利用 Cloudflare D1 Batch 一次性极速提交所有排序更新
+          return new Response(JSON.stringify({ success: true, message: "排序更新成功" }), { headers });
+        } 
+        // 兼容原有的单个卡片详细内容编辑
+        else {
+          await env.DB.prepare('UPDATE Web_online_info_01 SET type=?, url=?, icon=?, comment=?, note=?, sort_order=? WHERE id=? AND user_id=?')
+            .bind(body.type, body.url, body.icon, body.comment, body.note, body.sort_order, body.id, userId).run();
+          return new Response(JSON.stringify({ success: true }), { headers });
+        }
       }
+
       if (method === 'DELETE') {
         const currentLink = await env.DB.prepare('SELECT icon FROM Web_online_info_01 WHERE id = ? AND user_id = ?').bind(body.id, userId).first();
         if (currentLink && currentLink.icon && currentLink.icon.startsWith('user_')) await env.IMAGE_KV.delete(currentLink.icon);
