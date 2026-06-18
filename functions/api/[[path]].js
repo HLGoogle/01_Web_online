@@ -1,7 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 企业级终极整合版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
- * 完美融合：D1+R2 私有云盘双端联动 + 书签拖拽批量排序 + 记事条画布 + KV图标直传
+ * 终极完整版 - 已集成全部模块 + 纯流直传修复 500 报错
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -35,7 +34,7 @@ export async function onRequest(context) {
   if (method === 'OPTIONS') return new Response(null, { headers });
 
   // ==========================================
-  // 📸 模块 1：读取 KV 自定义图片 (完全保留)
+  // 📸 模块 1：读取 KV 自定义图片
   // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
@@ -58,11 +57,9 @@ export async function onRequest(context) {
   // 🛡️ 模块 2：安全网关（严格拦截与动态鉴权）
   // ==========================================
   let userId = null;
-  // [修复重点] 必须在此处加入 path.includes('cloud')，否则云盘接口拿不到 userId，直接瘫痪
   const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('cloud');
   
   if (isProtected) {
-    // 兼容传统 Header 认证，并补充兼容 URL 参数验证（方便云盘多线程下载流顺利读取 Token）
     let authHeader = request.headers.get('Authorization');
     if (!authHeader && url.searchParams.get('auth')) {
       authHeader = `Bearer ${url.searchParams.get('auth')}`;
@@ -95,22 +92,35 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, data: results }), { headers });
       }
 
-      // 3.2 文件流写入 R2 桶 & 关系登记 D1
+      // 3.2 🌟 纯原生流直传 + 严格类型转换入库 (已修复 500 报错)
       if (path.includes('upload') && method === 'POST') {
-        const formData = await request.formData();
-        const file = formData.get("file");
-        if (!file || !file.name) return new Response(JSON.stringify({ success: false, error: "没有接收到有效文件" }), { status: 400, headers });
+        if (!env.MY_BUCKET) return new Response(JSON.stringify({ success: false, error: "未绑定 R2 存储桶 (MY_BUCKET)" }), { status: 500, headers });
+        if (!env.DB) return new Response(JSON.stringify({ success: false, error: "未绑定 D1 数据库 (DB)" }), { status: 500, headers });
 
-        const r2Key = `${userId}/${Date.now()}_${file.name}`;
-        const fileBuffer = await file.arrayBuffer();
+        // 🚨 将 URL 提取的参数严格强制转换类型，保证 fileSize 绝对是 Number
+        const fileName = String(url.searchParams.get("name") || "unknown_file.bin");
+        const fileSize = Number(url.searchParams.get("size")) || 0; 
+        const fileType = String(url.searchParams.get("type") || "application/octet-stream");
 
-        await env.MY_BUCKET.put(r2Key, fileBuffer, {
-          httpMetadata: { contentType: file.type || 'application/octet-stream' }
-        });
+        const r2Key = `${userId}/${Date.now()}_${fileName}`;
 
-        await env.DB.prepare(
-          'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
-        ).bind(userId, file.name, r2Key, file.size, file.type || 'unknown').run();
+        try {
+          // 原生流直传
+          await env.MY_BUCKET.put(r2Key, request.body, {
+            httpMetadata: { contentType: fileType }
+          });
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: "R2 写入失败: " + err.message }), { status: 500, headers });
+        }
+
+        try {
+          // 🚨 严格以类型安全的格式写入 D1
+          await env.DB.prepare(
+            'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
+          ).bind(String(userId), fileName, r2Key, fileSize, fileType).run();
+        } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: "D1 登记失败: " + err.message }), { status: 500, headers });
+        }
 
         return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
       }
@@ -156,7 +166,7 @@ export async function onRequest(context) {
     }
 
     // ========================================== 
-    // 🎴 模块 4：记事条画布模块 (完全保留)
+    // 🎴 模块 4：记事条画布模块
     // ========================================== 
     if (path.startsWith('/api/code-grid')) {
       if (method === 'GET') {
@@ -193,7 +203,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 📸 模块 5：用户直传图标安全校验 (完全保留)
+    // 📸 模块 5：用户直传图标安全校验
     // ==========================================
     if (path === '/api/user/upload-icon' && method === 'POST') {
       const originalName = url.searchParams.get("name") || "icon.png";
@@ -218,7 +228,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🔐 模块 6：用户管理中心（注册/登录/重置，完全保留）
+    // 🔐 模块 6：用户管理中心
     // ==========================================
     if (path === '/api/auth' && method === 'POST') {
       const body = await request.json();
@@ -262,7 +272,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🗂️ 模块 7：书签与配置模块 (完全保留)
+    // 🗂️ 模块 7：书签与配置模块
     // ==========================================
     if (path === '/api/links') {
       if (method === 'GET') {
