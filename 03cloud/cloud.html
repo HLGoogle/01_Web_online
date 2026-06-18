@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>云端容器文件中心 - 健壮生产版</title>
+    <title>云端容器文件中心</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { 
@@ -13,201 +13,274 @@
             --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        body { background-color: var(--bg-main); color: var(--text-main); font-family: var(--font-apple); padding: 30px; -webkit-font-smoothing: antialiased; }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: var(--font-apple); padding: 20px 30px; }
         
-        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; }
+        /* 顶部容量与标题 */
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 16px; }
         .title { font-size: 18px; font-weight: 600; color: var(--accent-color); display: flex; align-items: center; gap: 10px; }
+        .capacity-box { display: flex; align-items: center; gap: 12px; background: var(--bg-input); padding: 6px 12px; border-radius: 20px; font-size: 12px; }
+        .progress-track { width: 100px; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent-green); transition: width 0.3s; }
         
-        .upload-zone { border: 2px dashed var(--border-color); border-radius: 12px; background: rgba(22, 27, 34, 0.5); padding: 40px; text-align: center; cursor: pointer; transition: all 0.3s ease; position: relative; margin-bottom: 24px; }
+        /* 工具栏 */
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .breadcrumb { font-size: 14px; font-weight: 500; display: flex; gap: 8px; align-items: center; }
+        .breadcrumb span { cursor: pointer; color: var(--text-muted); transition: color 0.2s; }
+        .breadcrumb span:hover { color: var(--accent-color); }
+        .breadcrumb .current { color: var(--text-main); cursor: default; }
+        
+        .tools { display: flex; gap: 12px; }
+        .tool-btn { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .tool-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+        /* 紧凑型拖拽上传区 */
+        .upload-zone { border: 1px dashed var(--border-color); border-radius: 8px; background: rgba(22, 27, 34, 0.5); padding: 16px; text-align: center; cursor: pointer; position: relative; margin-bottom: 20px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent-color); background: rgba(88, 166, 255, 0.05); }
-        .upload-zone input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
         
-        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-        .file-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease; }
-        .file-card:hover { transform: translateY(-2px); border-color: #388bfd80; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        /* 状态栏 */
+        .status-bar { background: var(--bg-card); border: 1px solid var(--accent-color); padding: 8px 16px; border-radius: 8px; display: none; margin-bottom: 16px; font-size: 12px;}
         
+        /* 网格/列表视图兼容 */
+        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .file-grid.list-view { display: flex; flex-direction: column; gap: 8px; }
+        
+        /* 卡片基础样式 */
+        .item-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease; cursor: grab; }
+        .item-card:active { cursor: grabbing; }
+        .item-card:hover { border-color: #388bfd80; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateY(-1px); }
+        
+        /* 列表模式下的卡片样式 */
+        .list-view .item-card { flex-direction: row; align-items: center; padding: 10px 16px; }
+        .list-view .file-info { flex: 1; }
+        .list-view .file-actions { margin-top: 0; border-top: none; padding-top: 0; }
+        
+        /* 拖拽进入文件夹的高亮 */
+        .item-card.folder.drag-target { border: 2px dashed var(--accent-green); background: rgba(46, 164, 79, 0.1); }
+
         .file-info { display: flex; align-items: center; gap: 12px; overflow: hidden; }
-        .file-icon { font-size: 24px; color: var(--accent-color); flex-shrink: 0; }
-        .file-name { font-size: 14px; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--text-main); }
+        .file-icon { font-size: 24px; flex-shrink: 0; }
+        .file-icon.folder { color: #e3b341; }
+        .file-icon.file { color: var(--accent-color); }
+        .file-name { font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
         .file-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
         
-        .file-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
-        .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; transition: color 0.2s; display: flex; align-items: center; gap: 4px; }
-        .action-btn.dl:hover { color: var(--accent-color); }
+        .file-actions { display: flex; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .action-btn:hover { color: var(--accent-color); }
         .action-btn.del:hover { color: var(--accent-danger); }
-        
-        /* 🎨 状态控制区加固：增加动态双轨进度条 */
-        .status-bar { background: var(--bg-card); border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 8px; display: none; margin-bottom: 16px; }
-        .progress-container { width: 100%; background: var(--bg-input); height: 6px; border-radius: 3px; margin-top: 8px; overflow: hidden; }
-        .progress-inner { width: 0%; height: 100%; background: linear-gradient(90deg, #2188ff, #58a6ff); transition: width 0.1s linear; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="title"><i class="fas fa-shield-alt"></i> R2 Serverless 私有云盘</div>
-        <div style="font-size: 13px; color: var(--text-muted);" id="user-indicator">// CONTAINER_LOADING</div>
+        <div class="title"><i class="fas fa-hdd"></i> 私有云盘</div>
+        <div class="capacity-box">
+            <span id="cap-text">计算中...</span>
+            <div class="progress-track"><div class="progress-fill" id="cap-bar" style="width: 0%"></div></div>
+        </div>
     </header>
 
-    <div class="status-bar" id="global-status">
-        <div id="status-text" style="font-size: 13px; font-weight: 500;">⏳ 初始化总线...</div>
-        <div class="progress-container">
-            <div class="progress-inner" id="status-progress"></div>
+    <div class="toolbar">
+        <div class="breadcrumb" id="breadcrumb">
+            <span onclick="enterFolder(0, '根目录')"><i class="fas fa-home"></i> 根目录</span>
+        </div>
+        <div class="tools">
+            <button class="tool-btn" onclick="createNewFolder()"><i class="fas fa-folder-plus"></i> 新建文件夹</button>
+            <button class="tool-btn" onclick="toggleView()"><i class="fas fa-list" id="view-icon"></i> 切换视图</button>
         </div>
     </div>
 
+    <div class="status-bar" id="global-status"></div>
+
     <div class="upload-zone" id="drop-zone">
         <input type="file" id="file-uploader" multiple>
-        <i class="fas fa-cloud-upload-alt" style="font-size: 36px; color: var(--text-muted); margin-bottom: 12px;"></i>
-        <p style="font-size: 14px; font-weight: 500;">点击或拖拽文件到这里直传 R2 存储桶</p>
-        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">最高单文件处理上限：100 MB （防溢出拦截）</p>
+        <i class="fas fa-cloud-upload-alt" style="font-size: 20px; color: var(--text-muted);"></i>
+        <span style="font-size: 13px; font-weight: 500; color: var(--text-muted);">点击或拖拽文件直传至当前目录</span>
     </div>
 
     <div class="file-grid" id="grid-zone"></div>
 
     <script>
         const token = localStorage.getItem('nav_token');
-        const user = localStorage.getItem('nav_user');
-        const MAX_FILE_SIZE = 100 * 1024 * 1024; // 🌟 100MB 生产防溢出安全闸机制
+        const MAX_QUOTA = 10 * 1024 * 1024 * 1024; // 10 GB
+        let currentFolderId = 0;
+        let isListView = false;
+        let pathHistory = [{ id: 0, name: '根目录' }]; // 面包屑历史
 
-        if (!token) {
-            alert('鉴权被拦截：请先在主页完成安全登录！');
-            window.close();
-        } else {
-            document.getElementById('user-indicator').textContent = `// OPERATOR: ${user ? user.toUpperCase() : 'UNKNOWN'}`;
-            loadFileList();
-        }
+        if (!token) { window.close(); } else { loadFileList(); }
 
-        // 🌟 交互加固：高亮拖拽反馈处理
-        const dropZone = document.getElementById('drop-zone');
-        const uploader = document.getElementById('file-uploader');
-        
-        ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); }, false));
-        ['dragleave', 'drop'].forEach(name => dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false));
-        uploader.addEventListener('change', () => handleBatchUpload(uploader.files));
-        dropZone.addEventListener('drop', (e) => { handleBatchUpload(e.dataTransfer.files); });
-
-        // 1. 安全获取云盘列表
+        // 1. 获取列表与容量
         async function loadFileList() {
             const grid = document.getElementById('grid-zone');
             try {
-                const res = await fetch('/api/cloud/list', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!res.ok) throw new Error('同步故障');
+                const res = await fetch(`/api/cloud/list?folder_id=${currentFolderId}`, { headers: { 'Authorization': `Bearer ${token}` } });
                 const result = await res.json();
                 
-                if (!result.success || result.data.length === 0) {
-                    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 60px; color: var(--text-muted); font-size: 13px;">[ CONTAINER_EMPTY ] <br><br>存储空间空空如也，随时开始上传资产</div>`;
+                // 更新容量刻度
+                const totalBytes = result.data.totalSize || 0;
+                const usedGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
+                const percent = Math.min((totalBytes / MAX_QUOTA) * 100, 100);
+                document.getElementById('cap-text').textContent = `${usedGB}G / 10G`;
+                document.getElementById('cap-bar').style.width = `${percent}%`;
+                if(percent > 90) document.getElementById('cap-bar').style.background = 'var(--accent-danger)';
+
+                grid.innerHTML = '';
+                const { folders, files } = result.data;
+
+                if (folders.length === 0 && files.length === 0) {
+                    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">此文件夹为空</div>`;
                     return;
                 }
 
-                grid.innerHTML = result.data.map(file => {
+                // 渲染文件夹
+                folders.forEach(folder => {
+                    grid.innerHTML += `
+                        <div class="item-card folder" 
+                             ondragover="event.preventDefault(); this.classList.add('drag-target')" 
+                             ondragleave="this.classList.remove('drag-target')" 
+                             ondrop="handleDropToFolder(event, ${folder.id})">
+                            <div class="file-info" style="cursor: pointer;" onclick="enterFolder(${folder.id}, '${folder.name}')">
+                                <i class="fas fa-folder file-icon folder"></i>
+                                <div>
+                                    <div class="file-name">${folder.name}</div>
+                                    <div class="file-size">文件夹</div>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="action-btn del" onclick="deleteItem(${folder.id}, 'folder')"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // 渲染文件 (加入 draggable 属性支持拖拽)
+                files.forEach(file => {
                     const sizeMB = (file.file_size / 1024 / 1024).toFixed(2);
-                    // 🌟 漏洞修复：将文件名进行 HTML 实体转义，防止 XSS 注入攻击
-                    const safeName = file.file_name.replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[m]);
-                    return `
-                        <div class="file-card">
+                    grid.innerHTML += `
+                        <div class="item-card file" draggable="true" ondragstart="handleDragStart(event, ${file.id})">
                             <div class="file-info">
-                                <i class="fas fa-file-alt file-icon"></i>
-                                <div style="overflow: hidden; width: 100%;">
-                                    <div class="file-name" title="${safeName}">${safeName}</div>
+                                <i class="fas fa-file-alt file-icon file"></i>
+                                <div style="overflow: hidden;">
+                                    <div class="file-name" title="${file.file_name}">${file.file_name}</div>
                                     <div class="file-size">${sizeMB} MB</div>
                                 </div>
                             </div>
                             <div class="file-actions">
-                                <button class="action-btn dl" onclick="downloadFile(${file.id})"><i class="fas fa-download"></i> 下载</button>
-                             <button class="action-btn del" onclick="deleteFile(${file.id})"><i class="fas fa-trash-alt"></i> 擦除</button>
+                                <button class="action-btn" onclick="downloadFile(${file.id})"><i class="fas fa-download"></i></button>
+                                <button class="action-btn del" onclick="deleteItem(${file.id}, 'file')"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </div>
                     `;
-                }).join('');
-            } catch (e) {
-                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--accent-danger);">数据网关对齐失败</div>`;
-            }
+                });
+            } catch (e) { console.error("加载失败"); }
         }
 
-        // 2. 🌟 架构加固：基于 XMLHttpRequest 的异步进度多文件分步上传
-        function uploadSingleFileWithProgress(file) {
-            return new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                const formData = new FormData();
-                formData.append('file', file);
-
-                xhr.open('POST', '/api/cloud/upload', true);
-                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-                // 实时捕捉上传百分比进度线
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        const percent = Math.round((e.loaded / e.total) * 100);
-                        document.getElementById('status-progress').style.width = `${percent}%`;
-                        document.getElementById('status-text').textContent = `⏳ 正在直传: ${file.name} (${percent}%)`;
-                    }
-                };
-
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try {
-                            const res = JSON.parse(xhr.responseText);
-                            res.success ? resolve(res) : reject(new Error(res.error || '上传未被确认'));
-                        } catch (e) { reject(new Error('网关响应非法')); }
-                    } else { reject(new Error(`HTTP异常: ${xhr.status}`)); }
-                };
-
-                xhr.onerror = () => reject(new Error('网络连接异常崩溃'));
-                xhr.send(formData);
-            });
+        // --- 视图切换 ---
+        function toggleView() {
+            isListView = !isListView;
+            document.getElementById('grid-zone').className = isListView ? 'file-grid list-view' : 'file-grid';
+            document.getElementById('view-icon').className = isListView ? 'fas fa-th-large' : 'fas fa-list';
         }
 
-        // 批量多任务容错器
-        async function handleBatchUpload(files) {
-            if (!files || files.length === 0) return;
-            const statusBar = document.getElementById('global-status');
-            statusBar.style.display = 'block';
-
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                
-                // 拦截过大文件，确保 Worker 运行时稳定，不消耗无效流量
-                if (file.size > MAX_FILE_SIZE) {
-                    alert(`🚨 文件安全拦截: [${file.name}] 超出了 Pages 单文件 100MB 限制！`);
-                    continue;
-                }
-
-                try {
-                    await uploadSingleFileWithProgress(file);
-                } catch (e) {
-                    console.error(e);
-                    alert(`❌ 文件 [${file.name}] 上传失败: ${e.message}`);
-                    // 发生异常时继续往下传，不打断队列中其余文件的上传
-                }
-            }
-
-            document.getElementById('status-progress').style.width = '0%';
-            statusBar.style.display = 'none';
-            uploader.value = '';
+        // --- 文件夹导航与面包屑 ---
+        function enterFolder(id, name) {
+            currentFolderId = id;
+            if (id === 0) { pathHistory = [{ id: 0, name: '根目录' }]; } 
+            else { pathHistory.push({ id, name }); }
+            renderBreadcrumb();
             loadFileList();
         }
 
-        // 3. 极速流式下载
-        function downloadFile(id) {
-            window.open(`/api/cloud/download?id=${id}&auth=${encodeURIComponent(token)}`, '_blank');
-            return true;
+        function renderBreadcrumb() {
+            const bc = document.getElementById('breadcrumb');
+            bc.innerHTML = pathHistory.map((p, i) => {
+                if (i === pathHistory.length - 1) return `<span class="current">${p.name}</span>`;
+                return `<span onclick="goBackTo(${i})">${p.name}</span> <i class="fas fa-chevron-right" style="font-size:10px;color:#30363d;"></i> `;
+            }).join('');
         }
 
-        // 4. 安全擦除记录
-        async function deleteFile(id) {
-            if (!confirm('⚠️ 确认将此文件从 Cloudflare R2 存储桶中物理擦除？')) return;
-            try {
-                const res = await fetch(`/api/cloud/delete?id=${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const r = await res.json();
-                if (r.success) loadFileList();
-                else alert(r.error);
-            } catch (e) {
-                alert('网关通信失败');
+        function goBackTo(index) {
+            pathHistory = pathHistory.slice(0, index + 1);
+            currentFolderId = pathHistory[pathHistory.length - 1].id;
+            renderBreadcrumb(); loadFileList();
+        }
+
+        // --- 新建文件夹 ---
+        async function createNewFolder() {
+            const name = prompt("请输入文件夹名称：");
+            if (!name) return;
+            await fetch('/api/cloud/create-folder', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, parent_id: currentFolderId })
+            });
+            loadFileList();
+        }
+
+        // --- 拖拽系统：移动文件到文件夹 ---
+        function handleDragStart(e, fileId) {
+            e.dataTransfer.setData("text/plain", fileId);
+        }
+
+        async function handleDropToFolder(e, targetFolderId) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-target');
+            const fileId = e.dataTransfer.getData("text/plain");
+            if (!fileId) return;
+
+            document.getElementById('global-status').style.display = 'block';
+            document.getElementById('global-status').textContent = '⏳ 正在移动文件...';
+            
+            await fetch('/api/cloud/move-file', {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: Number(fileId), target_folder_id: targetFolderId })
+            });
+            
+            document.getElementById('global-status').style.display = 'none';
+            loadFileList();
+        }
+
+        // --- 直传系统 (支持穿透到当前文件夹) ---
+        const dropZone = document.getElementById('drop-zone');
+        const uploader = document.getElementById('file-uploader');
+        ['dragenter', 'dragover'].forEach(n => dropZone.addEventListener(n, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+        ['dragleave', 'drop'].forEach(n => dropZone.addEventListener(n, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+        uploader.addEventListener('change', () => handleBatchUpload(uploader.files));
+        dropZone.addEventListener('drop', (e) => handleBatchUpload(e.dataTransfer.files));
+
+        async function handleBatchUpload(files) {
+            if (!files || files.length === 0) return;
+            const sb = document.getElementById('global-status');
+            sb.style.display = 'block';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                sb.textContent = `⏳ 正在直传 (${i+1}/${files.length}): ${file.name}`;
+                try {
+                    await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        const encName = encodeURIComponent(file.name);
+                        // 携带当前 folderId 传给后端
+                        xhr.open('POST', `/api/cloud/upload?name=${encName}&size=${file.size}&folder_id=${currentFolderId}`, true);
+                        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                        xhr.onload = () => resolve(xhr.responseText);
+                        xhr.onerror = () => reject("网关异常");
+                        xhr.send(file);
+                    });
+                } catch (e) { console.error(e); }
             }
+            sb.style.display = 'none'; uploader.value = ''; loadFileList();
+        }
+
+        // --- 基础操作 ---
+        function downloadFile(id) { window.open(`/api/cloud/download?id=${id}&auth=${encodeURIComponent(token)}`, '_blank'); }
+        async function deleteItem(id, type) {
+            if (!confirm(`确认删除此${type === 'folder' ? '文件夹' : '文件'}？`)) return;
+            await fetch(`/api/cloud/delete?id=${id}&type=${type}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
+            loadFileList();
         }
     </script>
 </body>
