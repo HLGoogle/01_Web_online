@@ -1,8 +1,7 @@
 /**
  * functions/api/[[path]].js
- * 企业级重构版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
- * 新增模块 - D1+R2 私有云盘双端联动 (彻底修复 405 路由滑过漏洞 & 启用 R2 目录树)
- * 新增特性 - 支持书签前端 UI 拖拽排序批量写入
+ * 企业级终极整合版 - 修复安全漏洞、并发瓶颈与文件类型欺骗
+ * 完美融合：D1+R2 私有云盘双端联动 + 书签拖拽批量排序 + 记事条画布 + KV图标直传
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -36,7 +35,7 @@ export async function onRequest(context) {
   if (method === 'OPTIONS') return new Response(null, { headers });
 
   // ==========================================
-  // 📸 读取 KV 自定义图片
+  // 📸 模块 1：读取 KV 自定义图片 (完全保留)
   // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
@@ -56,13 +55,19 @@ export async function onRequest(context) {
   }
 
   // ==========================================
-  // 🛡️ 鉴权网关：严格校验 HMAC 签名 Token
+  // 🛡️ 模块 2：安全网关（严格拦截与动态鉴权）
   // ==========================================
   let userId = null;
-  const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('api/cloud');
+  // [修复重点] 必须在此处加入 path.includes('cloud')，否则云盘接口拿不到 userId，直接瘫痪
+  const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('cloud');
   
   if (isProtected) {
-    const authHeader = request.headers.get('Authorization');
+    // 兼容传统 Header 认证，并补充兼容 URL 参数验证（方便云盘多线程下载流顺利读取 Token）
+    let authHeader = request.headers.get('Authorization');
+    if (!authHeader && url.searchParams.get('auth')) {
+      authHeader = `Bearer ${url.searchParams.get('auth')}`;
+    }
+
     if (!authHeader) return new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers });
     try {
       const token = authHeader.split(' ')[1];
@@ -79,9 +84,10 @@ export async function onRequest(context) {
 
   try {
     // ========================================== 
-    // ☁️ 云盘高级模块 (D1 SQL + R2 结合)
+    // ☁️ 🚀 模块 3：云盘核心高级模块 (D1 SQL + R2 联动)
     // ========================================== 
     if (path.includes('cloud')) {
+      // 3.1 获取专属云盘列表
       if (path.includes('list') && method === 'GET') {
         const { results } = await env.DB.prepare(
           'SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC'
@@ -89,6 +95,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, data: results }), { headers });
       }
 
+      // 3.2 文件流写入 R2 桶 & 关系登记 D1
       if (path.includes('upload') && method === 'POST') {
         const formData = await request.formData();
         const file = formData.get("file");
@@ -108,6 +115,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
       }
 
+      // 3.3 双端物理擦除
       if (path.includes('delete') && method === 'DELETE') {
         const id = url.searchParams.get("id");
         if (!id) return new Response(JSON.stringify({ success: false, error: "缺少文件ID" }), { status: 400, headers });
@@ -124,6 +132,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, message: "删除成功" }), { headers });
       }
 
+      // 3.4 极速大文件边缘拉取流
       if (path.includes('download') && method === 'GET') {
         const id = url.searchParams.get("id");
         
@@ -147,7 +156,7 @@ export async function onRequest(context) {
     }
 
     // ========================================== 
-    // 🎴 记事条模块
+    // 🎴 模块 4：记事条画布模块 (完全保留)
     // ========================================== 
     if (path.startsWith('/api/code-grid')) {
       if (method === 'GET') {
@@ -184,7 +193,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 📸 用户直传图标
+    // 📸 模块 5：用户直传图标安全校验 (完全保留)
     // ==========================================
     if (path === '/api/user/upload-icon' && method === 'POST') {
       const originalName = url.searchParams.get("name") || "icon.png";
@@ -209,7 +218,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🔐 用户管理模块
+    // 🔐 模块 6：用户管理中心（注册/登录/重置，完全保留）
     // ==========================================
     if (path === '/api/auth' && method === 'POST') {
       const body = await request.json();
@@ -253,7 +262,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🗂️ 书签与配置模块
+    // 🗂️ 模块 7：书签与配置模块 (完全保留)
     // ==========================================
     if (path === '/api/links') {
       if (method === 'GET') {
@@ -269,20 +278,15 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
-      // ==============================================================
-      // 🚀 PUT 接口升级：兼容单条修改 与 拖拽后的批量数组更新
-      // ==============================================================
       if (method === 'PUT') {
-        // 如果前端发来的是拖拽排序后的数组
         if (Array.isArray(body)) {
           const stmts = body.map(item => 
             env.DB.prepare('UPDATE Web_online_info_01 SET sort_order=? WHERE id=? AND user_id=?')
               .bind(item.sort_order, item.id, userId)
           );
-          await env.DB.batch(stmts); // 利用 Cloudflare D1 Batch 一次性极速提交所有排序更新
+          await env.DB.batch(stmts); 
           return new Response(JSON.stringify({ success: true, message: "排序更新成功" }), { headers });
         } 
-        // 兼容原有的单个卡片详细内容编辑
         else {
           await env.DB.prepare('UPDATE Web_online_info_01 SET type=?, url=?, icon=?, comment=?, note=?, sort_order=? WHERE id=? AND user_id=?')
             .bind(body.type, body.url, body.icon, body.comment, body.note, body.sort_order, body.id, userId).run();
