@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 终极完整版 - 已集成全部模块 + 纯流直传修复 500 报错
+ * 终极防劫持版 - 智能双模上传 + 状态码伪装防屏蔽
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -34,7 +34,7 @@ export async function onRequest(context) {
   if (method === 'OPTIONS') return new Response(null, { headers });
 
   // ==========================================
-  // 📸 模块 1：读取 KV 自定义图片
+  // 📸 读取 KV 自定义图片
   // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
@@ -54,17 +54,16 @@ export async function onRequest(context) {
   }
 
   // ==========================================
-  // 🛡️ 模块 2：安全网关（严格拦截与动态鉴权）
+  // 🛡️ 安全网关
   // ==========================================
   let userId = null;
   const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('cloud');
   
   if (isProtected) {
     let authHeader = request.headers.get('Authorization');
-    if (!authHeader && url.searchParams.get('auth')) {
-      authHeader = `Bearer ${url.searchParams.get('auth')}`;
-    }
+    if (!authHeader && url.searchParams.get('auth')) authHeader = `Bearer ${url.searchParams.get('auth')}`;
 
+    // 登录保护机制：失败统一返回 401（Cloudflare 不会劫持 401）
     if (!authHeader) return new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers });
     try {
       const token = authHeader.split(' ')[1];
@@ -81,75 +80,80 @@ export async function onRequest(context) {
 
   try {
     // ========================================== 
-    // ☁️ 🚀 模块 3：云盘核心高级模块 (D1 SQL + R2 联动)
+    // ☁️ 🚀 云盘核心模块
     // ========================================== 
     if (path.includes('cloud')) {
-      // 3.1 获取专属云盘列表
       if (path.includes('list') && method === 'GET') {
-        const { results } = await env.DB.prepare(
-          'SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC'
-        ).bind(userId).all();
+        const { results } = await env.DB.prepare('SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC').bind(userId).all();
         return new Response(JSON.stringify({ success: true, data: results }), { headers });
       }
 
-// 3.2 🌟 终极绝杀稳定版：引入 ArrayBuffer 缓冲，彻底避开 CF 底层流崩溃
+      // 🚨 终极修复：智能双模识别 + 强制 200 状态码防屏蔽
       if (path.includes('upload') && method === 'POST') {
-        if (!env.MY_BUCKET) return new Response(JSON.stringify({ success: false, error: "未绑定 R2 存储桶 (MY_BUCKET)" }), { status: 500, headers });
-        if (!env.DB) return new Response(JSON.stringify({ success: false, error: "未绑定 D1 数据库 (DB)" }), { status: 500, headers });
-
-        const fileName = String(url.searchParams.get("name") || "unknown_file.bin");
-        const fileSize = Number(url.searchParams.get("size")) || 0; 
-        const fileType = String(url.searchParams.get("type") || "application/octet-stream");
-
-        const r2Key = `${userId}/${Date.now()}_${fileName}`;
-
         try {
-          // 🚨 核心改动点：将 request.body 转为安全的二进制缓冲
-          const fileBuffer = await request.arrayBuffer();
-          
-          await env.MY_BUCKET.put(r2Key, fileBuffer, {
-            httpMetadata: { contentType: fileType }
-          });
-        } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: "R2 写入失败: " + err.message }), { status: 500, headers });
-        }
+          if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶 (MY_BUCKET)");
+          if (!env.DB) throw new Error("未绑定 D1 数据库容器 (DB)");
 
-        try {
-          await env.DB.prepare(
-            'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
-          ).bind(String(userId), fileName, r2Key, fileSize, fileType).run();
-        } catch (err) {
-          return new Response(JSON.stringify({ success: false, error: "D1 登记失败: " + err.message }), { status: 500, headers });
-        }
+          let fileBuffer, fileName, fileSize, fileType;
+          const contentType = request.headers.get("content-type") || "";
 
-        return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
+          // 自动判断前端发来的是老式 FormData 还是 新式流数据
+          if (contentType.includes("multipart/form-data")) {
+            const formData = await request.formData();
+            const file = formData.get("file");
+            if (!file) throw new Error("未检测到文件实体");
+            fileName = file.name;
+            fileSize = file.size;
+            fileType = file.type || 'application/octet-stream';
+            fileBuffer = await file.arrayBuffer();
+          } else {
+            fileName = decodeURIComponent(url.searchParams.get("name") || "unknown.bin");
+            fileSize = Number(url.searchParams.get("size")) || 0;
+            fileType = decodeURIComponent(url.searchParams.get("type") || 'application/octet-stream');
+            fileBuffer = await request.arrayBuffer();
+          }
+
+          if (!fileBuffer || fileBuffer.byteLength === 0) throw new Error("拦截：空文件");
+
+          const r2Key = `${userId}/${Date.now()}_${fileName}`;
+
+          // R2 写入层
+          try {
+            await env.MY_BUCKET.put(r2Key, fileBuffer, { httpMetadata: { contentType: fileType } });
+          } catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
+
+          // D1 登记层
+          try {
+            await env.DB.prepare(
+              'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
+            ).bind(String(userId), fileName, r2Key, fileSize, fileType).run();
+          } catch(e) { throw new Error(`数据库写入失败 (可能未建表): ${e.message}`); }
+
+          return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
+
+        } catch (innerError) {
+          // 👑 核心黑科技：无论什么错，都伪装成 200 返回给前端！让错误弹窗能100%显示！
+          return new Response(JSON.stringify({ success: false, error: innerError.message }), { status: 200, headers });
+        }
       }
 
-      // 3.3 双端物理擦除
       if (path.includes('delete') && method === 'DELETE') {
-        const id = url.searchParams.get("id");
-        if (!id) return new Response(JSON.stringify({ success: false, error: "缺少文件ID" }), { status: 400, headers });
-
-        const fileInfo = await env.DB.prepare(
-          'SELECT r2_key FROM cloud_files WHERE id = ? AND user_id = ?'
-        ).bind(id, userId).first();
-
-        if (!fileInfo) return new Response(JSON.stringify({ success: false, error: "文件不存在或无权操作" }), { status: 404, headers });
-
-        await env.MY_BUCKET.delete(fileInfo.r2_key);
-        await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
-
-        return new Response(JSON.stringify({ success: true, message: "删除成功" }), { headers });
+        try {
+          const id = url.searchParams.get("id");
+          if (!id) throw new Error("缺少文件ID");
+          const fileInfo = await env.DB.prepare('SELECT r2_key FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
+          if (!fileInfo) throw new Error("文件不存在或无权操作");
+          await env.MY_BUCKET.delete(fileInfo.r2_key);
+          await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
+          return new Response(JSON.stringify({ success: true, message: "删除成功" }), { headers });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message }), { status: 200, headers });
+        }
       }
 
-      // 3.4 极速大文件边缘拉取流
       if (path.includes('download') && method === 'GET') {
         const id = url.searchParams.get("id");
-        
-        const fileInfo = await env.DB.prepare(
-          'SELECT file_name, r2_key, file_type FROM cloud_files WHERE id = ? AND user_id = ?'
-        ).bind(id, userId).first();
-
+        const fileInfo = await env.DB.prepare('SELECT file_name, r2_key, file_type FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
         if (!fileInfo) return new Response("文件不存在或无权限", { status: 404, headers });
 
         const r2Object = await env.MY_BUCKET.get(fileInfo.r2_key);
@@ -160,13 +164,12 @@ export async function onRequest(context) {
         downloadHeaders.set("etag", r2Object.httpEtag);
         downloadHeaders.set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileInfo.file_name)}`);
         downloadHeaders.set('Access-Control-Allow-Origin', '*');
-
         return new Response(r2Object.body, { headers: downloadHeaders });
       }
     }
 
     // ========================================== 
-    // 🎴 模块 4：记事条画布模块
+    // 🎴 记事条模块
     // ========================================== 
     if (path.startsWith('/api/code-grid')) {
       if (method === 'GET') {
@@ -174,18 +177,13 @@ export async function onRequest(context) {
         const parsedRows = rows.results.map(r => ({ id: r.id, data: JSON.parse(r.row_data), sort_order: r.sort_order }));
         return new Response(JSON.stringify({ rows: parsedRows }), { headers });
       }
-
       const body = await request.json();
-
       if (method === 'POST') {
         if (body.items && Array.isArray(body.items)) {
           const stmts = body.items.map(item => {
             const rowDataStr = JSON.stringify(item.data);
-            if (item.id) {
-              return env.DB.prepare('UPDATE Web_code_rows SET row_data = ?, sort_order = ? WHERE id = ? AND user_id = ?').bind(rowDataStr, item.sort_order || 0, item.id, userId);
-            } else {
-              return env.DB.prepare('INSERT INTO Web_code_rows (user_id, row_data, sort_order) VALUES (?, ?, ?)').bind(userId, rowDataStr, item.sort_order || 0);
-            }
+            if (item.id) return env.DB.prepare('UPDATE Web_code_rows SET row_data = ?, sort_order = ? WHERE id = ? AND user_id = ?').bind(rowDataStr, item.sort_order || 0, item.id, userId);
+            else return env.DB.prepare('INSERT INTO Web_code_rows (user_id, row_data, sort_order) VALUES (?, ?, ?)').bind(userId, rowDataStr, item.sort_order || 0);
           });
           await env.DB.batch(stmts);
           return new Response(JSON.stringify({ success: true }), { headers });
@@ -195,7 +193,6 @@ export async function onRequest(context) {
         else await env.DB.prepare('INSERT INTO Web_code_rows (user_id, row_data, sort_order) VALUES (?, ?, ?)').bind(userId, rowDataStr, body.sort_order || 0).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
-
       if (method === 'DELETE') {
         await env.DB.prepare('DELETE FROM Web_code_rows WHERE id = ? AND user_id = ?').bind(body.id, userId).run();
         return new Response(JSON.stringify({ success: true }), { headers });
@@ -203,7 +200,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 📸 模块 5：用户直传图标安全校验
+    // 📸 用户直传图标
     // ==========================================
     if (path === '/api/user/upload-icon' && method === 'POST') {
       const originalName = url.searchParams.get("name") || "icon.png";
@@ -218,7 +215,7 @@ export async function onRequest(context) {
       if (headerHex.startsWith('89504E47')) validFile = true; // PNG
       else if (headerHex.startsWith('FFD8FF')) validFile = true; // JPEG
       else if (headerHex.startsWith('47494638')) validFile = true; // GIF
-      else if (headerHex.startsWith('52494646')) validFile = true; // WEBP (RIFF)
+      else if (headerHex.startsWith('52494646')) validFile = true; // WEBP
 
       if (!validFile) return new Response(JSON.stringify({ success: false, error: "安全拦截：请上传真实的图片文件" }), { status: 400, headers });
 
@@ -228,7 +225,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🔐 模块 6：用户管理中心
+    // 🔐 用户管理中心
     // ==========================================
     if (path === '/api/auth' && method === 'POST') {
       const body = await request.json();
@@ -246,19 +243,12 @@ export async function onRequest(context) {
       if (action === 'login') {
         const user = await env.DB.prepare('SELECT id, username, settings, password FROM Web_online_users_00 WHERE username = ?').bind(username).first();
         if (!user) return new Response(JSON.stringify({ success: false, error: '账号或密码错误' }), { status: 401, headers });
-        
         const hashedInput = await sha256(password + PWD_SALT);
-        if (user.password !== hashedInput && user.password !== password) {
-            return new Response(JSON.stringify({ success: false, error: '账号或密码错误' }), { status: 401, headers });
-        }
-        if (user.password === password) {
-            await env.DB.prepare('UPDATE Web_online_users_00 SET password = ? WHERE id = ?').bind(hashedInput, user.id).run();
-        }
-
+        if (user.password !== hashedInput && user.password !== password) return new Response(JSON.stringify({ success: false, error: '账号或密码错误' }), { status: 401, headers });
+        if (user.password === password) await env.DB.prepare('UPDATE Web_online_users_00 SET password = ? WHERE id = ?').bind(hashedInput, user.id).run();
         const payload = btoa(`${user.id}:${user.username}`);
         const signature = await signHMAC(payload, env.JWT_SECRET || SECRET_KEY);
         const token = `${payload}.${signature}`;
-
         return new Response(JSON.stringify({ success: true, token, username: user.username, settings: user.settings || '{"sensitivity": 50}' }), { headers });
       }
 
@@ -272,38 +262,30 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // 🗂️ 模块 7：书签与配置模块
+    // 🗂️ 书签模块
     // ==========================================
     if (path === '/api/links') {
       if (method === 'GET') {
         const { results } = await env.DB.prepare('SELECT * FROM Web_online_info_01 WHERE user_id = ? ORDER BY sort_order ASC, created_at DESC').bind(userId).all();
         return new Response(JSON.stringify(results), { headers });
       }
-
       const body = await request.json();
-
       if (method === 'POST') {
         await env.DB.prepare('INSERT INTO Web_online_info_01 (user_id, type, url, icon, comment, note, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)')
           .bind(userId, body.type, body.url, body.icon, body.comment, body.note, body.sort_order || 0).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
-
       if (method === 'PUT') {
         if (Array.isArray(body)) {
-          const stmts = body.map(item => 
-            env.DB.prepare('UPDATE Web_online_info_01 SET sort_order=? WHERE id=? AND user_id=?')
-              .bind(item.sort_order, item.id, userId)
-          );
+          const stmts = body.map(item => env.DB.prepare('UPDATE Web_online_info_01 SET sort_order=? WHERE id=? AND user_id=?').bind(item.sort_order, item.id, userId));
           await env.DB.batch(stmts); 
           return new Response(JSON.stringify({ success: true, message: "排序更新成功" }), { headers });
-        } 
-        else {
+        } else {
           await env.DB.prepare('UPDATE Web_online_info_01 SET type=?, url=?, icon=?, comment=?, note=?, sort_order=? WHERE id=? AND user_id=?')
             .bind(body.type, body.url, body.icon, body.comment, body.note, body.sort_order, body.id, userId).run();
           return new Response(JSON.stringify({ success: true }), { headers });
         }
       }
-
       if (method === 'DELETE') {
         const currentLink = await env.DB.prepare('SELECT icon FROM Web_online_info_01 WHERE id = ? AND user_id = ?').bind(body.id, userId).first();
         if (currentLink && currentLink.icon && currentLink.icon.startsWith('user_')) await env.IMAGE_KV.delete(currentLink.icon);
@@ -320,7 +302,8 @@ export async function onRequest(context) {
 
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers });
 
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers });
+  } catch (globalError) {
+    // 最后的安全网：伪装成 200 返回全盘错误
+    return new Response(JSON.stringify({ success: false, error: "网关底座异常: " + globalError.message }), { status: 200, headers });
   }
 }
