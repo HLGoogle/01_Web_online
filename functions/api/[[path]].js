@@ -92,12 +92,11 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, data: results }), { headers });
       }
 
-      // 3.2 🌟 纯原生流直传 + 严格类型转换入库 (已修复 500 报错)
+// 3.2 🌟 终极绝杀稳定版：引入 ArrayBuffer 缓冲，彻底避开 CF 底层流崩溃
       if (path.includes('upload') && method === 'POST') {
         if (!env.MY_BUCKET) return new Response(JSON.stringify({ success: false, error: "未绑定 R2 存储桶 (MY_BUCKET)" }), { status: 500, headers });
         if (!env.DB) return new Response(JSON.stringify({ success: false, error: "未绑定 D1 数据库 (DB)" }), { status: 500, headers });
 
-        // 🚨 将 URL 提取的参数严格强制转换类型，保证 fileSize 绝对是 Number
         const fileName = String(url.searchParams.get("name") || "unknown_file.bin");
         const fileSize = Number(url.searchParams.get("size")) || 0; 
         const fileType = String(url.searchParams.get("type") || "application/octet-stream");
@@ -105,8 +104,10 @@ export async function onRequest(context) {
         const r2Key = `${userId}/${Date.now()}_${fileName}`;
 
         try {
-          // 原生流直传
-          await env.MY_BUCKET.put(r2Key, request.body, {
+          // 🚨 核心改动点：将 request.body 转为安全的二进制缓冲
+          const fileBuffer = await request.arrayBuffer();
+          
+          await env.MY_BUCKET.put(r2Key, fileBuffer, {
             httpMetadata: { contentType: fileType }
           });
         } catch (err) {
@@ -114,7 +115,6 @@ export async function onRequest(context) {
         }
 
         try {
-          // 🚨 严格以类型安全的格式写入 D1
           await env.DB.prepare(
             'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
           ).bind(String(userId), fileName, r2Key, fileSize, fileType).run();
