@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 终极防劫持版 - 智能双模上传 + 状态码伪装防屏蔽
+ * 企业级全能终极版 - 集成文件夹层级、容量统计、防 500 劫持、流式大文件直传
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -54,7 +54,7 @@ export async function onRequest(context) {
   }
 
   // ==========================================
-  // 🛡️ 安全网关
+  // 🛡️ 安全网关认证
   // ==========================================
   let userId = null;
   const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('cloud');
@@ -63,7 +63,6 @@ export async function onRequest(context) {
     let authHeader = request.headers.get('Authorization');
     if (!authHeader && url.searchParams.get('auth')) authHeader = `Bearer ${url.searchParams.get('auth')}`;
 
-    // 登录保护机制：失败统一返回 401（Cloudflare 不会劫持 401）
     if (!authHeader) return new Response(JSON.stringify({ error: '未登录' }), { status: 401, headers });
     try {
       const token = authHeader.split(' ')[1];
@@ -80,24 +79,49 @@ export async function onRequest(context) {
 
   try {
     // ========================================== 
-    // ☁️ 🚀 云盘核心模块
+    // ☁️ 🚀 云盘核心模块 (已加入文件夹层级与容量统计)
     // ========================================== 
     if (path.includes('cloud')) {
+      
+      // 1. 获取列表与容量统揽
       if (path.includes('list') && method === 'GET') {
-        const { results } = await env.DB.prepare('SELECT * FROM cloud_files WHERE user_id = ? ORDER BY created_at DESC').bind(userId).all();
-        return new Response(JSON.stringify({ success: true, data: results }), { headers });
+        const folderId = Number(url.searchParams.get("folder_id")) || 0;
+        
+        // 获取当前目录下的文件夹
+        const { results: folders } = await env.DB.prepare('SELECT * FROM cloud_folders WHERE user_id = ? AND parent_id = ? ORDER BY created_at DESC').bind(userId, folderId).all();
+        // 获取当前目录下的文件
+        const { results: files } = await env.DB.prepare('SELECT * FROM cloud_files WHERE user_id = ? AND folder_id = ? ORDER BY created_at DESC').bind(userId, folderId).all();
+        // 获取总容量 (计算所有文件的总和)
+        const sizeRes = await env.DB.prepare('SELECT SUM(file_size) as total FROM cloud_files WHERE user_id = ?').bind(userId).first();
+        const totalSize = sizeRes ? (sizeRes.total || 0) : 0;
+
+        return new Response(JSON.stringify({ success: true, data: { folders, files, totalSize } }), { headers });
       }
 
-      // 🚨 终极修复：智能双模识别 + 强制 200 状态码防屏蔽
+      // 2. 新建文件夹
+      if (path.includes('create-folder') && method === 'POST') {
+        const { name, parent_id } = await request.json();
+        await env.DB.prepare('INSERT INTO cloud_folders (user_id, name, parent_id) VALUES (?, ?, ?)').bind(String(userId), name, parent_id || 0).run();
+        return new Response(JSON.stringify({ success: true }), { headers });
+      }
+
+      // 3. 拖拽移动文件到文件夹
+      if (path.includes('move-file') && method === 'PUT') {
+        const { file_id, target_folder_id } = await request.json();
+        await env.DB.prepare('UPDATE cloud_files SET folder_id = ? WHERE id = ? AND user_id = ?').bind(target_folder_id, file_id, userId).run();
+        return new Response(JSON.stringify({ success: true }), { headers });
+      }
+
+      // 4. 智能上传 (支持纯二进制流，并指定目录存入)
       if (path.includes('upload') && method === 'POST') {
         try {
           if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶 (MY_BUCKET)");
           if (!env.DB) throw new Error("未绑定 D1 数据库容器 (DB)");
 
-          let fileBuffer, fileName, fileSize, fileType;
+          let fileBuffer, fileName, fileSize, fileType, folderId;
           const contentType = request.headers.get("content-type") || "";
 
-          // 自动判断前端发来的是老式 FormData 还是 新式流数据
+          // 双模适配：老式 FormData 还是 新式二进制流
           if (contentType.includes("multipart/form-data")) {
             const formData = await request.formData();
             const file = formData.get("file");
@@ -105,16 +129,17 @@ export async function onRequest(context) {
             fileName = file.name;
             fileSize = file.size;
             fileType = file.type || 'application/octet-stream';
+            folderId = Number(formData.get("folder_id")) || 0;
             fileBuffer = await file.arrayBuffer();
           } else {
             fileName = decodeURIComponent(url.searchParams.get("name") || "unknown.bin");
             fileSize = Number(url.searchParams.get("size")) || 0;
             fileType = decodeURIComponent(url.searchParams.get("type") || 'application/octet-stream');
+            folderId = Number(url.searchParams.get("folder_id")) || 0;
             fileBuffer = await request.arrayBuffer();
           }
 
           if (!fileBuffer || fileBuffer.byteLength === 0) throw new Error("拦截：空文件");
-
           const r2Key = `${userId}/${Date.now()}_${fileName}`;
 
           // R2 写入层
@@ -122,38 +147,44 @@ export async function onRequest(context) {
             await env.MY_BUCKET.put(r2Key, fileBuffer, { httpMetadata: { contentType: fileType } });
           } catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
 
-          // D1 登记层
+          // D1 登记层 (带上了 folder_id)
           try {
             await env.DB.prepare(
-              'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type) VALUES (?, ?, ?, ?, ?)'
-            ).bind(String(userId), fileName, r2Key, fileSize, fileType).run();
-          } catch(e) { throw new Error(`数据库写入失败 (可能未建表): ${e.message}`); }
+              'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)'
+            ).bind(String(userId), fileName, r2Key, fileSize, fileType, folderId).run();
+          } catch(e) { throw new Error(`数据库写入失败 (可能未建表或漏了字段): ${e.message}`); }
 
           return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
-
         } catch (innerError) {
-          // 👑 核心黑科技：无论什么错，都伪装成 200 返回给前端！让错误弹窗能100%显示！
+          // 伪装 200 返回，防止 CF 劫持 500 页面
           return new Response(JSON.stringify({ success: false, error: innerError.message }), { status: 200, headers });
         }
       }
 
+      // 5. 删除文件/文件夹
       if (path.includes('delete') && method === 'DELETE') {
         try {
           const id = url.searchParams.get("id");
-          if (!id) throw new Error("缺少文件ID");
-          const fileInfo = await env.DB.prepare('SELECT r2_key FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
-          if (!fileInfo) throw new Error("文件不存在或无权操作");
-          await env.MY_BUCKET.delete(fileInfo.r2_key);
-          await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
+          const type = url.searchParams.get("type"); // 'file' 或 'folder'
+
+          if (type === 'folder') {
+            await env.DB.prepare('DELETE FROM cloud_folders WHERE id = ? AND user_id = ?').bind(id, userId).run();
+          } else {
+            const fileInfo = await env.DB.prepare('SELECT r2_key FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
+            if (!fileInfo) throw new Error("文件不存在或无权操作");
+            await env.MY_BUCKET.delete(fileInfo.r2_key);
+            await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
+          }
           return new Response(JSON.stringify({ success: true, message: "删除成功" }), { headers });
         } catch (e) {
           return new Response(JSON.stringify({ success: false, error: e.message }), { status: 200, headers });
         }
       }
 
+      // 6. 下载极速流
       if (path.includes('download') && method === 'GET') {
         const id = url.searchParams.get("id");
-        const fileInfo = await env.DB.prepare('SELECT file_name, r2_key, file_type FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
+        const fileInfo = await env.DB.prepare('SELECT file_name, r2_key FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
         if (!fileInfo) return new Response("文件不存在或无权限", { status: 404, headers });
 
         const r2Object = await env.MY_BUCKET.get(fileInfo.r2_key);
@@ -303,7 +334,7 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers });
 
   } catch (globalError) {
-    // 最后的安全网：伪装成 200 返回全盘错误
+    // 最后的安全网：伪装成 200 返回全盘错误，防止被劫持成白屏 500
     return new Response(JSON.stringify({ success: false, error: "网关底座异常: " + globalError.message }), { status: 200, headers });
   }
 }
