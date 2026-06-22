@@ -39,7 +39,7 @@
         .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
         
         /* 状态栏 */
-        .status-bar { background: var(--bg-card); border: 1px solid var(--accent-color); padding: 8px 16px; border-radius: 8px; display: none; margin-bottom: 16px; font-size: 12px;}
+        .status-bar { background: var(--bg-card); border: 1px solid var(--accent-color); padding: 12px 16px; border-radius: 8px; display: none; margin-bottom: 16px; font-size: 13px;}
         
         /* 网格/列表视图兼容 */
         .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
@@ -69,6 +69,7 @@
         .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; }
         .action-btn:hover { color: var(--accent-color); }
         .action-btn.del:hover { color: var(--accent-danger); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -107,6 +108,7 @@
         let currentFolderId = 0;
         let isListView = false;
         let pathHistory = [{ id: 0, name: '根目录' }]; 
+        let activeUploads = {}; // 全局存储正在上传的 XHR 实例
 
         if (!token) { window.close(); } else { loadFileList(); }
 
@@ -124,11 +126,7 @@
                 if (!res.ok) throw new Error(`HTTP 状态码异常: ${res.status}`);
                 
                 const result = await res.json();
-                
-                // 拦截后端伪装的 200 错误
-                if (result.success === false) {
-                    throw new Error(result.error || "后端返回失败状态");
-                }
+                if (result.success === false) throw new Error(result.error || "后端返回失败状态");
                 
                 const safeData = result.data || {};
                 const folders = safeData.folders || [];
@@ -157,7 +155,9 @@
                                 <i class="fas fa-folder file-icon folder"></i>
                                 <div><div class="file-name">${folder.name}</div><div class="file-size">文件夹</div></div>
                             </div>
-                            <div class="file-actions"><button class="action-btn del" onclick="deleteItem(${folder.id}, 'folder')"><i class="fas fa-trash-alt"></i></button></div>
+                            <div class="file-actions">
+                                <button class="action-btn del" onclick="deleteItem(event, ${folder.id}, 'folder')"><i class="fas fa-trash-alt"></i></button>
+                            </div>
                         </div>
                     `;
                 });
@@ -171,8 +171,8 @@
                                 <div style="overflow: hidden;"><div class="file-name" title="${file.file_name}">${file.file_name}</div><div class="file-size">${sizeMB} MB</div></div>
                             </div>
                             <div class="file-actions">
-                                <button class="action-btn" onclick="downloadFile(${file.id})"><i class="fas fa-download"></i></button>
-                                <button class="action-btn del" onclick="deleteItem(${file.id}, 'file')"><i class="fas fa-trash-alt"></i></button>
+                                <button class="action-btn" onclick="downloadFile(event, ${file.id}, '${file.file_name}')"><i class="fas fa-download"></i></button>
+                                <button class="action-btn del" onclick="deleteItem(event, ${file.id}, 'file')"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </div>
                     `;
@@ -237,7 +237,7 @@
             if (!fileId) return;
 
             document.getElementById('global-status').style.display = 'block';
-            document.getElementById('global-status').textContent = '⏳ 正在移动文件...';
+            document.getElementById('global-status').innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在移动文件...';
             
             await fetch('/api/cloud/move-file', {
                 method: 'PUT',
@@ -249,7 +249,14 @@
             loadFileList();
         }
 
-        // --- 直传系统 (带强制错误拦截 + 实时动态进度条) ---
+        // --- 直传系统 (动态进度 + 取消上传) ---
+        function cancelUpload(uploadId) {
+            if (activeUploads[uploadId]) {
+                activeUploads[uploadId].abort(); // 直接掐断底层 XMLHttpRequest 线程
+                delete activeUploads[uploadId];
+            }
+        }
+
         const dropZone = document.getElementById('drop-zone');
         const uploader = document.getElementById('file-uploader');
         ['dragenter', 'dragover'].forEach(n => dropZone.addEventListener(n, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
@@ -264,74 +271,128 @@
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
+                const uploadId = 'up_' + Date.now() + '_' + i; 
                 
-                // 初始化进度条 UI
+                // 渲染赛博风格上传状态栏
                 sb.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="font-weight:500; color:var(--text-main);">
-                            <i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i> 正在上传 (${i+1}/${files.length}): ${file.name}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight:500; color:var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;">
+                            <i class="fas fa-spinner fa-spin" style="color:var(--accent-color); margin-right:4px;"></i> 正在上传 (${i+1}/${files.length}): ${file.name}
                         </span>
-                        <span style="color:var(--accent-color); font-weight:600;">0%</span>
+                        <div style="display:flex; gap:12px; align-items:center; flex-shrink: 0;">
+                            <span id="percent_${uploadId}" style="color:var(--accent-color); font-weight:600; font-variant-numeric: tabular-nums;">0.0%</span>
+                            <button onclick="cancelUpload('${uploadId}')" style="background:transparent; border:1px solid var(--accent-danger); color:var(--accent-danger); border-radius:4px; padding:2px 8px; font-size:12px; cursor:pointer; transition:all 0.2s;">取消</button>
+                        </div>
                     </div>
                     <div style="width: 100%; height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);">
-                        <div style="height: 100%; width: 0%; background: var(--accent-color); transition: width 0.1s linear;"></div>
+                        <div id="bar_${uploadId}" style="height: 100%; width: 0%; background: var(--accent-color); transition: width 0.1s linear; box-shadow: 0 0 8px var(--accent-color);"></div>
                     </div>
                 `;
 
                 try {
                     await new Promise((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
+                        activeUploads[uploadId] = xhr; 
+
                         const encName = encodeURIComponent(file.name);
                         xhr.open('POST', `/api/cloud/upload?name=${encName}&size=${file.size}&folder_id=${currentFolderId}`, true);
                         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
                         xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
                         
-                        // 🚀 核心增加：实时监听网关上传进度
                         xhr.upload.onprogress = (event) => {
                             if (event.lengthComputable) {
-                                const percentComplete = (event.loaded / event.total) * 100;
-                                const mbLoaded = (event.loaded / 1024 / 1024).toFixed(1);
-                                const mbTotal = (event.total / 1024 / 1024).toFixed(1);
-                                
-                                // 动态更新 UI 数据与进度条宽度
-                                sb.innerHTML = `
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                        <span style="font-weight:500; color:var(--text-main);">
-                                            <i class="fas fa-spinner fa-spin" style="color:var(--accent-color); margin-right:4px;"></i> 正在上传 (${i+1}/${files.length}): ${file.name}
-                                        </span>
-                                        <span style="color:var(--accent-color); font-weight:600;">${percentComplete.toFixed(1)}% <span style="font-size:10px; color:var(--text-muted); font-weight:400;">(${mbLoaded}M / ${mbTotal}M)</span></span>
-                                    </div>
-                                    <div style="width: 100%; height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);">
-                                        <div style="height: 100%; width: ${percentComplete}%; background: var(--accent-color); transition: width 0.1s linear; box-shadow: 0 0 8px var(--accent-color);"></div>
-                                    </div>
-                                `;
+                                const percentComplete = ((event.loaded / event.total) * 100).toFixed(1);
+                                document.getElementById(`percent_${uploadId}`).innerText = `${percentComplete}%`;
+                                document.getElementById(`bar_${uploadId}`).style.width = `${percentComplete}%`;
                             }
                         };
 
                         xhr.onload = () => {
+                            delete activeUploads[uploadId];
                             try {
                                 const responseObj = JSON.parse(xhr.responseText);
-                                if (responseObj.success === false) {
-                                    reject(new Error(responseObj.error || "写入数据库失败"));
-                                } else {
-                                    // 伪造一下 100% 的停顿感，视觉上更平滑
-                                    sb.querySelector('.fa-spinner').className = "fas fa-check-circle";
-                                    setTimeout(() => resolve(responseObj), 200);
-                                }
+                                if (responseObj.success === false) reject(new Error(responseObj.error || "写入数据库失败"));
+                                else resolve(responseObj);
                             } catch(err) { reject(new Error("非法的服务器响应")); }
                         };
                         
-                        xhr.onerror = () => reject(new Error("网关连接断开"));
+                        xhr.onabort = () => {
+                            delete activeUploads[uploadId];
+                            reject(new Error("UPLOAD_CANCELED"));
+                        };
+
+                        xhr.onerror = () => { 
+                            delete activeUploads[uploadId]; 
+                            reject(new Error("网关连接断开")); 
+                        };
+                        
                         xhr.send(file);
                     });
                 } catch (e) { 
-                    alert(`文件 "${file.name}" 上传失败：\n${e.message}`); 
-                    console.error("上传错误:", e); 
+                    if (e.message !== "UPLOAD_CANCELED") {
+                        alert(`文件 "${file.name}" 上传失败：\n${e.message}`); 
+                        console.error("上传错误:", e); 
+                    }
                 }
             }
             sb.style.display = 'none'; 
             uploader.value = ''; 
             loadFileList();
+        }
+
+        // --- 修复后的操作 (防止事件冒泡 + 内存流 Blob 极速下载) ---
+        async function downloadFile(event, id, fileName) {
+            event.stopPropagation(); // 阻止点击卡片触发其他事件
+            
+            const btn = event.currentTarget;
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>'; 
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/cloud/download?id=${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!res.ok) throw new Error(`HTTP 异常 ${res.status}`);
+                
+                // 将 R2 文件流拉取到浏览器内存
+                const blob = await res.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                
+                // 伪造 <a> 标签触发无感下载
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = downloadUrl;
+                a.download = fileName || 'download';
+                document.body.appendChild(a);
+                a.click();
+                
+                // 释放内存
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl); 
+            } catch (e) {
+                alert(`下载通道建立失败: ${e.message}`);
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteItem(event, id, type) {
+            event.stopPropagation(); // 阻止点击卡片触发其他事件
+            
+            if (!confirm(`警告：确认永久销毁此${type === 'folder' ? '文件夹' : '文件'}吗？`)) return;
+            
+            try {
+                await fetch(`/api/cloud/delete?id=${id}&type=${type}`, { 
+                    method: 'DELETE', 
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                loadFileList(); 
+            } catch (e) {
+                alert(`销毁失败: ${e.message}`);
+            }
         }
     </script>
 </body>
