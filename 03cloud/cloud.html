@@ -158,6 +158,12 @@
                     const sizeMB = (file.file_size / 1024 / 1024).toFixed(2);
                     const safeFileName = file.file_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     
+                    // 🚀 如果有别名则使用别名链接，否则使用普通 ID 短链
+                    const currentAlias = file.alias ? file.alias : '';
+                    const shortLink = currentAlias 
+                        ? `${window.location.origin}/api/f/${currentAlias}` 
+                        : `${window.location.origin}/api/f?id=${file.id}`;
+                    
                     grid.innerHTML += `
                         <div class="item-card file" draggable="true" ondragstart="handleDragStart(event, ${file.id})">
                             <div class="file-info">
@@ -165,7 +171,9 @@
                                 <div style="overflow: hidden;"><div class="file-name" title="${file.file_name}">${file.file_name}</div><div class="file-size">${sizeMB} MB</div></div>
                             </div>
                             <div class="file-actions">
-                                <button class="action-btn" onclick="downloadFile(event, ${file.id}, '${safeFileName}')" title="下载"><i class="fas fa-download"></i></button>
+                                <button class="action-btn" onclick="copyLink(event, '${shortLink}')" title="复制当前直链"><i class="fas fa-copy"></i></button>
+                                <button class="action-btn" onclick="downloadFile(event, '${shortLink}', '${safeFileName}')" title="下载"><i class="fas fa-download"></i></button>
+                                <button class="action-btn" onclick="setAlias(event, ${file.id}, '${currentAlias}')" title="设置短链别名"><i class="fas fa-cog"></i></button>
                                 <button class="action-btn" onclick="renameItem(event, ${file.id}, 'file', '${safeFileName}')" title="重命名"><i class="fas fa-edit"></i></button>
                                 <button class="action-btn del" onclick="deleteItem(event, ${file.id}, 'file')" title="删除"><i class="fas fa-trash-alt"></i></button>
                             </div>
@@ -183,6 +191,7 @@
             }
         }
 
+        // --- 视图与导航 ---
         function toggleView() {
             isListView = !isListView;
             document.getElementById('grid-zone').className = isListView ? 'file-grid list-view' : 'file-grid';
@@ -262,6 +271,28 @@
             }
         }
 
+        // 🚀 新增：设置短链别名
+        async function setAlias(event, id, currentAlias) {
+            event.stopPropagation();
+            const alias = prompt("请输入自定义短链别名 (例如输入 my-file，链接将变为 /api/f/my-file)：\n留空则清除别名并恢复默认ID链接。", currentAlias || '');
+            if (alias === null) return; // 用户点击取消
+
+            try {
+                const res = await fetch('/api/cloud/set-alias', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, alias })
+                });
+                const data = await res.json();
+                if (data.success === false) throw new Error(data.error);
+                
+                alert("短链设置成功！\n当前外链地址: " + window.location.origin + "/api/f/" + (alias || "?id=" + id));
+                loadFileList(); 
+            } catch (e) {
+                alert(`设置失败: ${e.message}`);
+            }
+        }
+
         function cancelUpload(uploadId) {
             if (activeUploads[uploadId]) {
                 activeUploads[uploadId].abort();
@@ -287,7 +318,7 @@
             for (let i = 0; i < files.length; i++) {
                 if (existingNames.includes(files[i].name)) {
                     if (!confirm(`当前目录已存在同名文件：\n"${files[i].name}"\n\n是否直接覆盖并替换为新版本？`)) {
-                        continue; // 如果取消，跳过该文件
+                        continue; 
                     }
                 }
                 filesToUpload.push(files[i]);
@@ -370,17 +401,29 @@
             loadFileList();
         }
 
-        function downloadFile(event, id, fileName) {
+        async function copyLink(event, link) {
+            event.stopPropagation();
+            try {
+                await navigator.clipboard.writeText(link);
+                const btn = event.currentTarget;
+                const originalIcon = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check" style="color:var(--accent-green);"></i>';
+                setTimeout(() => { btn.innerHTML = originalIcon; }, 2000);
+            } catch (e) {
+                alert("复制失败，请手动复制: " + link);
+            }
+        }
+
+        function downloadFile(event, link, fileName) {
             event.stopPropagation(); 
             const btn = event.currentTarget;
             const originalIcon = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>'; 
             btn.disabled = true;
 
-            const downloadUrl = `/api/cloud/download?id=${id}&auth=${encodeURIComponent(token)}&t=${Date.now()}`;
             const a = document.createElement('a');
             a.style.display = 'none';
-            a.href = downloadUrl;
+            a.href = link;
             a.download = fileName || 'download';
             document.body.appendChild(a);
             a.click();
@@ -389,7 +432,7 @@
             setTimeout(() => {
                 btn.innerHTML = originalIcon;
                 btn.disabled = false;
-            }, 2000);
+            }, 1500);
         }
 
         async function deleteItem(event, id, type) {
