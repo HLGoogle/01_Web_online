@@ -340,45 +340,36 @@
             loadFileList();
         }
 
-        // --- 修复点：加入时间戳防边缘缓存 ---
-        async function downloadFile(event, id, fileName) {
-            event.stopPropagation(); 
+       // --- 修复点：原生直链极速下载 + 优雅的视觉正反馈 ---
+        function downloadFile(event, id, fileName) {
+            event.stopPropagation(); // 阻止点击穿透
             
             const btn = event.currentTarget;
             const originalIcon = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>'; 
+            
+            // 1. 立即给予正反馈：按钮变成转圈，告诉用户“指令已接收”
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>';
             btn.disabled = true;
 
-            try {
-                // t=${Date.now()} 彻底粉碎 Cloudflare 边缘缓存
-                const res = await fetch(`/api/cloud/download?id=${id}&t=${Date.now()}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                // 如果遭遇后端报错，直接抓取真实死因
-                if (!res.ok) {
-                    const errText = await res.text();
-                    throw new Error(`后端拒绝(${res.status}): ${errText}`);
-                }
-                
-                const blob = await res.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = downloadUrl;
-                a.download = fileName || 'download';
-                document.body.appendChild(a);
-                a.click();
-                
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(downloadUrl); 
-            } catch (e) {
-                alert(`下载异常: ${e.message}`);
-            } finally {
+            // 2. 将 Token 拼接到 URL 中，构建极速直链
+            const downloadUrl = `/api/cloud/download?id=${id}&auth=${encodeURIComponent(token)}&t=${Date.now()}`;
+            
+            // 3. 伪造 <a> 标签，静默唤起浏览器的原生下载引擎
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = downloadUrl;
+            a.download = fileName || 'download';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // 4. 核心体验优化：延迟 2 秒恢复按钮状态
+            // 掩盖大文件在 Cloudflare 后端的首字节响应时间 (TTFB)
+            // 2秒后，浏览器的原生下载管理器刚好接管弹出！
+            setTimeout(() => {
                 btn.innerHTML = originalIcon;
                 btn.disabled = false;
-            }
+            }, 2000);
         }
 
         // --- 修复点：严格校验假删除 ---
