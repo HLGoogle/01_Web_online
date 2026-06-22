@@ -37,8 +37,8 @@
         
         .status-bar { background: var(--bg-card); border: 1px solid var(--accent-color); padding: 12px 16px; border-radius: 8px; display: none; margin-bottom: 16px; font-size: 13px;}
         
+        /* 网格视图基础样式 */
         .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-        
         .item-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease; cursor: grab; }
         .item-card:active { cursor: grabbing; }
         .item-card:hover { border-color: #388bfd80; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateY(-1px); }
@@ -103,17 +103,36 @@
 
     <script>
         const token = localStorage.getItem('nav_token');
+        if (!token) window.close();
+
         const MAX_QUOTA = 10 * 1024 * 1024 * 1024; // 10 GB
         let currentFolderId = 0;
-        let isListView = false;
         let pathHistory = [{ id: 0, name: '根目录' }]; 
         let activeUploads = {}; 
 
-        if (!token) { window.close(); } else { loadFileList(); }
+        // 🚀 核心优化 1：立即读取视图偏好并同步应用，消除切换闪跳
+        const gridZone = document.getElementById('grid-zone');
+        const viewIcon = document.getElementById('view-icon');
+        let isListView = localStorage.getItem('cloud_view_mode') === 'list';
+        
+        if (isListView) {
+            gridZone.className = 'file-grid list-view';
+            viewIcon.className = 'fas fa-th-large';
+        } else {
+            gridZone.className = 'file-grid';
+            viewIcon.className = 'fas fa-list';
+        }
 
-        // 🚀 核心：渲染 DOM 的独立函数
+        // 视图切换功能
+        function toggleView() {
+            isListView = !isListView;
+            localStorage.setItem('cloud_view_mode', isListView ? 'list' : 'grid'); // 持久化记住用户选择
+            gridZone.className = isListView ? 'file-grid list-view' : 'file-grid';
+            viewIcon.className = isListView ? 'fas fa-th-large' : 'fas fa-list';
+        }
+
+        // 独立纯净的 DOM 渲染器
         function renderGridContent(resultData) {
-            const grid = document.getElementById('grid-zone');
             const capText = document.getElementById('cap-text');
             const capBar = document.getElementById('cap-bar');
             
@@ -131,7 +150,7 @@
             let htmlContent = '';
 
             if (folders.length === 0 && files.length === 0) {
-                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">此文件夹为空</div>`;
+                gridZone.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">此文件夹为空</div>`;
                 return;
             }
 
@@ -179,28 +198,29 @@
                 `;
             });
 
-            grid.innerHTML = htmlContent;
+            gridZone.innerHTML = htmlContent;
         }
 
-        // 🚀 核心：秒开优化 (SWR 缓存策略)
+        // 🚀 核心优化 2：极致严谨的 SWR 引擎机制
         async function loadFileList() {
-            const grid = document.getElementById('grid-zone');
             const cacheKey = `cloud_data_folder_${currentFolderId}`;
-            
-            // 1. 优先读取本地缓存，瞬间渲染 DOM
             const cachedString = localStorage.getItem(cacheKey);
+
+            // 【阶段 1：同步拦截】在浏览器产生绘制帧之前，暴力阻断黑屏并瞬间上屏缓存
             if (cachedString) {
                 try {
                     renderGridContent(JSON.parse(cachedString));
                 } catch (e) {
-                    console.error("本地缓存解析失败", e);
+                    console.warn("缓存解析失效，正在清理", e);
+                    localStorage.removeItem(cacheKey);
+                    gridZone.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`;
                 }
             } else {
-                // 首次访问无缓存，显示占位符
-                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`;
+                // 如果是新设备/新目录完全没有缓存，展示过渡状态
+                gridZone.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`;
             }
 
-            // 2. 后台静默发起请求获取最新数据
+            // 【阶段 2：异步静默更新】无需等待，后台悄悄发起请求校验最新版本
             try {
                 const res = await fetch(`/api/cloud/list?folder_id=${currentFolderId}`, { 
                     headers: { 'Authorization': `Bearer ${token}` } 
@@ -213,7 +233,7 @@
                 
                 const newString = JSON.stringify(result);
                 
-                // 3. 对比新旧数据，有差异才重新渲染并更新缓存
+                // 【阶段 3：按需脏检查】只有服务器数据发生了真实变化，才去触发 DOM 替换，避免无意义的页面闪烁
                 if (newString !== cachedString) {
                     localStorage.setItem(cacheKey, newString);
                     renderGridContent(result); 
@@ -221,24 +241,19 @@
                 
             } catch (e) { 
                 console.error("后台数据同步失败:", e);
+                // 只有在没缓存且断网/报错的绝境下，才展示致命错误，保证体验完整性
                 if (!cachedString) {
                     document.getElementById('cap-text').textContent = '获取失败';
-                    grid.innerHTML = `
+                    gridZone.innerHTML = `
                         <div style="grid-column: 1/-1; padding: 20px; color: var(--accent-danger); border: 1px solid var(--accent-danger); border-radius: 8px; background: rgba(248,81,73,0.1);">
-                            <i class="fas fa-bug"></i> <b>数据异常：</b>${e.message}
+                            <i class="fas fa-bug"></i> <b>网络数据异常：</b>${e.message}
                         </div>
                     `;
                 }
             }
         }
 
-        // --- 视图与导航 ---
-        function toggleView() {
-            isListView = !isListView;
-            document.getElementById('grid-zone').className = isListView ? 'file-grid list-view' : 'file-grid';
-            document.getElementById('view-icon').className = isListView ? 'fas fa-th-large' : 'fas fa-list';
-        }
-
+        // --- 视图与导航交互逻辑保持不变 ---
         function enterFolder(id, name) {
             currentFolderId = id;
             if (id === 0) { pathHistory = [{ id: 0, name: '根目录' }]; } 
@@ -307,9 +322,7 @@
                 const data = await res.json();
                 if (data.success === false) throw new Error(data.error);
                 loadFileList(); 
-            } catch (e) {
-                alert(`重命名失败: ${e.message}`);
-            }
+            } catch (e) { alert(`重命名失败: ${e.message}`); }
         }
 
         async function setAlias(event, id, currentAlias) {
@@ -328,9 +341,7 @@
                 
                 alert("短链设置成功！\n当前外链地址: " + window.location.origin + "/api/f/" + (alias || "?id=" + id));
                 loadFileList(); 
-            } catch (e) {
-                alert(`设置失败: ${e.message}`);
-            }
+            } catch (e) { alert(`设置失败: ${e.message}`); }
         }
 
         function cancelUpload(uploadId) {
@@ -356,17 +367,12 @@
             const filesToUpload = [];
             for (let i = 0; i < files.length; i++) {
                 if (existingNames.includes(files[i].name)) {
-                    if (!confirm(`当前目录已存在同名文件：\n"${files[i].name}"\n\n是否直接覆盖并替换为新版本？`)) {
-                        continue; 
-                    }
+                    if (!confirm(`当前目录已存在同名文件：\n"${files[i].name}"\n\n是否直接覆盖并替换为新版本？`)) continue; 
                 }
                 filesToUpload.push(files[i]);
             }
 
-            if (filesToUpload.length === 0) {
-                uploader.value = '';
-                return;
-            }
+            if (filesToUpload.length === 0) { uploader.value = ''; return; }
 
             const sb = document.getElementById('global-status');
             sb.style.display = 'block';
@@ -417,22 +423,12 @@
                             } catch(err) { reject(new Error("非法的服务器响应")); }
                         };
                         
-                        xhr.onabort = () => {
-                            delete activeUploads[uploadId];
-                            reject(new Error("UPLOAD_CANCELED"));
-                        };
-
-                        xhr.onerror = () => { 
-                            delete activeUploads[uploadId]; 
-                            reject(new Error("网关连接断开")); 
-                        };
-                        
+                        xhr.onabort = () => { delete activeUploads[uploadId]; reject(new Error("UPLOAD_CANCELED")); };
+                        xhr.onerror = () => { delete activeUploads[uploadId]; reject(new Error("网关连接断开")); };
                         xhr.send(file);
                     });
                 } catch (e) { 
-                    if (e.message !== "UPLOAD_CANCELED") {
-                        alert(`文件 "${file.name}" 上传失败：\n${e.message}`); 
-                    }
+                    if (e.message !== "UPLOAD_CANCELED") alert(`文件 "${file.name}" 上传失败：\n${e.message}`); 
                 }
             }
             sb.style.display = 'none'; 
@@ -446,27 +442,17 @@
             const originalIcon = btn.innerHTML;
 
             try {
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(link);
-                } else {
+                if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(link); } 
+                else {
                     const textArea = document.createElement("textarea");
-                    textArea.value = link;
-                    textArea.style.position = "fixed";
-                    textArea.style.opacity = "0";
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    const successful = document.execCommand('copy');
-                    document.body.removeChild(textArea);
+                    textArea.value = link; textArea.style.position = "fixed"; textArea.style.opacity = "0";
+                    document.body.appendChild(textArea); textArea.focus(); textArea.select();
+                    const successful = document.execCommand('copy'); document.body.removeChild(textArea);
                     if (!successful) throw new Error("传统复制被拦截");
                 }
-                
                 btn.innerHTML = '<i class="fas fa-check" style="color:var(--accent-green);"></i>';
                 setTimeout(() => { btn.innerHTML = originalIcon; }, 2000);
-                
-            } catch (e) {
-                window.prompt("浏览器剪贴板受限，请直接按 Ctrl+C 手动复制：", link);
-            }
+            } catch (e) { window.prompt("浏览器剪贴板受限，请直接按 Ctrl+C 手动复制：", link); }
         }
 
         function downloadFile(event, link, fileName) {
@@ -476,36 +462,24 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>'; 
             btn.disabled = true;
 
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = link;
-            a.download = fileName || 'download';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            setTimeout(() => {
-                btn.innerHTML = originalIcon;
-                btn.disabled = false;
-            }, 1500);
+            const a = document.createElement('a'); a.style.display = 'none'; a.href = link; a.download = fileName || 'download';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => { btn.innerHTML = originalIcon; btn.disabled = false; }, 1500);
         }
 
         async function deleteItem(event, id, type) {
             event.stopPropagation(); 
             if (!confirm(`警告：确认永久销毁此${type === 'folder' ? '文件夹' : '文件'}吗？`)) return;
-            
             try {
-                const res = await fetch(`/api/cloud/delete?id=${id}&type=${type}`, { 
-                    method: 'DELETE', 
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await fetch(`/api/cloud/delete?id=${id}&type=${type}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
                 if (data.success === false) throw new Error(data.error);
                 loadFileList(); 
-            } catch (e) {
-                alert(`销毁失败: ${e.message}`);
-            }
+            } catch (e) { alert(`销毁失败: ${e.message}`); }
         }
+
+        // 最终执行初始化
+        if (token) loadFileList();
     </script>
 </body>
 </html>
