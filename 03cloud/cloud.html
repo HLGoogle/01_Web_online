@@ -43,33 +43,11 @@
         .item-card:active { cursor: grabbing; }
         .item-card:hover { border-color: #388bfd80; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateY(-1px); }
         
-        /* --- 🚀 优化后的横向列表视图（更加紧凑密集） --- */
-        .file-grid.list-view { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 0; 
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .list-view .item-card { 
-            flex-direction: row; 
-            align-items: center; 
-            padding: 6px 16px; 
-            border-radius: 0; 
-            border: none;
-            border-bottom: 1px solid var(--border-color); 
-            background: var(--bg-card);
-        }
-        .list-view .item-card:last-child { 
-            border-bottom: none; 
-        }
-        .list-view .item-card:hover { 
-            transform: none; 
-            background: rgba(255, 255, 255, 0.03); 
-            box-shadow: none;
-        }
+        /* 紧凑列表视图样式 */
+        .file-grid.list-view { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .list-view .item-card { flex-direction: row; align-items: center; padding: 6px 16px; border-radius: 0; border: none; border-bottom: 1px solid var(--border-color); background: var(--bg-card); }
+        .list-view .item-card:last-child { border-bottom: none; }
+        .list-view .item-card:hover { transform: none; background: rgba(255, 255, 255, 0.03); box-shadow: none; }
         .list-view .file-info { flex: 1; }
         .list-view .file-actions { margin-top: 0; border-top: none; padding-top: 0; }
         
@@ -82,20 +60,9 @@
         .file-name { font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
         .file-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-        /* --- 🚀 新增：图片缩略图通用样式 --- */
-        .file-thumb {
-            width: 32px;
-            height: 32px;
-            object-fit: cover; 
-            border-radius: 4px;
-            flex-shrink: 0;
-            border: 1px solid var(--border-color);
-            background: #000;
-        }
-        .file-grid:not(.list-view) .file-thumb {
-            width: 38px;
-            height: 38px;
-        }
+        /* 图片缩略图样式 */
+        .file-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; border: 1px solid var(--border-color); background: #000; }
+        .file-grid:not(.list-view) .file-thumb { width: 38px; height: 38px; }
         
         .file-actions { display: flex; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
         .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
@@ -144,11 +111,96 @@
 
         if (!token) { window.close(); } else { loadFileList(); }
 
-        async function loadFileList() {
+        // 🚀 核心：渲染 DOM 的独立函数
+        function renderGridContent(resultData) {
             const grid = document.getElementById('grid-zone');
             const capText = document.getElementById('cap-text');
             const capBar = document.getElementById('cap-bar');
             
+            const safeData = resultData.data || {};
+            const folders = safeData.folders || [];
+            const files = safeData.files || [];
+            const totalBytes = safeData.totalSize || 0;
+            
+            const usedGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
+            const percent = Math.min((totalBytes / MAX_QUOTA) * 100, 100);
+            capText.textContent = `${usedGB}G / 10G`;
+            capBar.style.width = `${percent}%`;
+            capBar.style.background = percent > 90 ? 'var(--accent-danger)' : 'var(--accent-green)';
+
+            let htmlContent = '';
+
+            if (folders.length === 0 && files.length === 0) {
+                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">此文件夹为空</div>`;
+                return;
+            }
+
+            folders.forEach(folder => {
+                const safeFolderName = folder.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                htmlContent += `
+                    <div class="item-card folder" ondragover="event.preventDefault(); this.classList.add('drag-target')" ondragleave="this.classList.remove('drag-target')" ondrop="handleDropToFolder(event, ${folder.id})">
+                        <div class="file-info" style="cursor: pointer;" onclick="enterFolder(${folder.id}, '${safeFolderName}')">
+                            <i class="fas fa-folder file-icon folder"></i>
+                            <div><div class="file-name" title="${folder.name}">${folder.name}</div><div class="file-size">文件夹</div></div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="action-btn" onclick="renameItem(event, ${folder.id}, 'folder', '${safeFolderName}')" title="重命名"><i class="fas fa-edit"></i></button>
+                            <button class="action-btn del" onclick="deleteItem(event, ${folder.id}, 'folder')" title="删除"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            files.forEach(file => {
+                const sizeMB = (file.file_size / 1024 / 1024).toFixed(2);
+                const safeFileName = file.file_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const currentAlias = file.alias ? file.alias : '';
+                const shortLink = currentAlias ? `${window.location.origin}/api/f/${currentAlias}` : `${window.location.origin}/api/f?id=${file.id}`;
+                
+                // 识别图片
+                const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(file.file_name);
+                let fileIconHtml = `<i class="fas fa-file-alt file-icon file"></i>`;
+                if (isImage) { fileIconHtml = `<img src="${shortLink}" class="file-thumb" alt="preview" loading="lazy">`; }
+                
+                htmlContent += `
+                    <div class="item-card file" draggable="true" ondragstart="handleDragStart(event, ${file.id})">
+                        <div class="file-info">
+                            ${fileIconHtml}
+                            <div style="overflow: hidden;"><div class="file-name" title="${file.file_name}">${file.file_name}</div><div class="file-size">${sizeMB} MB</div></div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="action-btn" onclick="copyLink(event, '${shortLink}')" title="复制当前直链"><i class="fas fa-copy"></i></button>
+                            <button class="action-btn" onclick="downloadFile(event, '${shortLink}', '${safeFileName}')" title="下载"><i class="fas fa-download"></i></button>
+                            <button class="action-btn" onclick="setAlias(event, ${file.id}, '${currentAlias}')" title="设置短链别名"><i class="fas fa-cog"></i></button>
+                            <button class="action-btn" onclick="renameItem(event, ${file.id}, 'file', '${safeFileName}')" title="重命名"><i class="fas fa-edit"></i></button>
+                            <button class="action-btn del" onclick="deleteItem(event, ${file.id}, 'file')" title="删除"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = htmlContent;
+        }
+
+        // 🚀 核心：秒开优化 (SWR 缓存策略)
+        async function loadFileList() {
+            const grid = document.getElementById('grid-zone');
+            const cacheKey = `cloud_data_folder_${currentFolderId}`;
+            
+            // 1. 优先读取本地缓存，瞬间渲染 DOM
+            const cachedString = localStorage.getItem(cacheKey);
+            if (cachedString) {
+                try {
+                    renderGridContent(JSON.parse(cachedString));
+                } catch (e) {
+                    console.error("本地缓存解析失败", e);
+                }
+            } else {
+                // 首次访问无缓存，显示占位符
+                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`;
+            }
+
+            // 2. 后台静默发起请求获取最新数据
             try {
                 const res = await fetch(`/api/cloud/list?folder_id=${currentFolderId}`, { 
                     headers: { 'Authorization': `Bearer ${token}` } 
@@ -159,84 +211,24 @@
                 const result = await res.json();
                 if (result.success === false) throw new Error(result.error || "后端返回失败状态");
                 
-                const safeData = result.data || {};
-                const folders = safeData.folders || [];
-                const files = safeData.files || [];
-                const totalBytes = safeData.totalSize || 0;
+                const newString = JSON.stringify(result);
                 
-                const usedGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
-                const percent = Math.min((totalBytes / MAX_QUOTA) * 100, 100);
-                capText.textContent = `${usedGB}G / 10G`;
-                capBar.style.width = `${percent}%`;
-                if (percent > 90) capBar.style.background = 'var(--accent-danger)';
-                else capBar.style.background = 'var(--accent-green)';
-
-                grid.innerHTML = '';
-
-                if (folders.length === 0 && files.length === 0) {
-                    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">此文件夹为空</div>`;
-                    return;
+                // 3. 对比新旧数据，有差异才重新渲染并更新缓存
+                if (newString !== cachedString) {
+                    localStorage.setItem(cacheKey, newString);
+                    renderGridContent(result); 
                 }
-
-                folders.forEach(folder => {
-                    const safeFolderName = folder.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    grid.innerHTML += `
-                        <div class="item-card folder" ondragover="event.preventDefault(); this.classList.add('drag-target')" ondragleave="this.classList.remove('drag-target')" ondrop="handleDropToFolder(event, ${folder.id})">
-                            <div class="file-info" style="cursor: pointer;" onclick="enterFolder(${folder.id}, '${safeFolderName}')">
-                                <i class="fas fa-folder file-icon folder"></i>
-                                <div><div class="file-name" title="${folder.name}">${folder.name}</div><div class="file-size">文件夹</div></div>
-                            </div>
-                            <div class="file-actions">
-                                <button class="action-btn" onclick="renameItem(event, ${folder.id}, 'folder', '${safeFolderName}')" title="重命名"><i class="fas fa-edit"></i></button>
-                                <button class="action-btn del" onclick="deleteItem(event, ${folder.id}, 'folder')" title="删除"><i class="fas fa-trash-alt"></i></button>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                // 🚀 优化：文件列表渲染，支持图片识别与缩略图加载
-                files.forEach(file => {
-                    const sizeMB = (file.file_size / 1024 / 1024).toFixed(2);
-                    const safeFileName = file.file_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    
-                    const currentAlias = file.alias ? file.alias : '';
-                    const shortLink = currentAlias 
-                        ? `${window.location.origin}/api/f/${currentAlias}` 
-                        : `${window.location.origin}/api/f?id=${file.id}`;
-                    
-                    // 正则匹配常见图片格式
-                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(file.file_name);
-                    
-                    // 动态生成图表或缩略图标签
-                    let fileIconHtml = `<i class="fas fa-file-alt file-icon file"></i>`;
-                    if (isImage) {
-                        fileIconHtml = `<img src="${shortLink}" class="file-thumb" alt="preview" loading="lazy">`;
-                    }
-                    
-                    grid.innerHTML += `
-                        <div class="item-card file" draggable="true" ondragstart="handleDragStart(event, ${file.id})">
-                            <div class="file-info">
-                                ${fileIconHtml}
-                                <div style="overflow: hidden;"><div class="file-name" title="${file.file_name}">${file.file_name}</div><div class="file-size">${sizeMB} MB</div></div>
-                            </div>
-                            <div class="file-actions">
-                                <button class="action-btn" onclick="copyLink(event, '${shortLink}')" title="复制当前直链"><i class="fas fa-copy"></i></button>
-                                <button class="action-btn" onclick="downloadFile(event, '${shortLink}', '${safeFileName}')" title="下载"><i class="fas fa-download"></i></button>
-                                <button class="action-btn" onclick="setAlias(event, ${file.id}, '${currentAlias}')" title="设置短链别名"><i class="fas fa-cog"></i></button>
-                                <button class="action-btn" onclick="renameItem(event, ${file.id}, 'file', '${safeFileName}')" title="重命名"><i class="fas fa-edit"></i></button>
-                                <button class="action-btn del" onclick="deleteItem(event, ${file.id}, 'file')" title="删除"><i class="fas fa-trash-alt"></i></button>
-                            </div>
-                        </div>
-                    `;
-                });
+                
             } catch (e) { 
-                console.error("列表加载拦截:", e);
-                capText.textContent = '获取失败';
-                grid.innerHTML = `
-                    <div style="grid-column: 1/-1; padding: 20px; color: var(--accent-danger); border: 1px solid var(--accent-danger); border-radius: 8px; background: rgba(248,81,73,0.1);">
-                        <i class="fas fa-bug"></i> <b>数据异常：</b>${e.message}
-                    </div>
-                `;
+                console.error("后台数据同步失败:", e);
+                if (!cachedString) {
+                    document.getElementById('cap-text').textContent = '获取失败';
+                    grid.innerHTML = `
+                        <div style="grid-column: 1/-1; padding: 20px; color: var(--accent-danger); border: 1px solid var(--accent-danger); border-radius: 8px; background: rgba(248,81,73,0.1);">
+                            <i class="fas fa-bug"></i> <b>数据异常：</b>${e.message}
+                        </div>
+                    `;
+                }
             }
         }
 
@@ -450,7 +442,6 @@
 
         async function copyLink(event, link) {
             event.stopPropagation();
-            
             const btn = event.currentTarget;
             const originalIcon = btn.innerHTML;
 
