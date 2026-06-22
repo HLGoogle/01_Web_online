@@ -83,48 +83,30 @@ export async function onRequest(context) {
     // ========================================== 
     if (path.includes('cloud')) {
       
-      // 提取通用的字符串和数字型 user_id，打破类型墙
       const strUserId = String(userId);
       const intUserId = Number(userId) || 0;
 
-      // 1. 获取列表与容量统揽
       if (path.includes('list') && method === 'GET') {
         const folderId = Number(url.searchParams.get("folder_id")) || 0;
-        
-        const { results: folders } = await env.DB.prepare(
-          'SELECT * FROM cloud_folders WHERE (user_id = ? OR user_id = ?) AND parent_id = ? ORDER BY created_at DESC'
-        ).bind(strUserId, intUserId, folderId).all();
-        
-        // 核心修复：如果在根目录，把 folder_id 为 NULL 的老文件也查出来
-        const { results: files } = await env.DB.prepare(
-          'SELECT * FROM cloud_files WHERE (user_id = ? OR user_id = ?) AND (folder_id = ? OR (? = 0 AND folder_id IS NULL)) ORDER BY created_at DESC'
-        ).bind(strUserId, intUserId, folderId, folderId).all();
-        
-        const sizeRes = await env.DB.prepare(
-          'SELECT SUM(file_size) as total FROM cloud_files WHERE user_id = ? OR user_id = ?'
-        ).bind(strUserId, intUserId).first();
+        const { results: folders } = await env.DB.prepare('SELECT * FROM cloud_folders WHERE (user_id = ? OR user_id = ?) AND parent_id = ? ORDER BY created_at DESC').bind(strUserId, intUserId, folderId).all();
+        const { results: files } = await env.DB.prepare('SELECT * FROM cloud_files WHERE (user_id = ? OR user_id = ?) AND (folder_id = ? OR (? = 0 AND folder_id IS NULL)) ORDER BY created_at DESC').bind(strUserId, intUserId, folderId, folderId).all();
+        const sizeRes = await env.DB.prepare('SELECT SUM(file_size) as total FROM cloud_files WHERE user_id = ? OR user_id = ?').bind(strUserId, intUserId).first();
         const totalSize = sizeRes ? (sizeRes.total || 0) : 0;
-
         return new Response(JSON.stringify({ success: true, data: { folders, files, totalSize } }), { headers });
       }
 
-      // 2. 新建文件夹
       if (path.includes('create-folder') && method === 'POST') {
         const { name, parent_id } = await request.json();
-        await env.DB.prepare('INSERT INTO cloud_folders (user_id, name, parent_id) VALUES (?, ?, ?)')
-          .bind(strUserId, name, parent_id || 0).run();
+        await env.DB.prepare('INSERT INTO cloud_folders (user_id, name, parent_id) VALUES (?, ?, ?)').bind(strUserId, name, parent_id || 0).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
-      // 3. 拖拽移动文件到文件夹
       if (path.includes('move-file') && method === 'PUT') {
         const { file_id, target_folder_id } = await request.json();
-        await env.DB.prepare('UPDATE cloud_files SET folder_id = ? WHERE id = ? AND (user_id = ? OR user_id = ?)')
-          .bind(target_folder_id, file_id, strUserId, intUserId).run();
+        await env.DB.prepare('UPDATE cloud_files SET folder_id = ? WHERE id = ? AND (user_id = ? OR user_id = ?)').bind(target_folder_id, file_id, strUserId, intUserId).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
-      // 4. 智能上传
       if (path.includes('upload') && method === 'POST') {
         try {
           if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶");
@@ -153,14 +135,12 @@ export async function onRequest(context) {
           if (!fileBuffer || fileBuffer.byteLength === 0) throw new Error("拦截：空文件");
           const r2Key = `${userId}/${Date.now()}_${fileName}`;
 
-          try {
-            await env.MY_BUCKET.put(r2Key, fileBuffer, { httpMetadata: { contentType: fileType } });
-          } catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
+          try { await env.MY_BUCKET.put(r2Key, fileBuffer, { httpMetadata: { contentType: fileType } }); } 
+          catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
 
           try {
-            await env.DB.prepare(
-              'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)'
-            ).bind(strUserId, fileName, r2Key, Number(fileSize), fileType, Number(folderId)).run();
+            await env.DB.prepare('INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)')
+              .bind(strUserId, fileName, r2Key, Number(fileSize), fileType, Number(folderId)).run();
           } catch(e) { throw new Error(`数据库写入失败: ${e.message}`); }
 
           return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
@@ -169,18 +149,16 @@ export async function onRequest(context) {
         }
       }
 
-      // 5. 删除文件/文件夹
+      // 5. 删除文件/文件夹 (强化 ID 数字类型约束)
       if (path.includes('delete') && method === 'DELETE') {
         try {
-          const id = url.searchParams.get("id");
+          const id = Number(url.searchParams.get("id")); // 强制转换数字，防止 SQLite 不认
           const type = url.searchParams.get("type");
 
           if (type === 'folder') {
-            await env.DB.prepare('DELETE FROM cloud_folders WHERE id = ? AND (user_id = ? OR user_id = ?)')
-              .bind(id, strUserId, intUserId).run();
+            await env.DB.prepare('DELETE FROM cloud_folders WHERE id = ? AND (user_id = ? OR user_id = ?)').bind(id, strUserId, intUserId).run();
           } else {
-            const fileInfo = await env.DB.prepare('SELECT r2_key FROM cloud_files WHERE id = ? AND (user_id = ? OR user_id = ?)')
-              .bind(id, strUserId, intUserId).first();
+            const fileInfo = await env.DB.prepare('SELECT r2_key FROM cloud_files WHERE id = ? AND (user_id = ? OR user_id = ?)').bind(id, strUserId, intUserId).first();
             if (!fileInfo) throw new Error("文件不存在或无权操作");
             await env.MY_BUCKET.delete(fileInfo.r2_key);
             await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
@@ -191,9 +169,9 @@ export async function onRequest(context) {
         }
       }
 
-      // 6. 下载极速流
+      // 6. 下载极速流 (强化 ID 数字类型约束)
       if (path.includes('download') && method === 'GET') {
-        const id = url.searchParams.get("id");
+        const id = Number(url.searchParams.get("id")); // 强制转换数字，破除 404
         const fileInfo = await env.DB.prepare('SELECT file_name, r2_key FROM cloud_files WHERE id = ? AND (user_id = ? OR user_id = ?)')
           .bind(id, strUserId, intUserId).first();
         if (!fileInfo) return new Response("文件不存在或无权限", { status: 404, headers });
@@ -277,8 +255,7 @@ export async function onRequest(context) {
         const existing = await env.DB.prepare('SELECT id FROM Web_online_users_00 WHERE username = ?').bind(username).first();
         if (existing) throw new Error('该用户名已存在');
         const hashedPassword = await sha256(password + PWD_SALT);
-        await env.DB.prepare('INSERT INTO Web_online_users_00 (username, password, reset_code, settings) VALUES (?, ?, ?, ?)')
-          .bind(username, hashedPassword, reset_code, '{"sensitivity": 50}').run();
+        await env.DB.prepare('INSERT INTO Web_online_users_00 (username, password, reset_code, settings) VALUES (?, ?, ?, ?)').bind(username, hashedPassword, reset_code, '{"sensitivity": 50}').run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
@@ -313,8 +290,7 @@ export async function onRequest(context) {
       }
       const body = await request.json();
       if (method === 'POST') {
-        await env.DB.prepare('INSERT INTO Web_online_info_01 (user_id, type, url, icon, comment, note, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .bind(userId, body.type, body.url, body.icon, body.comment, body.note, body.sort_order || 0).run();
+        await env.DB.prepare('INSERT INTO Web_online_info_01 (user_id, type, url, icon, comment, note, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(userId, body.type, body.url, body.icon, body.comment, body.note, body.sort_order || 0).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
       if (method === 'PUT') {
@@ -323,8 +299,7 @@ export async function onRequest(context) {
           await env.DB.batch(stmts); 
           return new Response(JSON.stringify({ success: true, message: "排序更新成功" }), { headers });
         } else {
-          await env.DB.prepare('UPDATE Web_online_info_01 SET type=?, url=?, icon=?, comment=?, note=?, sort_order=? WHERE id=? AND user_id=?')
-            .bind(body.type, body.url, body.icon, body.comment, body.note, body.sort_order, body.id, userId).run();
+          await env.DB.prepare('UPDATE Web_online_info_01 SET type=?, url=?, icon=?, comment=?, note=?, sort_order=? WHERE id=? AND user_id=?').bind(body.type, body.url, body.icon, body.comment, body.note, body.sort_order, body.id, userId).run();
           return new Response(JSON.stringify({ success: true }), { headers });
         }
       }
@@ -345,7 +320,6 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers });
 
   } catch (globalError) {
-    // 最后的安全网：伪装成 200 返回全盘错误，防止被劫持成白屏 500
     return new Response(JSON.stringify({ success: false, error: "网关底座异常: " + globalError.message }), { status: 200, headers });
   }
 }
