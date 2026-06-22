@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 企业级全能终极版 - 集成同名覆盖、文件夹层级、容量统计、防 500 劫持
+ * 企业级全能终极版 - 集成直链图床、同名覆盖、文件夹层级、自定义短链别名
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -33,6 +33,51 @@ export async function onRequest(context) {
 
   if (method === 'OPTIONS') return new Response(null, { headers });
 
+  // ==========================================
+  // 🌐 公共直链/图床模块 (支持 ID 或自定义别名，无须鉴权)
+  // ==========================================
+  if (path.startsWith('/api/f') && method === 'GET') {
+    try {
+      const slug = path.split('/').pop(); // 获取 /api/f/ 之后的路径
+      const idParam = url.searchParams.get("id");
+      
+      let fileInfo;
+      // 1. 如果路径有别名 (例如 /api/f/my-file)
+      if (slug !== 'f' && slug !== '') { 
+        fileInfo = await env.DB.prepare('SELECT file_name, file_type, r2_key FROM cloud_files WHERE alias = ?').bind(slug).first();
+      } 
+      // 2. 如果走传统的 ID 路线 (例如 /api/f?id=14)
+      else if (idParam) { 
+        fileInfo = await env.DB.prepare('SELECT file_name, file_type, r2_key FROM cloud_files WHERE id = ?').bind(Number(idParam)).first();
+      }
+      
+      if (!fileInfo) return new Response("文件不存在或别名未配置", { status: 404, headers });
+
+      const r2Object = await env.MY_BUCKET.get(fileInfo.r2_key);
+      if (!r2Object) return new Response("存储桶文件丢失", { status: 404, headers });
+
+      const downloadHeaders = new Headers();
+      r2Object.writeHttpMetadata(downloadHeaders);
+      downloadHeaders.set("etag", r2Object.httpEtag);
+      
+      // 图床智能判定：图片/音视频直接在网页内联显示，其他文件强制下载
+      const type = fileInfo.file_type || '';
+      if (type.startsWith('image/') || type.startsWith('video/') || type.startsWith('audio/')) {
+        downloadHeaders.set("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(fileInfo.file_name)}`);
+      } else {
+        downloadHeaders.set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileInfo.file_name)}`);
+      }
+      downloadHeaders.set('Access-Control-Allow-Origin', '*');
+
+      return new Response(r2Object.body, { headers: downloadHeaders });
+    } catch(e) {
+      return new Response("服务器内部错误", { status: 500, headers });
+    }
+  }
+
+  // ==========================================
+  // 📸 读取 KV 自定义图片
+  // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
     const placeholderPng = new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,11,73,68,65,84,120,156,99,96,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130]);
@@ -50,6 +95,9 @@ export async function onRequest(context) {
     }
   }
 
+  // ==========================================
+  // 🛡️ 安全网关认证 (管理后台需要登录)
+  // ==========================================
   let userId = null;
   const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('cloud');
   
@@ -84,6 +132,7 @@ export async function onRequest(context) {
       if (path.includes('list') && method === 'GET') {
         const folderId = Number(url.searchParams.get("folder_id")) || 0;
         const { results: folders } = await env.DB.prepare('SELECT * FROM cloud_folders WHERE (user_id = ? OR user_id = ?) AND parent_id = ? ORDER BY created_at DESC').bind(strUserId, intUserId, folderId).all();
+        // 自动拉取文件列表（包含了刚建立的 alias 字段）
         const { results: files } = await env.DB.prepare('SELECT * FROM cloud_files WHERE (user_id = ? OR user_id = ?) AND (folder_id = ? OR (? = 0 AND folder_id IS NULL)) ORDER BY created_at DESC').bind(strUserId, intUserId, folderId, folderId).all();
         const sizeRes = await env.DB.prepare('SELECT SUM(file_size) as total FROM cloud_files WHERE user_id = ? OR user_id = ?').bind(strUserId, intUserId).first();
         const totalSize = sizeRes ? (sizeRes.total || 0) : 0;
@@ -104,7 +153,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
-      // 4. 上传文件 (🚀 引入同名自动覆盖机制)
+      // 4. 上传文件 (同名自动覆盖机制)
       if (path.includes('upload') && method === 'POST') {
         try {
           if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶");
@@ -137,18 +186,14 @@ export async function onRequest(context) {
           catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
 
           try {
-            // 🔍 检测是否存在同名文件
             const existingFile = await env.DB.prepare('SELECT id, r2_key FROM cloud_files WHERE file_name = ? AND folder_id = ? AND (user_id = ? OR user_id = ?)')
               .bind(fileName, Number(folderId), strUserId, intUserId).first();
 
             if (existingFile) {
-              // 🚀 存在！执行覆盖：只更新 D1 里的 R2路径 和 文件大小
               await env.DB.prepare('UPDATE cloud_files SET r2_key = ?, file_size = ?, file_type = ? WHERE id = ?')
                 .bind(r2Key, Number(fileSize), fileType, existingFile.id).run();
-              // 悄悄销毁旧的 R2 物理文件，防止空间泄漏
               await env.MY_BUCKET.delete(existingFile.r2_key).catch(() => console.log('旧文件清理跳过'));
             } else {
-              // 新增
               await env.DB.prepare('INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)')
                 .bind(strUserId, fileName, r2Key, Number(fileSize), fileType, Number(folderId)).run();
             }
@@ -180,22 +225,18 @@ export async function onRequest(context) {
         }
       }
 
-      // 6. 下载极速流
-      if (path.includes('download') && method === 'GET') {
-        const id = Number(url.searchParams.get("id")); 
-        const fileInfo = await env.DB.prepare('SELECT file_name, r2_key FROM cloud_files WHERE id = ? AND (user_id = ? OR user_id = ?)')
-          .bind(id, strUserId, intUserId).first();
-        if (!fileInfo) return new Response("文件不存在或无权限", { status: 404, headers });
-
-        const r2Object = await env.MY_BUCKET.get(fileInfo.r2_key);
-        if (!r2Object) return new Response("存储桶中未找到该文件体", { status: 404, headers });
-
-        const downloadHeaders = new Headers();
-        r2Object.writeHttpMetadata(downloadHeaders);
-        downloadHeaders.set("etag", r2Object.httpEtag);
-        downloadHeaders.set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileInfo.file_name)}`);
-        downloadHeaders.set('Access-Control-Allow-Origin', '*');
-        return new Response(r2Object.body, { headers: downloadHeaders });
+      // 6. 🚀 设置自定义短链别名
+      if (path.includes('set-alias') && method === 'PUT') {
+        const { id, alias } = await request.json();
+        try {
+          // 如果传入空字符串，则设置为 null
+          const finalAlias = alias && alias.trim() !== '' ? alias.trim() : null;
+          await env.DB.prepare('UPDATE cloud_files SET alias = ? WHERE id = ? AND (user_id = ? OR user_id = ?)')
+            .bind(finalAlias, Number(id), strUserId, intUserId).run();
+          return new Response(JSON.stringify({ success: true, message: "设置成功" }), { headers });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: "别名可能已被占用，请换一个" }), { status: 200, headers });
+        }
       }
 
       // 7. 重命名
@@ -218,6 +259,9 @@ export async function onRequest(context) {
       }
     }
 
+    // ========================================== 
+    // 🎴 记事条模块
+    // ========================================== 
     if (path.startsWith('/api/code-grid')) {
       if (method === 'GET') {
         const rows = await env.DB.prepare('SELECT id, user_id, row_data, sort_order FROM Web_code_rows WHERE user_id = ? ORDER BY sort_order ASC, id DESC').bind(userId).all();
