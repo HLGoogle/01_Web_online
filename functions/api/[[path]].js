@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 企业级全能终极版 - 集成文件夹层级、容量统计、防 500 劫持、流式大文件直传 (极度兼容版)
+ * 企业级全能终极版 - 集成同名覆盖、文件夹层级、容量统计、防 500 劫持
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -33,9 +33,6 @@ export async function onRequest(context) {
 
   if (method === 'OPTIONS') return new Response(null, { headers });
 
-  // ==========================================
-  // 📸 读取 KV 自定义图片
-  // ==========================================
   if (path.startsWith('/api/icon/') && method === 'GET') {
     const kvKey = path.split('/').pop();
     const placeholderPng = new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,11,73,68,65,84,120,156,99,96,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130]);
@@ -53,9 +50,6 @@ export async function onRequest(context) {
     }
   }
 
-  // ==========================================
-  // 🛡️ 安全网关认证
-  // ==========================================
   let userId = null;
   const isProtected = path.includes('api/links') || path.includes('api/user') || path.includes('api/code-grid') || path.includes('cloud');
   
@@ -110,7 +104,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
-      // 4. 上传文件
+      // 4. 上传文件 (🚀 引入同名自动覆盖机制)
       if (path.includes('upload') && method === 'POST') {
         try {
           if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶");
@@ -143,11 +137,24 @@ export async function onRequest(context) {
           catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
 
           try {
-            await env.DB.prepare('INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)')
-              .bind(strUserId, fileName, r2Key, Number(fileSize), fileType, Number(folderId)).run();
+            // 🔍 检测是否存在同名文件
+            const existingFile = await env.DB.prepare('SELECT id, r2_key FROM cloud_files WHERE file_name = ? AND folder_id = ? AND (user_id = ? OR user_id = ?)')
+              .bind(fileName, Number(folderId), strUserId, intUserId).first();
+
+            if (existingFile) {
+              // 🚀 存在！执行覆盖：只更新 D1 里的 R2路径 和 文件大小
+              await env.DB.prepare('UPDATE cloud_files SET r2_key = ?, file_size = ?, file_type = ? WHERE id = ?')
+                .bind(r2Key, Number(fileSize), fileType, existingFile.id).run();
+              // 悄悄销毁旧的 R2 物理文件，防止空间泄漏
+              await env.MY_BUCKET.delete(existingFile.r2_key).catch(() => console.log('旧文件清理跳过'));
+            } else {
+              // 新增
+              await env.DB.prepare('INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)')
+                .bind(strUserId, fileName, r2Key, Number(fileSize), fileType, Number(folderId)).run();
+            }
           } catch(e) { throw new Error(`数据库写入失败: ${e.message}`); }
 
-          return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
+          return new Response(JSON.stringify({ success: true, message: "上传(覆盖)成功" }), { headers });
         } catch (innerError) {
           return new Response(JSON.stringify({ success: false, error: innerError.message }), { status: 200, headers });
         }
@@ -191,7 +198,7 @@ export async function onRequest(context) {
         return new Response(r2Object.body, { headers: downloadHeaders });
       }
 
-      // 7. 🚀 重命名文件/文件夹
+      // 7. 重命名
       if (path.includes('rename') && method === 'PUT') {
         try {
           const { id, type, new_name } = await request.json();
@@ -209,12 +216,8 @@ export async function onRequest(context) {
           return new Response(JSON.stringify({ success: false, error: e.message }), { status: 200, headers });
         }
       }
-
     }
 
-    // ========================================== 
-    // 🎴 记事条模块
-    // ========================================== 
     if (path.startsWith('/api/code-grid')) {
       if (method === 'GET') {
         const rows = await env.DB.prepare('SELECT id, user_id, row_data, sort_order FROM Web_code_rows WHERE user_id = ? ORDER BY sort_order ASC, id DESC').bind(userId).all();
@@ -243,9 +246,6 @@ export async function onRequest(context) {
       }
     }
 
-    // ==========================================
-    // 📸 用户直传图标
-    // ==========================================
     if (path === '/api/user/upload-icon' && method === 'POST') {
       const originalName = url.searchParams.get("name") || "icon.png";
       const extension = originalName.split('.').pop().toLowerCase();
@@ -256,10 +256,10 @@ export async function onRequest(context) {
       const arr = new Uint8Array(imageBlob).subarray(0, 4);
       const headerHex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
       let validFile = false;
-      if (headerHex.startsWith('89504E47')) validFile = true; // PNG
-      else if (headerHex.startsWith('FFD8FF')) validFile = true; // JPEG
-      else if (headerHex.startsWith('47494638')) validFile = true; // GIF
-      else if (headerHex.startsWith('52494646')) validFile = true; // WEBP
+      if (headerHex.startsWith('89504E47')) validFile = true; 
+      else if (headerHex.startsWith('FFD8FF')) validFile = true; 
+      else if (headerHex.startsWith('47494638')) validFile = true; 
+      else if (headerHex.startsWith('52494646')) validFile = true; 
 
       if (!validFile) return new Response(JSON.stringify({ success: false, error: "安全拦截：请上传真实的图片文件" }), { status: 400, headers });
 
@@ -268,9 +268,6 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ success: true, kvKey, url: `/api/icon/${kvKey}` }), { headers: { ...headers, "Content-Type": "application/json" } });
     }
 
-    // ==========================================
-    // 🔐 用户管理中心
-    // ==========================================
     if (path === '/api/auth' && method === 'POST') {
       const body = await request.json();
       const { action, username, password, reset_code, new_password } = body;
@@ -304,9 +301,6 @@ export async function onRequest(context) {
       }
     }
 
-    // ==========================================
-    // 🗂️ 书签模块
-    // ==========================================
     if (path === '/api/links') {
       if (method === 'GET') {
         const { results } = await env.DB.prepare('SELECT * FROM Web_online_info_01 WHERE user_id = ? ORDER BY sort_order ASC, created_at DESC').bind(userId).all();
