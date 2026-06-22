@@ -106,11 +106,11 @@
         const MAX_QUOTA = 10 * 1024 * 1024 * 1024; // 10 GB
         let currentFolderId = 0;
         let isListView = false;
-        let pathHistory = [{ id: 0, name: '根目录' }]; // 面包屑历史
+        let pathHistory = [{ id: 0, name: '根目录' }]; 
 
         if (!token) { window.close(); } else { loadFileList(); }
 
-        // 1. 获取列表与容量 (已加固版)
+        // --- 核心拉取逻辑 (带严格异常阻断) ---
         async function loadFileList() {
             const grid = document.getElementById('grid-zone');
             const capText = document.getElementById('cap-text');
@@ -121,70 +121,54 @@
                     headers: { 'Authorization': `Bearer ${token}` } 
                 });
                 
-                if (!res.ok) {
-                    throw new Error(`HTTP 状态码异常: ${res.status}`);
-                }
+                if (!res.ok) throw new Error(`HTTP 状态码异常: ${res.status}`);
                 
                 const result = await res.json();
                 
-                // --- 防御性兜底解析 ---
+                // 拦截后端伪装的 200 错误
+                if (result.success === false) {
+                    throw new Error(result.error || "后端返回失败状态");
+                }
+                
                 const safeData = result.data || {};
                 const folders = safeData.folders || [];
                 const files = safeData.files || [];
                 const totalBytes = safeData.totalSize || 0;
                 
-                // 更新容量刻度
+                // 更新容量
                 const usedGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
                 const percent = Math.min((totalBytes / MAX_QUOTA) * 100, 100);
                 capText.textContent = `${usedGB}G / 10G`;
                 capBar.style.width = `${percent}%`;
-                
-                if (percent > 90) {
-                    capBar.style.background = 'var(--accent-danger)';
-                } else {
-                    capBar.style.background = 'var(--accent-green)'; // 恢复正常颜色
-                }
+                if (percent > 90) capBar.style.background = 'var(--accent-danger)';
+                else capBar.style.background = 'var(--accent-green)';
 
                 grid.innerHTML = '';
 
-                // 空目录判断
                 if (folders.length === 0 && files.length === 0) {
                     grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">此文件夹为空</div>`;
                     return;
                 }
 
-                // 渲染文件夹
                 folders.forEach(folder => {
                     grid.innerHTML += `
-                        <div class="item-card folder" 
-                             ondragover="event.preventDefault(); this.classList.add('drag-target')" 
-                             ondragleave="this.classList.remove('drag-target')" 
-                             ondrop="handleDropToFolder(event, ${folder.id})">
+                        <div class="item-card folder" ondragover="event.preventDefault(); this.classList.add('drag-target')" ondragleave="this.classList.remove('drag-target')" ondrop="handleDropToFolder(event, ${folder.id})">
                             <div class="file-info" style="cursor: pointer;" onclick="enterFolder(${folder.id}, '${folder.name}')">
                                 <i class="fas fa-folder file-icon folder"></i>
-                                <div>
-                                    <div class="file-name">${folder.name}</div>
-                                    <div class="file-size">文件夹</div>
-                                </div>
+                                <div><div class="file-name">${folder.name}</div><div class="file-size">文件夹</div></div>
                             </div>
-                            <div class="file-actions">
-                                <button class="action-btn del" onclick="deleteItem(${folder.id}, 'folder')"><i class="fas fa-trash-alt"></i></button>
-                            </div>
+                            <div class="file-actions"><button class="action-btn del" onclick="deleteItem(${folder.id}, 'folder')"><i class="fas fa-trash-alt"></i></button></div>
                         </div>
                     `;
                 });
 
-                // 渲染文件
                 files.forEach(file => {
                     const sizeMB = (file.file_size / 1024 / 1024).toFixed(2);
                     grid.innerHTML += `
                         <div class="item-card file" draggable="true" ondragstart="handleDragStart(event, ${file.id})">
                             <div class="file-info">
                                 <i class="fas fa-file-alt file-icon file"></i>
-                                <div style="overflow: hidden;">
-                                    <div class="file-name" title="${file.file_name}">${file.file_name}</div>
-                                    <div class="file-size">${sizeMB} MB</div>
-                                </div>
+                                <div style="overflow: hidden;"><div class="file-name" title="${file.file_name}">${file.file_name}</div><div class="file-size">${sizeMB} MB</div></div>
                             </div>
                             <div class="file-actions">
                                 <button class="action-btn" onclick="downloadFile(${file.id})"><i class="fas fa-download"></i></button>
@@ -194,28 +178,23 @@
                     `;
                 });
             } catch (e) { 
-                // --- 异常处理与 UI 恢复 ---
-                console.error("加载文件列表崩溃:", e);
+                console.error("列表加载拦截:", e);
                 capText.textContent = '获取失败';
                 grid.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--accent-danger); font-size: 14px; border: 1px dashed var(--accent-danger); border-radius: 8px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
-                        数据解析失败：${e.message}
-                        <br><br>
-                        <span style="color: var(--text-muted); font-size: 12px;">请按 F12 打开开发者工具，检查 Network(网络) 面板中 /api/cloud/list 接口的真实返回值。</span>
+                    <div style="grid-column: 1/-1; padding: 20px; color: var(--accent-danger); border: 1px solid var(--accent-danger); border-radius: 8px; background: rgba(248,81,73,0.1);">
+                        <i class="fas fa-bug"></i> <b>数据异常：</b>${e.message}
                     </div>
                 `;
             }
         }
 
-        // --- 视图切换 ---
+        // --- 视图、导航与文件夹基础操作 ---
         function toggleView() {
             isListView = !isListView;
             document.getElementById('grid-zone').className = isListView ? 'file-grid list-view' : 'file-grid';
             document.getElementById('view-icon').className = isListView ? 'fas fa-th-large' : 'fas fa-list';
         }
 
-        // --- 文件夹导航与面包屑 ---
         function enterFolder(id, name) {
             currentFolderId = id;
             if (id === 0) { pathHistory = [{ id: 0, name: '根目录' }]; } 
@@ -238,7 +217,6 @@
             renderBreadcrumb(); loadFileList();
         }
 
-        // --- 新建文件夹 ---
         async function createNewFolder() {
             const name = prompt("请输入文件夹名称：");
             if (!name) return;
@@ -250,10 +228,7 @@
             loadFileList();
         }
 
-        // --- 拖拽系统：移动文件到文件夹 ---
-        function handleDragStart(e, fileId) {
-            e.dataTransfer.setData("text/plain", fileId);
-        }
+        function handleDragStart(e, fileId) { e.dataTransfer.setData("text/plain", fileId); }
 
         async function handleDropToFolder(e, targetFolderId) {
             e.preventDefault();
@@ -274,7 +249,7 @@
             loadFileList();
         }
 
-        // --- 直传系统 (支持穿透到当前文件夹) ---
+        // --- 直传系统 (带强制错误拦截) ---
         const dropZone = document.getElementById('drop-zone');
         const uploader = document.getElementById('file-uploader');
         ['dragenter', 'dragover'].forEach(n => dropZone.addEventListener(n, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
@@ -294,20 +269,31 @@
                     await new Promise((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
                         const encName = encodeURIComponent(file.name);
-                        // 携带当前 folderId 传给后端
                         xhr.open('POST', `/api/cloud/upload?name=${encName}&size=${file.size}&folder_id=${currentFolderId}`, true);
                         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
                         xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-                        xhr.onload = () => resolve(xhr.responseText);
-                        xhr.onerror = () => reject("网关异常");
+                        
+                        xhr.onload = () => {
+                            try {
+                                const responseObj = JSON.parse(xhr.responseText);
+                                if (responseObj.success === false) {
+                                    reject(new Error(responseObj.error || "写入数据库失败"));
+                                } else {
+                                    resolve(responseObj);
+                                }
+                            } catch(err) { reject(new Error("非法的服务器响应")); }
+                        };
+                        xhr.onerror = () => reject(new Error("网关连接断开"));
                         xhr.send(file);
                     });
-                } catch (e) { console.error(e); }
+                } catch (e) { 
+                    alert(`文件 "${file.name}" 上传失败：\n${e.message}`); 
+                    console.error("上传错误:", e); 
+                }
             }
             sb.style.display = 'none'; uploader.value = ''; loadFileList();
         }
 
-        // --- 基础操作 ---
         function downloadFile(id) { window.open(`/api/cloud/download?id=${id}&auth=${encodeURIComponent(token)}`, '_blank'); }
         async function deleteItem(id, type) {
             if (!confirm(`确认删除此${type === 'folder' ? '文件夹' : '文件'}？`)) return;
