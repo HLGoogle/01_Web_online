@@ -1,6 +1,6 @@
 /**
  * functions/api/[[path]].js
- * 企业级全能终极版 - 集成文件夹层级、容量统计、防 500 劫持、流式大文件直传
+ * 企业级全能终极版 - 集成文件夹层级、容量统计、防 500 劫持、流式大文件直传 (极度兼容版)
  */
 
 const SECRET_KEY = "hardcore_edge_secret_nav_2026"; 
@@ -79,20 +79,32 @@ export async function onRequest(context) {
 
   try {
     // ========================================== 
-    // ☁️ 🚀 云盘核心模块 (已加入文件夹层级与容量统计)
+    // ☁️ 🚀 云盘核心模块 (数据强兼容版)
     // ========================================== 
     if (path.includes('cloud')) {
       
-      // 1. 获取列表与容量统揽
+      // 提取通用的字符串和数字型 user_id，打破类型墙
+      const strUserId = String(userId);
+      const intUserId = Number(userId) || 0;
+
+      // 1. 获取列表与容量统揽 (加强版兼容老数据)
       if (path.includes('list') && method === 'GET') {
         const folderId = Number(url.searchParams.get("folder_id")) || 0;
         
         // 获取当前目录下的文件夹
-        const { results: folders } = await env.DB.prepare('SELECT * FROM cloud_folders WHERE user_id = ? AND parent_id = ? ORDER BY created_at DESC').bind(userId, folderId).all();
-        // 获取当前目录下的文件
-        const { results: files } = await env.DB.prepare('SELECT * FROM cloud_files WHERE user_id = ? AND folder_id = ? ORDER BY created_at DESC').bind(userId, folderId).all();
-        // 获取总容量 (计算所有文件的总和)
-        const sizeRes = await env.DB.prepare('SELECT SUM(file_size) as total FROM cloud_files WHERE user_id = ?').bind(userId).first();
+        const { results: folders } = await env.DB.prepare(
+          'SELECT * FROM cloud_folders WHERE (user_id = ? OR user_id = ?) AND parent_id = ? ORDER BY created_at DESC'
+        ).bind(strUserId, intUserId, folderId).all();
+        
+        // 获取当前目录下的文件 (核心修复：如果在根目录，把 folder_id 为 NULL 的老文件也查出来)
+        const { results: files } = await env.DB.prepare(
+          'SELECT * FROM cloud_files WHERE (user_id = ? OR user_id = ?) AND (folder_id = ? OR (? = 0 AND folder_id IS NULL)) ORDER BY created_at DESC'
+        ).bind(strUserId, intUserId, folderId, folderId).all();
+        
+        // 获取总容量 (核心修复：统计该用户所有文件，忽略类型墙)
+        const sizeRes = await env.DB.prepare(
+          'SELECT SUM(file_size) as total FROM cloud_files WHERE user_id = ? OR user_id = ?'
+        ).bind(strUserId, intUserId).first();
         const totalSize = sizeRes ? (sizeRes.total || 0) : 0;
 
         return new Response(JSON.stringify({ success: true, data: { folders, files, totalSize } }), { headers });
@@ -101,27 +113,28 @@ export async function onRequest(context) {
       // 2. 新建文件夹
       if (path.includes('create-folder') && method === 'POST') {
         const { name, parent_id } = await request.json();
-        await env.DB.prepare('INSERT INTO cloud_folders (user_id, name, parent_id) VALUES (?, ?, ?)').bind(String(userId), name, parent_id || 0).run();
+        await env.DB.prepare('INSERT INTO cloud_folders (user_id, name, parent_id) VALUES (?, ?, ?)')
+          .bind(strUserId, name, parent_id || 0).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
       // 3. 拖拽移动文件到文件夹
       if (path.includes('move-file') && method === 'PUT') {
         const { file_id, target_folder_id } = await request.json();
-        await env.DB.prepare('UPDATE cloud_files SET folder_id = ? WHERE id = ? AND user_id = ?').bind(target_folder_id, file_id, userId).run();
+        await env.DB.prepare('UPDATE cloud_files SET folder_id = ? WHERE id = ? AND (user_id = ? OR user_id = ?)')
+          .bind(target_folder_id, file_id, strUserId, intUserId).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
-      // 4. 智能上传 (支持纯二进制流，并指定目录存入)
+      // 4. 智能上传
       if (path.includes('upload') && method === 'POST') {
         try {
-          if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶 (MY_BUCKET)");
-          if (!env.DB) throw new Error("未绑定 D1 数据库容器 (DB)");
+          if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶");
+          if (!env.DB) throw new Error("未绑定 D1 数据库");
 
           let fileBuffer, fileName, fileSize, fileType, folderId;
           const contentType = request.headers.get("content-type") || "";
 
-          // 双模适配：老式 FormData 还是 新式二进制流
           if (contentType.includes("multipart/form-data")) {
             const formData = await request.formData();
             const file = formData.get("file");
@@ -147,16 +160,15 @@ export async function onRequest(context) {
             await env.MY_BUCKET.put(r2Key, fileBuffer, { httpMetadata: { contentType: fileType } });
           } catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
 
-          // D1 登记层 (带上了 folder_id)
+          // D1 登记层 (核心保护：强制 fileSize 和 folderId 为数字类型)
           try {
             await env.DB.prepare(
               'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)'
-            ).bind(String(userId), fileName, r2Key, fileSize, fileType, folderId).run();
-          } catch(e) { throw new Error(`数据库写入失败 (可能未建表或漏了字段): ${e.message}`); }
+            ).bind(strUserId, fileName, r2Key, Number(fileSize), fileType, Number(folderId)).run();
+          } catch(e) { throw new Error(`数据库写入失败: ${e.message}`); }
 
           return new Response(JSON.stringify({ success: true, message: "上传成功" }), { headers });
         } catch (innerError) {
-          // 伪装 200 返回，防止 CF 劫持 500 页面
           return new Response(JSON.stringify({ success: false, error: innerError.message }), { status: 200, headers });
         }
       }
@@ -165,12 +177,14 @@ export async function onRequest(context) {
       if (path.includes('delete') && method === 'DELETE') {
         try {
           const id = url.searchParams.get("id");
-          const type = url.searchParams.get("type"); // 'file' 或 'folder'
+          const type = url.searchParams.get("type");
 
           if (type === 'folder') {
-            await env.DB.prepare('DELETE FROM cloud_folders WHERE id = ? AND user_id = ?').bind(id, userId).run();
+            await env.DB.prepare('DELETE FROM cloud_folders WHERE id = ? AND (user_id = ? OR user_id = ?)')
+              .bind(id, strUserId, intUserId).run();
           } else {
-            const fileInfo = await env.DB.prepare('SELECT r2_key FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
+            const fileInfo = await env.DB.prepare('SELECT r2_key FROM cloud_files WHERE id = ? AND (user_id = ? OR user_id = ?)')
+              .bind(id, strUserId, intUserId).first();
             if (!fileInfo) throw new Error("文件不存在或无权操作");
             await env.MY_BUCKET.delete(fileInfo.r2_key);
             await env.DB.prepare('DELETE FROM cloud_files WHERE id = ?').bind(id).run();
@@ -184,7 +198,8 @@ export async function onRequest(context) {
       // 6. 下载极速流
       if (path.includes('download') && method === 'GET') {
         const id = url.searchParams.get("id");
-        const fileInfo = await env.DB.prepare('SELECT file_name, r2_key FROM cloud_files WHERE id = ? AND user_id = ?').bind(id, userId).first();
+        const fileInfo = await env.DB.prepare('SELECT file_name, r2_key FROM cloud_files WHERE id = ? AND (user_id = ? OR user_id = ?)')
+          .bind(id, strUserId, intUserId).first();
         if (!fileInfo) return new Response("文件不存在或无权限", { status: 404, headers });
 
         const r2Object = await env.MY_BUCKET.get(fileInfo.r2_key);
