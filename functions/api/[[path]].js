@@ -87,21 +87,19 @@ export async function onRequest(context) {
       const strUserId = String(userId);
       const intUserId = Number(userId) || 0;
 
-      // 1. 获取列表与容量统揽 (加强版兼容老数据)
+      // 1. 获取列表与容量统揽
       if (path.includes('list') && method === 'GET') {
         const folderId = Number(url.searchParams.get("folder_id")) || 0;
         
-        // 获取当前目录下的文件夹
         const { results: folders } = await env.DB.prepare(
           'SELECT * FROM cloud_folders WHERE (user_id = ? OR user_id = ?) AND parent_id = ? ORDER BY created_at DESC'
         ).bind(strUserId, intUserId, folderId).all();
         
-        // 获取当前目录下的文件 (核心修复：如果在根目录，把 folder_id 为 NULL 的老文件也查出来)
+        // 核心修复：如果在根目录，把 folder_id 为 NULL 的老文件也查出来
         const { results: files } = await env.DB.prepare(
           'SELECT * FROM cloud_files WHERE (user_id = ? OR user_id = ?) AND (folder_id = ? OR (? = 0 AND folder_id IS NULL)) ORDER BY created_at DESC'
         ).bind(strUserId, intUserId, folderId, folderId).all();
         
-        // 获取总容量 (核心修复：统计该用户所有文件，忽略类型墙)
         const sizeRes = await env.DB.prepare(
           'SELECT SUM(file_size) as total FROM cloud_files WHERE user_id = ? OR user_id = ?'
         ).bind(strUserId, intUserId).first();
@@ -155,12 +153,10 @@ export async function onRequest(context) {
           if (!fileBuffer || fileBuffer.byteLength === 0) throw new Error("拦截：空文件");
           const r2Key = `${userId}/${Date.now()}_${fileName}`;
 
-          // R2 写入层
           try {
             await env.MY_BUCKET.put(r2Key, fileBuffer, { httpMetadata: { contentType: fileType } });
           } catch(e) { throw new Error(`R2 写入被拒: ${e.message}`); }
 
-          // D1 登记层 (核心保护：强制 fileSize 和 folderId 为数字类型)
           try {
             await env.DB.prepare(
               'INSERT INTO cloud_files (user_id, file_name, r2_key, file_size, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?)'
