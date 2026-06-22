@@ -401,16 +401,40 @@
             loadFileList();
         }
 
+        // 🚀 修复版：锁定按钮上下文 + 双引擎兼容复制
         async function copyLink(event, link) {
             event.stopPropagation();
+            
+            // 【核心修复】：必须在 await 之前锁定 DOM 元素！
+            // 否则 await 之后 event 会被销毁，导致报错并误触发 catch。
+            const btn = event.currentTarget;
+            const originalIcon = btn.innerHTML;
+
             try {
-                await navigator.clipboard.writeText(link);
-                const btn = event.currentTarget;
-                const originalIcon = btn.innerHTML;
+                // 方案 A: 现代剪贴板 API
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(link);
+                } else {
+                    // 方案 B: 降级使用传统 DOM 选中 API
+                    const textArea = document.createElement("textarea");
+                    textArea.value = link;
+                    textArea.style.position = "fixed";
+                    textArea.style.opacity = "0";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    if (!successful) throw new Error("传统复制被拦截");
+                }
+                
+                // 成功正反馈：变成绿色打勾图标，2秒后恢复
                 btn.innerHTML = '<i class="fas fa-check" style="color:var(--accent-green);"></i>';
                 setTimeout(() => { btn.innerHTML = originalIcon; }, 2000);
+                
             } catch (e) {
-                alert("复制失败，请手动复制: " + link);
+                // 终极兜底：如果不幸被所有浏览器安全机制拦截，弹框让用户秒选
+                window.prompt("浏览器剪贴板受限，请直接按 Ctrl+C 手动复制：", link);
             }
         }
 
