@@ -110,24 +110,44 @@
 
         if (!token) { window.close(); } else { loadFileList(); }
 
-        // 1. 获取列表与容量
+        // 1. 获取列表与容量 (已加固版)
         async function loadFileList() {
             const grid = document.getElementById('grid-zone');
+            const capText = document.getElementById('cap-text');
+            const capBar = document.getElementById('cap-bar');
+            
             try {
-                const res = await fetch(`/api/cloud/list?folder_id=${currentFolderId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const res = await fetch(`/api/cloud/list?folder_id=${currentFolderId}`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP 状态码异常: ${res.status}`);
+                }
+                
                 const result = await res.json();
                 
+                // --- 防御性兜底解析 ---
+                const safeData = result.data || {};
+                const folders = safeData.folders || [];
+                const files = safeData.files || [];
+                const totalBytes = safeData.totalSize || 0;
+                
                 // 更新容量刻度
-                const totalBytes = result.data.totalSize || 0;
                 const usedGB = (totalBytes / 1024 / 1024 / 1024).toFixed(2);
                 const percent = Math.min((totalBytes / MAX_QUOTA) * 100, 100);
-                document.getElementById('cap-text').textContent = `${usedGB}G / 10G`;
-                document.getElementById('cap-bar').style.width = `${percent}%`;
-                if(percent > 90) document.getElementById('cap-bar').style.background = 'var(--accent-danger)';
+                capText.textContent = `${usedGB}G / 10G`;
+                capBar.style.width = `${percent}%`;
+                
+                if (percent > 90) {
+                    capBar.style.background = 'var(--accent-danger)';
+                } else {
+                    capBar.style.background = 'var(--accent-green)'; // 恢复正常颜色
+                }
 
                 grid.innerHTML = '';
-                const { folders, files } = result.data;
 
+                // 空目录判断
                 if (folders.length === 0 && files.length === 0) {
                     grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;">此文件夹为空</div>`;
                     return;
@@ -154,7 +174,7 @@
                     `;
                 });
 
-                // 渲染文件 (加入 draggable 属性支持拖拽)
+                // 渲染文件
                 files.forEach(file => {
                     const sizeMB = (file.file_size / 1024 / 1024).toFixed(2);
                     grid.innerHTML += `
@@ -173,7 +193,19 @@
                         </div>
                     `;
                 });
-            } catch (e) { console.error("加载失败"); }
+            } catch (e) { 
+                // --- 异常处理与 UI 恢复 ---
+                console.error("加载文件列表崩溃:", e);
+                capText.textContent = '获取失败';
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--accent-danger); font-size: 14px; border: 1px dashed var(--accent-danger); border-radius: 8px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
+                        数据解析失败：${e.message}
+                        <br><br>
+                        <span style="color: var(--text-muted); font-size: 12px;">请按 F12 打开开发者工具，检查 Network(网络) 面板中 /api/cloud/list 接口的真实返回值。</span>
+                    </div>
+                `;
+            }
         }
 
         // --- 视图切换 ---
