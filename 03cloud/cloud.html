@@ -104,7 +104,6 @@
 
         if (!token) { window.close(); } else { loadFileList(); }
 
-        // --- 核心列表拉取 ---
         async function loadFileList() {
             const grid = document.getElementById('grid-zone');
             const capText = document.getElementById('cap-text');
@@ -184,7 +183,6 @@
             }
         }
 
-        // --- 视图与导航 ---
         function toggleView() {
             isListView = !isListView;
             document.getElementById('grid-zone').className = isListView ? 'file-grid list-view' : 'file-grid';
@@ -213,7 +211,6 @@
             renderBreadcrumb(); loadFileList();
         }
 
-        // --- 基础文件/文件夹操作 ---
         async function createNewFolder() {
             const name = prompt("请输入文件夹名称：");
             if (!name) return;
@@ -246,10 +243,8 @@
             loadFileList();
         }
 
-        // 🚀 重命名操作
         async function renameItem(event, id, type, currentName) {
             event.stopPropagation();
-            
             const newName = prompt(`请输入新的${type === 'folder' ? '文件夹' : '文件'}名称：`, currentName);
             if (!newName || newName.trim() === '' || newName === currentName) return;
 
@@ -261,14 +256,12 @@
                 });
                 const data = await res.json();
                 if (data.success === false) throw new Error(data.error);
-                
                 loadFileList(); 
             } catch (e) {
                 alert(`重命名失败: ${e.message}`);
             }
         }
 
-        // --- 直传系统 ---
         function cancelUpload(uploadId) {
             if (activeUploads[uploadId]) {
                 activeUploads[uploadId].abort();
@@ -285,17 +278,37 @@
 
         async function handleBatchUpload(files) {
             if (!files || files.length === 0) return;
+            
+            // 🚀 核心新增：覆盖检测提示
+            const existingNodes = document.querySelectorAll('.item-card.file .file-name');
+            const existingNames = Array.from(existingNodes).map(node => node.title);
+
+            const filesToUpload = [];
+            for (let i = 0; i < files.length; i++) {
+                if (existingNames.includes(files[i].name)) {
+                    if (!confirm(`当前目录已存在同名文件：\n"${files[i].name}"\n\n是否直接覆盖并替换为新版本？`)) {
+                        continue; // 如果取消，跳过该文件
+                    }
+                }
+                filesToUpload.push(files[i]);
+            }
+
+            if (filesToUpload.length === 0) {
+                uploader.value = '';
+                return;
+            }
+
             const sb = document.getElementById('global-status');
             sb.style.display = 'block';
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            for (let i = 0; i < filesToUpload.length; i++) {
+                const file = filesToUpload[i];
                 const uploadId = 'up_' + Date.now() + '_' + i; 
                 
                 sb.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span style="font-weight:500; color:var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;">
-                            <i class="fas fa-spinner fa-spin" style="color:var(--accent-color); margin-right:4px;"></i> 正在上传 (${i+1}/${files.length}): ${file.name}
+                            <i class="fas fa-spinner fa-spin" style="color:var(--accent-color); margin-right:4px;"></i> 正在上传 (${i+1}/${filesToUpload.length}): ${file.name}
                         </span>
                         <div style="display:flex; gap:12px; align-items:center; flex-shrink: 0;">
                             <span id="percent_${uploadId}" style="color:var(--accent-color); font-weight:600; font-variant-numeric: tabular-nums;">0.0%</span>
@@ -357,17 +370,14 @@
             loadFileList();
         }
 
-        // --- 修复点：唤起原生直链下载 ---
         function downloadFile(event, id, fileName) {
             event.stopPropagation(); 
-            
             const btn = event.currentTarget;
             const originalIcon = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>'; 
             btn.disabled = true;
 
             const downloadUrl = `/api/cloud/download?id=${id}&auth=${encodeURIComponent(token)}&t=${Date.now()}`;
-            
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = downloadUrl;
@@ -376,7 +386,6 @@
             a.click();
             document.body.removeChild(a);
 
-            // 延迟恢复按钮状态，掩盖大文件响应时间
             setTimeout(() => {
                 btn.innerHTML = originalIcon;
                 btn.disabled = false;
@@ -385,7 +394,6 @@
 
         async function deleteItem(event, id, type) {
             event.stopPropagation(); 
-            
             if (!confirm(`警告：确认永久销毁此${type === 'folder' ? '文件夹' : '文件'}吗？`)) return;
             
             try {
@@ -395,7 +403,6 @@
                 });
                 const data = await res.json();
                 if (data.success === false) throw new Error(data.error);
-                
                 loadFileList(); 
             } catch (e) {
                 alert(`销毁失败: ${e.message}`);
