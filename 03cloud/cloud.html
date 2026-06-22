@@ -15,14 +15,12 @@
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body { background-color: var(--bg-main); color: var(--text-main); font-family: var(--font-apple); padding: 20px 30px; }
         
-        /* 顶部容量与标题 */
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 16px; }
         .title { font-size: 18px; font-weight: 600; color: var(--accent-color); display: flex; align-items: center; gap: 10px; }
         .capacity-box { display: flex; align-items: center; gap: 12px; background: var(--bg-input); padding: 6px 12px; border-radius: 20px; font-size: 12px; }
         .progress-track { width: 100px; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
         .progress-fill { height: 100%; background: var(--accent-green); transition: width 0.3s; }
         
-        /* 工具栏 */
         .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .breadcrumb { font-size: 14px; font-weight: 500; display: flex; gap: 8px; align-items: center; }
         .breadcrumb span { cursor: pointer; color: var(--text-muted); transition: color 0.2s; }
@@ -33,29 +31,23 @@
         .tool-btn { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .tool-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
 
-        /* 紧凑型拖拽上传区 */
         .upload-zone { border: 1px dashed var(--border-color); border-radius: 8px; background: rgba(22, 27, 34, 0.5); padding: 16px; text-align: center; cursor: pointer; position: relative; margin-bottom: 20px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent-color); background: rgba(88, 166, 255, 0.05); }
         .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
         
-        /* 状态栏 */
         .status-bar { background: var(--bg-card); border: 1px solid var(--accent-color); padding: 12px 16px; border-radius: 8px; display: none; margin-bottom: 16px; font-size: 13px;}
         
-        /* 网格/列表视图兼容 */
         .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
         .file-grid.list-view { display: flex; flex-direction: column; gap: 8px; }
         
-        /* 卡片基础样式 */
         .item-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease; cursor: grab; }
         .item-card:active { cursor: grabbing; }
         .item-card:hover { border-color: #388bfd80; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateY(-1px); }
         
-        /* 列表模式下的卡片样式 */
         .list-view .item-card { flex-direction: row; align-items: center; padding: 10px 16px; }
         .list-view .file-info { flex: 1; }
         .list-view .file-actions { margin-top: 0; border-top: none; padding-top: 0; }
         
-        /* 拖拽进入文件夹的高亮 */
         .item-card.folder.drag-target { border: 2px dashed var(--accent-green); background: rgba(46, 164, 79, 0.1); }
 
         .file-info { display: flex; align-items: center; gap: 12px; overflow: hidden; }
@@ -66,7 +58,7 @@
         .file-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
         
         .file-actions { display: flex; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
-        .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+        .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
         .action-btn:hover { color: var(--accent-color); }
         .action-btn.del:hover { color: var(--accent-danger); }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -112,7 +104,7 @@
 
         if (!token) { window.close(); } else { loadFileList(); }
 
-        // --- 核心拉取逻辑 ---
+        // --- 核心列表拉取 ---
         async function loadFileList() {
             const grid = document.getElementById('grid-zone');
             const capText = document.getElementById('cap-text');
@@ -153,10 +145,11 @@
                         <div class="item-card folder" ondragover="event.preventDefault(); this.classList.add('drag-target')" ondragleave="this.classList.remove('drag-target')" ondrop="handleDropToFolder(event, ${folder.id})">
                             <div class="file-info" style="cursor: pointer;" onclick="enterFolder(${folder.id}, '${safeFolderName}')">
                                 <i class="fas fa-folder file-icon folder"></i>
-                                <div><div class="file-name">${folder.name}</div><div class="file-size">文件夹</div></div>
+                                <div><div class="file-name" title="${folder.name}">${folder.name}</div><div class="file-size">文件夹</div></div>
                             </div>
                             <div class="file-actions">
-                                <button class="action-btn del" onclick="deleteItem(event, ${folder.id}, 'folder')"><i class="fas fa-trash-alt"></i></button>
+                                <button class="action-btn" onclick="renameItem(event, ${folder.id}, 'folder', '${safeFolderName}')" title="重命名"><i class="fas fa-edit"></i></button>
+                                <button class="action-btn del" onclick="deleteItem(event, ${folder.id}, 'folder')" title="删除"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </div>
                     `;
@@ -164,7 +157,6 @@
 
                 files.forEach(file => {
                     const sizeMB = (file.file_size / 1024 / 1024).toFixed(2);
-                    // 保护机制：防止文件名中的单引号破坏 HTML 属性
                     const safeFileName = file.file_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     
                     grid.innerHTML += `
@@ -174,8 +166,9 @@
                                 <div style="overflow: hidden;"><div class="file-name" title="${file.file_name}">${file.file_name}</div><div class="file-size">${sizeMB} MB</div></div>
                             </div>
                             <div class="file-actions">
-                                <button class="action-btn" onclick="downloadFile(event, ${file.id}, '${safeFileName}')"><i class="fas fa-download"></i></button>
-                                <button class="action-btn del" onclick="deleteItem(event, ${file.id}, 'file')"><i class="fas fa-trash-alt"></i></button>
+                                <button class="action-btn" onclick="downloadFile(event, ${file.id}, '${safeFileName}')" title="下载"><i class="fas fa-download"></i></button>
+                                <button class="action-btn" onclick="renameItem(event, ${file.id}, 'file', '${safeFileName}')" title="重命名"><i class="fas fa-edit"></i></button>
+                                <button class="action-btn del" onclick="deleteItem(event, ${file.id}, 'file')" title="删除"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </div>
                     `;
@@ -191,7 +184,7 @@
             }
         }
 
-        // --- 视图、导航与操作 ---
+        // --- 视图与导航 ---
         function toggleView() {
             isListView = !isListView;
             document.getElementById('grid-zone').className = isListView ? 'file-grid list-view' : 'file-grid';
@@ -220,6 +213,7 @@
             renderBreadcrumb(); loadFileList();
         }
 
+        // --- 基础文件/文件夹操作 ---
         async function createNewFolder() {
             const name = prompt("请输入文件夹名称：");
             if (!name) return;
@@ -252,6 +246,29 @@
             loadFileList();
         }
 
+        // 🚀 重命名操作
+        async function renameItem(event, id, type, currentName) {
+            event.stopPropagation();
+            
+            const newName = prompt(`请输入新的${type === 'folder' ? '文件夹' : '文件'}名称：`, currentName);
+            if (!newName || newName.trim() === '' || newName === currentName) return;
+
+            try {
+                const res = await fetch('/api/cloud/rename', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, type: type, new_name: newName.trim() })
+                });
+                const data = await res.json();
+                if (data.success === false) throw new Error(data.error);
+                
+                loadFileList(); 
+            } catch (e) {
+                alert(`重命名失败: ${e.message}`);
+            }
+        }
+
+        // --- 直传系统 ---
         function cancelUpload(uploadId) {
             if (activeUploads[uploadId]) {
                 activeUploads[uploadId].abort();
@@ -340,21 +357,17 @@
             loadFileList();
         }
 
-       // --- 修复点：原生直链极速下载 + 优雅的视觉正反馈 ---
+        // --- 修复点：唤起原生直链下载 ---
         function downloadFile(event, id, fileName) {
-            event.stopPropagation(); // 阻止点击穿透
+            event.stopPropagation(); 
             
             const btn = event.currentTarget;
             const originalIcon = btn.innerHTML;
-            
-            // 1. 立即给予正反馈：按钮变成转圈，告诉用户“指令已接收”
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>'; 
             btn.disabled = true;
 
-            // 2. 将 Token 拼接到 URL 中，构建极速直链
             const downloadUrl = `/api/cloud/download?id=${id}&auth=${encodeURIComponent(token)}&t=${Date.now()}`;
             
-            // 3. 伪造 <a> 标签，静默唤起浏览器的原生下载引擎
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = downloadUrl;
@@ -363,16 +376,13 @@
             a.click();
             document.body.removeChild(a);
 
-            // 4. 核心体验优化：延迟 2 秒恢复按钮状态
-            // 掩盖大文件在 Cloudflare 后端的首字节响应时间 (TTFB)
-            // 2秒后，浏览器的原生下载管理器刚好接管弹出！
+            // 延迟恢复按钮状态，掩盖大文件响应时间
             setTimeout(() => {
                 btn.innerHTML = originalIcon;
                 btn.disabled = false;
             }, 2000);
         }
 
-        // --- 修复点：严格校验假删除 ---
         async function deleteItem(event, id, type) {
             event.stopPropagation(); 
             
@@ -384,11 +394,7 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                
-                // 如果数据库没找到文件报错，弹窗拦截，不再允许假刷新！
-                if (data.success === false) {
-                    throw new Error(data.error);
-                }
+                if (data.success === false) throw new Error(data.error);
                 
                 loadFileList(); 
             } catch (e) {
