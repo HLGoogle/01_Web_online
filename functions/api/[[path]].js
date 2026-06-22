@@ -79,13 +79,14 @@ export async function onRequest(context) {
 
   try {
     // ========================================== 
-    // ☁️ 🚀 云盘核心模块 (数据强兼容版)
+    // ☁️ 🚀 云盘核心模块
     // ========================================== 
     if (path.includes('cloud')) {
       
       const strUserId = String(userId);
       const intUserId = Number(userId) || 0;
 
+      // 1. 获取列表
       if (path.includes('list') && method === 'GET') {
         const folderId = Number(url.searchParams.get("folder_id")) || 0;
         const { results: folders } = await env.DB.prepare('SELECT * FROM cloud_folders WHERE (user_id = ? OR user_id = ?) AND parent_id = ? ORDER BY created_at DESC').bind(strUserId, intUserId, folderId).all();
@@ -95,18 +96,21 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, data: { folders, files, totalSize } }), { headers });
       }
 
+      // 2. 新建文件夹
       if (path.includes('create-folder') && method === 'POST') {
         const { name, parent_id } = await request.json();
         await env.DB.prepare('INSERT INTO cloud_folders (user_id, name, parent_id) VALUES (?, ?, ?)').bind(strUserId, name, parent_id || 0).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
+      // 3. 移动文件
       if (path.includes('move-file') && method === 'PUT') {
         const { file_id, target_folder_id } = await request.json();
         await env.DB.prepare('UPDATE cloud_files SET folder_id = ? WHERE id = ? AND (user_id = ? OR user_id = ?)').bind(target_folder_id, file_id, strUserId, intUserId).run();
         return new Response(JSON.stringify({ success: true }), { headers });
       }
 
+      // 4. 上传文件
       if (path.includes('upload') && method === 'POST') {
         try {
           if (!env.MY_BUCKET) throw new Error("未绑定 R2 存储桶");
@@ -149,10 +153,10 @@ export async function onRequest(context) {
         }
       }
 
-      // 5. 删除文件/文件夹 (强化 ID 数字类型约束)
+      // 5. 删除文件/文件夹
       if (path.includes('delete') && method === 'DELETE') {
         try {
-          const id = Number(url.searchParams.get("id")); // 强制转换数字，防止 SQLite 不认
+          const id = Number(url.searchParams.get("id")); 
           const type = url.searchParams.get("type");
 
           if (type === 'folder') {
@@ -169,9 +173,9 @@ export async function onRequest(context) {
         }
       }
 
-      // 6. 下载极速流 (强化 ID 数字类型约束)
+      // 6. 下载极速流
       if (path.includes('download') && method === 'GET') {
-        const id = Number(url.searchParams.get("id")); // 强制转换数字，破除 404
+        const id = Number(url.searchParams.get("id")); 
         const fileInfo = await env.DB.prepare('SELECT file_name, r2_key FROM cloud_files WHERE id = ? AND (user_id = ? OR user_id = ?)')
           .bind(id, strUserId, intUserId).first();
         if (!fileInfo) return new Response("文件不存在或无权限", { status: 404, headers });
@@ -186,6 +190,26 @@ export async function onRequest(context) {
         downloadHeaders.set('Access-Control-Allow-Origin', '*');
         return new Response(r2Object.body, { headers: downloadHeaders });
       }
+
+      // 7. 🚀 重命名文件/文件夹
+      if (path.includes('rename') && method === 'PUT') {
+        try {
+          const { id, type, new_name } = await request.json();
+          if (!new_name || new_name.trim() === '') throw new Error("名称不能为空");
+
+          if (type === 'folder') {
+            await env.DB.prepare('UPDATE cloud_folders SET name = ? WHERE id = ? AND (user_id = ? OR user_id = ?)')
+              .bind(new_name.trim(), Number(id), strUserId, intUserId).run();
+          } else {
+            await env.DB.prepare('UPDATE cloud_files SET file_name = ? WHERE id = ? AND (user_id = ? OR user_id = ?)')
+              .bind(new_name.trim(), Number(id), strUserId, intUserId).run();
+          }
+          return new Response(JSON.stringify({ success: true, message: "重命名成功" }), { headers });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: e.message }), { status: 200, headers });
+        }
+      }
+
     }
 
     // ========================================== 
