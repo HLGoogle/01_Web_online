@@ -1,24 +1,24 @@
-// 🏷️ 定义本地脱机离线缓存的存储版本和需要死死锁在本地的网页资产框架，非常重要
-const CACHE_NAME = 'terminal-offline-v1';
+// 🏷️ 将缓存版本升到 v3，强制刷新之前的策略
+const CACHE_NAME = 'terminal-offline-v3'; 
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/code-grid.html',
-    // 💡 自动把原本会严重卡网速的远程 Font-Awesome 图标线也强行抓到本地盒子里缓存！
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
 ];
 
-// 1. 【安装激活阶段】：有网时，强行把所有页面框架和图标样式全量塞进浏览器本地防空洞
+// 1. 【安装阶段】：强制立即接管
 self.addEventListener('install', event => {
+    self.skipWaiting(); 
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log('>> 本地防空洞正在播种静态页面框架资产...');
+            console.log('>> 本地防空洞 v3 正在播种...');
             return cache.addAll(ASSETS_TO_CACHE);
-        }).then(() => self.skipWaiting())
+        })
     );
 });
 
-// 2. 【清理阶段】：自动对齐老旧的残留缓存
+// 2. 【清理阶段】：自动销毁旧版本缓存释放空间
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys => {
@@ -31,37 +31,39 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 3. ✨【硬核拦截核心】：网络首选。如果因为跨境网络连不上，0秒切回本地强缓存吐出画面！
+// 3. ✨【极致无感核心】：缓存优先 + 后台静默刷新 (Stale-While-Revalidate)
 self.addEventListener('fetch', event => {
-    const url = event.request.url;
     const request = event.request;
+    const url = request.url;
 
-    // 拦截规则 1：原有的页面导航、HTML框架、CSS图标
+    // 拦截规则
     const isPageOrCss = request.mode === 'navigate' || url.includes('all.min.css') || url.endsWith('.html');
-    
-    // 拦截规则 2：【核心修复】只精准拦截“作为图片(缩略图)”渲染的浏览器请求！
-    // 这样既能缓存网盘里的动态缩略图，又绝对不会误把大文件下载等数据流塞入存储，防止内存溢出。
     const isImage = request.destination === 'image';
 
     if (isPageOrCss || isImage) {
         event.respondWith(
-            fetch(request)
-                .then(networkResponse => {
-                    // 情况 A：外网连通了（哪怕有延迟），正常加载并顺手静默刷新本地防空洞的备份
-                    if (networkResponse && networkResponse.status === 200) {
+            // 第一步：不管三七二十一，先去防空洞里找！
+            caches.match(request).then(cachedResponse => {
+                
+                // 第二步：同时在后台悄悄发起网络请求去拿最新版
+                const networkFetch = fetch(request).then(networkResponse => {
+                    // 拿到最新版后，悄悄更新防空洞里的备用金，保证下次也是最新的
+                    if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 0 || networkResponse.type === 'opaque')) {
                         const cacheCopy = networkResponse.clone();
                         caches.open(CACHE_NAME).then(cache => {
                             cache.put(request, cacheCopy);
                         });
                     }
                     return networkResponse;
-                })
-                .catch(() => {
-                    // 🚨 情况 B：彻底断网，或者由于延迟太高直接抛错超时
-                    // 0感知熔断网络！直接从本地防空洞里把缓存的资源原封不动吐给屏幕
-                    console.log('>> [断网/高延迟拦截] 正在无缝从本地强缓存中提取资源:', url);
-                    return caches.match(request);
-                })
+                }).catch(() => {
+                    // 如果真断网了，这个后台请求会失败，但无所谓，反正前面已经把缓存给用户了
+                    console.log('>> [断网状态] 保持使用本地缓存:', url);
+                });
+
+                // 第三步（绝杀）：如果防空洞里有货 (cachedResponse)，【立刻、0毫秒】返回给屏幕！
+                // 如果是用户第一次访问，防空洞没货，那就乖乖等网络请求 (networkFetch) 返回。
+                return cachedResponse || networkFetch;
+            })
         );
     }
 });
