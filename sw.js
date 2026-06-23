@@ -33,23 +33,34 @@ self.addEventListener('activate', event => {
 
 // 3. ✨【硬核拦截核心】：网络首选。如果因为跨境网络连不上，0秒切回本地强缓存吐出画面！
 self.addEventListener('fetch', event => {
-    // 只针对常规页面、静态图标和网页本身进行本地拦截劫持，不锁死你的 /api/ 数据接口
-    if (event.request.mode === 'navigate' || event.request.url.includes('all.min.css') || event.request.url.endsWith('.html')) {
+    const url = event.request.url;
+    const request = event.request;
+
+    // 拦截规则 1：原有的页面导航、HTML框架、CSS图标
+    const isPageOrCss = request.mode === 'navigate' || url.includes('all.min.css') || url.endsWith('.html');
+    
+    // 拦截规则 2：【核心修复】只精准拦截“作为图片(缩略图)”渲染的浏览器请求！
+    // 这样既能缓存网盘里的动态缩略图，又绝对不会误把大文件下载等数据流塞入存储，防止内存溢出。
+    const isImage = request.destination === 'image';
+
+    if (isPageOrCss || isImage) {
         event.respondWith(
-            fetch(event.request)
+            fetch(request)
                 .then(networkResponse => {
                     // 情况 A：外网连通了（哪怕有延迟），正常加载并顺手静默刷新本地防空洞的备份
-                    if (networkResponse.status === 200) {
+                    if (networkResponse && networkResponse.status === 200) {
                         const cacheCopy = networkResponse.clone();
-                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, cacheCopy));
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(request, cacheCopy);
+                        });
                     }
                     return networkResponse;
                 })
                 .catch(() => {
-                    // 🚨 情况 B：在大陆彻底断网，或者由于访问海外 Cloudflare 延迟太高直接抛错超时
-                    // 0感知熔断网络！直接从本地防空洞里把缓存的 index.html 或 code-grid.html 原封不动吐给屏幕
-                    console.log('>> [跨境联网失败/高延迟拦截] 正在无缝从本地强缓存中提取纯本地离线框架...秒开画面。');
-                    return caches.match(event.request);
+                    // 🚨 情况 B：彻底断网，或者由于延迟太高直接抛错超时
+                    // 0感知熔断网络！直接从本地防空洞里把缓存的资源原封不动吐给屏幕
+                    console.log('>> [断网/高延迟拦截] 正在无缝从本地强缓存中提取资源:', url);
+                    return caches.match(request);
                 })
         );
     }
