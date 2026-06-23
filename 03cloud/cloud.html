@@ -58,9 +58,16 @@
         .file-name { font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
         .file-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
+        /* ✨ 全新图文样式架构 */
         .file-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); cursor: crosshair; }
         .file-grid:not(.list-view) .file-thumb { width: 38px; height: 38px; }
         
+        /* 离线画板视频容器 */
+        .vid-thumb-container { position: relative; width: 32px; height: 32px; flex-shrink: 0; cursor: crosshair; }
+        .file-grid:not(.list-view) .vid-thumb-container { width: 38px; height: 38px; }
+        .vid-thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); background: #161b22; }
+        .vid-icon-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.8); font-size: 14px; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+
         #preview-overlay {
             position: fixed; z-index: 9999; display: none; pointer-events: none;
             background: var(--bg-card); border: 1px solid var(--accent-color);
@@ -126,19 +133,78 @@
         const viewIcon = document.getElementById('view-icon');
         let isListView = localStorage.getItem('cloud_view_mode') === 'list';
         
-        if (isListView) {
-            gridZone.className = 'file-grid list-view';
-            viewIcon.className = 'fas fa-th-large';
-        } else {
-            gridZone.className = 'file-grid';
-            viewIcon.className = 'fas fa-list';
-        }
+        if (isListView) { gridZone.className = 'file-grid list-view'; viewIcon.className = 'fas fa-th-large'; } 
+        else { gridZone.className = 'file-grid'; viewIcon.className = 'fas fa-list'; }
 
         function toggleView() {
             isListView = !isListView;
             localStorage.setItem('cloud_view_mode', isListView ? 'list' : 'grid'); 
             gridZone.className = isListView ? 'file-grid list-view' : 'file-grid';
             viewIcon.className = isListView ? 'fas fa-th-large' : 'fas fa-list';
+        }
+
+        // ✨ 核心机制 1：懒加载与画板截帧引擎
+        function processVideoThumbnails() {
+            if (!window.IntersectionObserver) return;
+            const vidContainers = document.querySelectorAll('.vid-thumb-container:not([data-processed])');
+            if (vidContainers.length === 0) return;
+
+            const observer = new IntersectionObserver((entries, obs) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const container = entry.target;
+                        obs.unobserve(container); // 只处理一次
+                        container.setAttribute('data-processed', 'true');
+
+                        const vidSrc = container.getAttribute('data-vidsrc');
+                        const fileId = container.getAttribute('data-fileid');
+                        const imgNode = container.querySelector('.vid-thumb');
+
+                        // 💡 秒开核心：如果是已经截取过的视频，直接从纯离线的内存读取 Base64 画面！
+                        const cacheKey = 'vthumb_' + fileId;
+                        const cachedData = localStorage.getItem(cacheKey);
+                        if (cachedData) { imgNode.src = cachedData; return; }
+
+                        // 初次加载：在后台隐形创建一个播放器，拉取一帧画面
+                        const video = document.createElement('video');
+                        video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
+                        video.src = vidSrc;
+
+                        let extracted = false;
+                        const capture = () => {
+                            if (extracted) return;
+                            try {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = 160; 
+                                canvas.height = 160 * (video.videoHeight / video.videoWidth) || 90;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                
+                                const dataURL = canvas.toDataURL('image/jpeg', 0.5); // 高压缩写入
+                                if (dataURL.length > 1000) {
+                                    imgNode.src = dataURL;
+                                    try { localStorage.setItem(cacheKey, dataURL); } catch(e) {} // 永久缓存到内存
+                                    extracted = true;
+                                    video.removeAttribute('src'); 
+                                    video.load(); // 释放后台网络
+                                }
+                            } catch (err) {}
+                        };
+
+                        video.addEventListener('loadeddata', () => {
+                            capture();
+                            // 如果第一帧是黑屏没截到，往后跳一点再截
+                            if (!extracted && video.duration > 1) { video.currentTime = Math.min(1.5, video.duration / 2); }
+                        });
+                        video.addEventListener('seeked', capture);
+                        
+                        // 超时熔断，防止卡死
+                        setTimeout(() => { if (!extracted) { video.removeAttribute('src'); video.load(); } }, 8000);
+                    }
+                });
+            }, { rootMargin: '150px' });
+
+            vidContainers.forEach(el => observer.observe(el));
         }
 
         function renderGridContent(resultData) {
@@ -191,12 +257,15 @@
                 let fileIconHtml = `<i class="fas fa-file-alt file-icon file"></i>`;
                 
                 if (isImage) { 
-                    fileIconHtml = `<img src="${shortLink}" class="file-thumb" alt="preview" loading="lazy">`; 
+                    fileIconHtml = `<img src="${shortLink}" class="file-thumb img-thumb" alt="preview" loading="lazy">`; 
                 } else if (isVideo) {
-                    // 🚀 终极绝杀修复：
-                    // 1. #t=0.001 强制索取第0帧(关键帧)，彻底无视视频FPS和高码率，100%拒绝黑屏。
-                    // 2. 还原 preload="metadata" 解除网络拥堵，恢复图片秒开手感！
-                    fileIconHtml = `<video src="${shortLink}#t=0.001" class="file-thumb" muted playsinline preload="metadata"></video>`;
+                    // ✨ 核心架构改变：彻底消灭列表中的 <video> 标签！
+                    // 先放置一个灰色的 SVG 占位图，等 JS 滚动到了，再静默截帧渲染。不抢网络资源。
+                    fileIconHtml = `
+                        <div class="vid-thumb-container" data-vidsrc="${shortLink}" data-fileid="${file.id}">
+                            <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='%23161b22'/></svg>" class="file-thumb vid-thumb" alt="video" loading="lazy">
+                            <div class="vid-icon-overlay"><i class="fas fa-play-circle"></i></div>
+                        </div>`;
                 }
                 
                 htmlContent += `
@@ -217,47 +286,53 @@
             });
 
             gridZone.innerHTML = htmlContent;
+            
+            // 每次渲染完毕后，唤醒隐形截帧引擎
+            processVideoThumbnails();
         }
 
         const previewOverlay = document.getElementById('preview-overlay');
         const previewImg = document.getElementById('preview-img');
         const previewVid = document.getElementById('preview-vid');
 
+        // ✨ 极速悬停反馈引擎
         gridZone.addEventListener('mouseover', (e) => {
-            if (e.target.classList.contains('file-thumb')) {
-                const isVid = e.target.tagName.toLowerCase() === 'video';
-                // 这里利用 split('#') 完美剥离了 #t=0.001，让悬浮框依然能播放完整原视频
-                const src = e.target.getAttribute('src').split('#')[0]; 
-                
-                const rect = e.target.getBoundingClientRect();
-                let left = rect.right + 15;
-                let top = rect.top + (rect.height / 2);
-                if (left + 340 > window.innerWidth) left = rect.left - 340; 
+            const imgTarget = e.target.closest('.img-thumb');
+            const vidTarget = e.target.closest('.vid-thumb-container');
+            const targetEl = imgTarget || vidTarget;
+            
+            if (!targetEl) return;
 
-                previewOverlay.style.left = left + 'px';
-                previewOverlay.style.top = top + 'px';
-                previewOverlay.style.display = 'block';
+            const rect = targetEl.getBoundingClientRect();
+            let left = rect.right + 15;
+            let top = rect.top + (rect.height / 2);
+            if (left + 340 > window.innerWidth) left = rect.left - 340; 
 
-                if (isVid) {
-                    previewImg.style.display = 'none';
-                    previewVid.src = src;
-                    previewVid.style.display = 'block';
-                    previewVid.play().catch(()=>{}); 
-                } else {
-                    previewVid.style.display = 'none';
-                    previewVid.pause();
-                    previewVid.src = ''; 
-                    previewImg.src = src;
-                    previewImg.style.display = 'block';
-                }
+            previewOverlay.style.left = left + 'px';
+            previewOverlay.style.top = top + 'px';
+            previewOverlay.style.display = 'block';
+
+            if (imgTarget) {
+                previewVid.style.display = 'none';
+                previewImg.src = imgTarget.getAttribute('src');
+                previewImg.style.display = 'block';
+            } else if (vidTarget) {
+                // 网速独占权！网盘列表里没有任何 video 在占用网速，这个悬浮播放器将畅通无阻地拉取高帧率数据流！
+                previewImg.style.display = 'none';
+                previewVid.src = vidTarget.getAttribute('data-vidsrc');
+                previewVid.style.display = 'block';
+                previewVid.play().catch(()=>{}); 
             }
         });
 
+        // 移开鼠标立刻掐断网络占用，让给别的资源
         gridZone.addEventListener('mouseout', (e) => {
-            if (e.target.classList.contains('file-thumb')) {
+            const targetEl = e.target.closest('.img-thumb') || e.target.closest('.vid-thumb-container');
+            if (targetEl) {
                 previewOverlay.style.display = 'none';
                 previewVid.pause();
-                previewVid.src = '';
+                previewVid.removeAttribute('src');
+                previewVid.load(); // 强行阻断下载流
                 previewImg.src = '';
             }
         });
@@ -267,15 +342,9 @@
             const cachedString = localStorage.getItem(cacheKey);
 
             if (cachedString) {
-                try {
-                    renderGridContent(JSON.parse(cachedString));
-                } catch (e) {
-                    localStorage.removeItem(cacheKey);
-                    gridZone.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`;
-                }
-            } else {
-                gridZone.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`;
-            }
+                try { renderGridContent(JSON.parse(cachedString)); } 
+                catch (e) { localStorage.removeItem(cacheKey); gridZone.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`; }
+            } else { gridZone.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> 正在同步云端数据...</div>`; }
 
             try {
                 const res = await fetch(`/api/cloud/list?folder_id=${currentFolderId}`, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -342,7 +411,15 @@
 
         async function copyLink(event, link) { event.stopPropagation(); const btn = event.currentTarget; const oi = btn.innerHTML; try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(link); } else { const ta = document.createElement("textarea"); ta.value = link; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); } btn.innerHTML = '<i class="fas fa-check" style="color:var(--accent-green);"></i>'; setTimeout(() => { btn.innerHTML = oi; }, 2000); } catch (e) { window.prompt("请手动复制：", link); } }
         function downloadFile(event, link, fileName) { event.stopPropagation(); const btn = event.currentTarget; const oi = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--accent-color);"></i>'; btn.disabled = true; const a = document.createElement('a'); a.style.display = 'none'; a.href = link; a.download = fileName || 'download'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => { btn.innerHTML = oi; btn.disabled = false; }, 1500); }
-        async function deleteItem(event, id, type) { event.stopPropagation(); if (!confirm(`确认销毁吗？`)) return; try { const res = await fetch(`/api/cloud/delete?id=${id}&type=${type}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }); const data = await res.json(); if (data.success === false) throw new Error(data.error); loadFileList(); } catch (e) { alert(`销毁失败: ${e.message}`); } }
+        async function deleteItem(event, id, type) { 
+            event.stopPropagation(); if (!confirm(`确认销毁吗？`)) return; 
+            try { 
+                const res = await fetch(`/api/cloud/delete?id=${id}&type=${type}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }); 
+                const data = await res.json(); if (data.success === false) throw new Error(data.error); 
+                localStorage.removeItem('vthumb_' + id); // 同步清理缓存
+                loadFileList(); 
+            } catch (e) { alert(`销毁失败: ${e.message}`); } 
+        }
 
         if (token) loadFileList();
 
