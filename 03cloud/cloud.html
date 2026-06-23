@@ -480,6 +480,18 @@
 
         // 最终执行初始化
         if (token) loadFileList();
+
+        // 🚀 核心优化 3：激活全站脱机离线缓存防空洞代理 (Service Worker)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // 注意：路径必须指向根目录的 /sw.js，以便全域接管包含 03cloud 在内的子路由
+                navigator.serviceWorker.register('/sw.js').then(reg => {
+                    console.log('>> [云端文件中心] 脱机离线缓存防空洞代理装载成功！');
+                }).catch(err => {
+                    console.error('>> [云端文件中心] 脱机缓存防空洞装载失败:', err);
+                });
+            });
+        }
     </script>
 </body>
 </html>
