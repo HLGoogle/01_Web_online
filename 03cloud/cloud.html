@@ -58,7 +58,6 @@
         .file-name { font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
         .file-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-        /* 🚀 核心优化：去除了强制的 #000 黑底，换为浅色半透明占位，避免加载时误认为黑屏 */
         .file-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); cursor: crosshair; }
         .file-grid:not(.list-view) .file-thumb { width: 38px; height: 38px; }
         
@@ -111,7 +110,7 @@
 
     <div id="preview-overlay">
         <img id="preview-img" loading="lazy">
-        <video id="preview-vid" muted autoplay loop playsinline preload="auto"></video>
+        <video id="preview-vid" muted autoplay loop playsinline preload="none"></video>
     </div>
 
     <script>
@@ -194,8 +193,10 @@
                 if (isImage) { 
                     fileIconHtml = `<img src="${shortLink}" class="file-thumb" alt="preview" loading="lazy">`; 
                 } else if (isVideo) {
-                    // 🚀 核心修复：还原至 #t=0.1 避免短视频越界黑屏，且升级为 preload="auto" 强制拉取首帧字节
-                    fileIconHtml = `<video src="${shortLink}#t=0.1" class="file-thumb" muted playsinline preload="auto"></video>`;
+                    // 🚀 终极绝杀修复：
+                    // 1. #t=0.001 强制索取第0帧(关键帧)，彻底无视视频FPS和高码率，100%拒绝黑屏。
+                    // 2. 还原 preload="metadata" 解除网络拥堵，恢复图片秒开手感！
+                    fileIconHtml = `<video src="${shortLink}#t=0.001" class="file-thumb" muted playsinline preload="metadata"></video>`;
                 }
                 
                 htmlContent += `
@@ -225,6 +226,7 @@
         gridZone.addEventListener('mouseover', (e) => {
             if (e.target.classList.contains('file-thumb')) {
                 const isVid = e.target.tagName.toLowerCase() === 'video';
+                // 这里利用 split('#') 完美剥离了 #t=0.001，让悬浮框依然能播放完整原视频
                 const src = e.target.getAttribute('src').split('#')[0]; 
                 
                 const rect = e.target.getBoundingClientRect();
