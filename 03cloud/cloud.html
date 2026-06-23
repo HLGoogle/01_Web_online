@@ -63,8 +63,12 @@
         
         .vid-thumb-container { position: relative; width: 32px; height: 32px; flex-shrink: 0; cursor: crosshair; }
         .file-grid:not(.list-view) .vid-thumb-container { width: 38px; height: 38px; }
-        .vid-thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); background: #161b22; }
+        .vid-thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); background: #161b22; transition: opacity 0.3s; }
         .vid-icon-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.8); font-size: 14px; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+
+        /* 不兼容格式标记样式 */
+        .codec-error .vid-icon-overlay { color: var(--accent-danger); }
+        .codec-error img { opacity: 0.5; }
 
         #preview-overlay {
             position: fixed; z-index: 9999; display: none; pointer-events: none;
@@ -74,6 +78,10 @@
         }
         #preview-overlay img, #preview-overlay video {
             max-width: 320px; max-height: 320px; border-radius: 4px; display: none; object-fit: contain; background: #000;
+        }
+        
+        #preview-error-msg {
+            display: none; color: var(--accent-danger); font-size: 12px; padding: 20px; text-align: center; max-width: 200px;
         }
 
         .file-actions { display: flex; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
@@ -115,6 +123,7 @@
 
     <div id="preview-overlay">
         <img id="preview-img" loading="lazy">
+        <div id="preview-error-msg"><i class="fas fa-exclamation-triangle"></i><br><br>不支持 HEVC / MPEG4<br>该浏览器内核无法解码此视频流，请下载后观看。</div>
         </div>
 
     <script>
@@ -140,6 +149,7 @@
             viewIcon.className = isListView ? 'fas fa-th-large' : 'fas fa-list';
         }
 
+        // ✨ 升级版：加入 Codec 编解码器防卡死捕捉引擎
         function processVideoThumbnails() {
             if (!window.IntersectionObserver) return;
             const vidContainers = document.querySelectorAll('.vid-thumb-container:not([data-processed])');
@@ -156,15 +166,37 @@
                         const fileId = container.getAttribute('data-fileid');
                         const imgNode = container.querySelector('.vid-thumb');
 
+                        // 离线读取阶段
                         const cacheKey = 'vthumb_' + fileId;
                         const cachedData = localStorage.getItem(cacheKey);
-                        if (cachedData) { imgNode.src = cachedData; return; }
+                        if (cachedData) {
+                            if (cachedData === 'ERROR_CODEC') {
+                                // 记忆了此视频不支持，直接打上报错标记
+                                container.classList.add('codec-error');
+                                container.title = "浏览器不支持的编码 (HEVC/MPEG4)";
+                            } else {
+                                imgNode.src = cachedData;
+                            }
+                            return; 
+                        }
 
+                        // 新视频试探解码阶段
                         const video = document.createElement('video');
                         video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
                         video.src = vidSrc;
 
                         let extracted = false;
+                        
+                        // 🔴 核心熔断器：如果浏览器抛出无法解码的错误 (例如遇到 HEVC)
+                        video.addEventListener('error', () => {
+                            extracted = true;
+                            container.classList.add('codec-error');
+                            container.title = "浏览器不支持的编码 (HEVC/MPEG4)";
+                            try { localStorage.setItem(cacheKey, 'ERROR_CODEC'); } catch(e) {} // 记忆报错状态，以后不再浪费网速去试探
+                            video.removeAttribute('src');
+                            video.load();
+                        });
+
                         const capture = () => {
                             if (extracted) return;
                             try {
@@ -187,6 +219,8 @@
 
                         video.addEventListener('loadeddata', () => { capture(); if (!extracted && video.duration > 1) { video.currentTime = Math.min(1.5, video.duration / 2); } });
                         video.addEventListener('seeked', capture);
+                        
+                        // 8秒拿不到画面强制拔除标签
                         setTimeout(() => { if (!extracted) { video.removeAttribute('src'); video.load(); } }, 8000);
                     }
                 });
@@ -277,8 +311,8 @@
 
         const previewOverlay = document.getElementById('preview-overlay');
         const previewImg = document.getElementById('preview-img');
+        const previewErrMsg = document.getElementById('preview-error-msg');
 
-        // 🚀 核心防死锁隔离：动态创建与拔除
         gridZone.addEventListener('mouseover', (e) => {
             const imgTarget = e.target.closest('.img-thumb');
             const vidTarget = e.target.closest('.vid-thumb-container');
@@ -295,44 +329,55 @@
             previewOverlay.style.top = top + 'px';
             previewOverlay.style.display = 'block';
 
+            // 恢复初始状态
+            previewErrMsg.style.display = 'none';
+            previewImg.style.display = 'none';
+
             if (imgTarget) {
-                // 清理可能存在的旧视频
                 const oldVid = document.getElementById('preview-vid');
                 if (oldVid) oldVid.remove(); 
                 
                 previewImg.src = imgTarget.getAttribute('src');
                 previewImg.style.display = 'block';
             } else if (vidTarget) {
-                previewImg.style.display = 'none';
-                
-                // 彻底销毁上一个视频引擎，归零网络并发请求
                 const oldVid = document.getElementById('preview-vid');
                 if (oldVid) { oldVid.pause(); oldVid.removeAttribute('src'); oldVid.load(); oldVid.remove(); }
                 
-                // 挂载全新、无污染的播放器实例
+                // 🔴 如果明确被标记为不支持的编码格式，直接提示用户，不进行无效试探
+                if (vidTarget.classList.contains('codec-error')) {
+                    previewErrMsg.style.display = 'block';
+                    return;
+                }
+                
                 const newVid = document.createElement('video');
                 newVid.id = 'preview-vid';
                 newVid.muted = true; newVid.autoplay = true; newVid.loop = true; newVid.playsInline = true;
-                // 添加 #t=0.001 强制拉取首字节
                 newVid.src = vidTarget.getAttribute('data-vidsrc') + '#t=0.001';
                 newVid.style.display = 'block';
+                
+                // 大预览播放器也要加上错误熔断
+                newVid.addEventListener('error', () => {
+                    newVid.style.display = 'none';
+                    previewErrMsg.style.display = 'block';
+                    vidTarget.classList.add('codec-error'); // 补充标记
+                });
                 
                 previewOverlay.appendChild(newVid);
             }
         });
 
-        // 移开鼠标立刻对显卡资源执行“物理级释放”
         gridZone.addEventListener('mouseout', (e) => {
             const targetEl = e.target.closest('.img-thumb') || e.target.closest('.vid-thumb-container');
             if (targetEl) {
                 previewOverlay.style.display = 'none';
                 previewImg.src = '';
+                previewErrMsg.style.display = 'none';
                 const activeVid = document.getElementById('preview-vid');
                 if (activeVid) {
                     activeVid.pause();
                     activeVid.removeAttribute('src');
-                    activeVid.load(); // 这步极其关键，强制底层切断卡死的网络流
-                    activeVid.remove(); // 将标签从内存中彻底扬弃
+                    activeVid.load(); 
+                    activeVid.remove(); 
                 }
             }
         });
