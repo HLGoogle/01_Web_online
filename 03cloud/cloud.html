@@ -58,11 +58,9 @@
         .file-name { font-size: 13.5px; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
         .file-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-        /* ✨ 全新图文样式架构 */
         .file-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); cursor: crosshair; }
         .file-grid:not(.list-view) .file-thumb { width: 38px; height: 38px; }
         
-        /* 离线画板视频容器 */
         .vid-thumb-container { position: relative; width: 32px; height: 32px; flex-shrink: 0; cursor: crosshair; }
         .file-grid:not(.list-view) .vid-thumb-container { width: 38px; height: 38px; }
         .vid-thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); background: #161b22; }
@@ -75,7 +73,7 @@
             transform: translateY(-50%);
         }
         #preview-overlay img, #preview-overlay video {
-            max-width: 320px; max-height: 320px; border-radius: 4px; display: none; object-fit: contain; background: rgba(255,255,255,0.05);
+            max-width: 320px; max-height: 320px; border-radius: 4px; display: none; object-fit: contain; background: #000;
         }
 
         .file-actions { display: flex; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
@@ -117,8 +115,7 @@
 
     <div id="preview-overlay">
         <img id="preview-img" loading="lazy">
-        <video id="preview-vid" muted autoplay loop playsinline preload="none"></video>
-    </div>
+        </div>
 
     <script>
         const token = localStorage.getItem('nav_token');
@@ -143,7 +140,6 @@
             viewIcon.className = isListView ? 'fas fa-th-large' : 'fas fa-list';
         }
 
-        // ✨ 核心机制 1：懒加载与画板截帧引擎
         function processVideoThumbnails() {
             if (!window.IntersectionObserver) return;
             const vidContainers = document.querySelectorAll('.vid-thumb-container:not([data-processed])');
@@ -153,19 +149,17 @@
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const container = entry.target;
-                        obs.unobserve(container); // 只处理一次
+                        obs.unobserve(container); 
                         container.setAttribute('data-processed', 'true');
 
                         const vidSrc = container.getAttribute('data-vidsrc');
                         const fileId = container.getAttribute('data-fileid');
                         const imgNode = container.querySelector('.vid-thumb');
 
-                        // 💡 秒开核心：如果是已经截取过的视频，直接从纯离线的内存读取 Base64 画面！
                         const cacheKey = 'vthumb_' + fileId;
                         const cachedData = localStorage.getItem(cacheKey);
                         if (cachedData) { imgNode.src = cachedData; return; }
 
-                        // 初次加载：在后台隐形创建一个播放器，拉取一帧画面
                         const video = document.createElement('video');
                         video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
                         video.src = vidSrc;
@@ -180,25 +174,19 @@
                                 const ctx = canvas.getContext('2d');
                                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                                 
-                                const dataURL = canvas.toDataURL('image/jpeg', 0.5); // 高压缩写入
+                                const dataURL = canvas.toDataURL('image/jpeg', 0.5); 
                                 if (dataURL.length > 1000) {
                                     imgNode.src = dataURL;
-                                    try { localStorage.setItem(cacheKey, dataURL); } catch(e) {} // 永久缓存到内存
+                                    try { localStorage.setItem(cacheKey, dataURL); } catch(e) {} 
                                     extracted = true;
                                     video.removeAttribute('src'); 
-                                    video.load(); // 释放后台网络
+                                    video.load(); 
                                 }
                             } catch (err) {}
                         };
 
-                        video.addEventListener('loadeddata', () => {
-                            capture();
-                            // 如果第一帧是黑屏没截到，往后跳一点再截
-                            if (!extracted && video.duration > 1) { video.currentTime = Math.min(1.5, video.duration / 2); }
-                        });
+                        video.addEventListener('loadeddata', () => { capture(); if (!extracted && video.duration > 1) { video.currentTime = Math.min(1.5, video.duration / 2); } });
                         video.addEventListener('seeked', capture);
-                        
-                        // 超时熔断，防止卡死
                         setTimeout(() => { if (!extracted) { video.removeAttribute('src'); video.load(); } }, 8000);
                     }
                 });
@@ -259,8 +247,6 @@
                 if (isImage) { 
                     fileIconHtml = `<img src="${shortLink}" class="file-thumb img-thumb" alt="preview" loading="lazy">`; 
                 } else if (isVideo) {
-                    // ✨ 核心架构改变：彻底消灭列表中的 <video> 标签！
-                    // 先放置一个灰色的 SVG 占位图，等 JS 滚动到了，再静默截帧渲染。不抢网络资源。
                     fileIconHtml = `
                         <div class="vid-thumb-container" data-vidsrc="${shortLink}" data-fileid="${file.id}">
                             <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='%23161b22'/></svg>" class="file-thumb vid-thumb" alt="video" loading="lazy">
@@ -286,16 +272,13 @@
             });
 
             gridZone.innerHTML = htmlContent;
-            
-            // 每次渲染完毕后，唤醒隐形截帧引擎
             processVideoThumbnails();
         }
 
         const previewOverlay = document.getElementById('preview-overlay');
         const previewImg = document.getElementById('preview-img');
-        const previewVid = document.getElementById('preview-vid');
 
-        // ✨ 极速悬停反馈引擎
+        // 🚀 核心防死锁隔离：动态创建与拔除
         gridZone.addEventListener('mouseover', (e) => {
             const imgTarget = e.target.closest('.img-thumb');
             const vidTarget = e.target.closest('.vid-thumb-container');
@@ -313,27 +296,44 @@
             previewOverlay.style.display = 'block';
 
             if (imgTarget) {
-                previewVid.style.display = 'none';
+                // 清理可能存在的旧视频
+                const oldVid = document.getElementById('preview-vid');
+                if (oldVid) oldVid.remove(); 
+                
                 previewImg.src = imgTarget.getAttribute('src');
                 previewImg.style.display = 'block';
             } else if (vidTarget) {
-                // 网速独占权！网盘列表里没有任何 video 在占用网速，这个悬浮播放器将畅通无阻地拉取高帧率数据流！
                 previewImg.style.display = 'none';
-                previewVid.src = vidTarget.getAttribute('data-vidsrc');
-                previewVid.style.display = 'block';
-                previewVid.play().catch(()=>{}); 
+                
+                // 彻底销毁上一个视频引擎，归零网络并发请求
+                const oldVid = document.getElementById('preview-vid');
+                if (oldVid) { oldVid.pause(); oldVid.removeAttribute('src'); oldVid.load(); oldVid.remove(); }
+                
+                // 挂载全新、无污染的播放器实例
+                const newVid = document.createElement('video');
+                newVid.id = 'preview-vid';
+                newVid.muted = true; newVid.autoplay = true; newVid.loop = true; newVid.playsInline = true;
+                // 添加 #t=0.001 强制拉取首字节
+                newVid.src = vidTarget.getAttribute('data-vidsrc') + '#t=0.001';
+                newVid.style.display = 'block';
+                
+                previewOverlay.appendChild(newVid);
             }
         });
 
-        // 移开鼠标立刻掐断网络占用，让给别的资源
+        // 移开鼠标立刻对显卡资源执行“物理级释放”
         gridZone.addEventListener('mouseout', (e) => {
             const targetEl = e.target.closest('.img-thumb') || e.target.closest('.vid-thumb-container');
             if (targetEl) {
                 previewOverlay.style.display = 'none';
-                previewVid.pause();
-                previewVid.removeAttribute('src');
-                previewVid.load(); // 强行阻断下载流
                 previewImg.src = '';
+                const activeVid = document.getElementById('preview-vid');
+                if (activeVid) {
+                    activeVid.pause();
+                    activeVid.removeAttribute('src');
+                    activeVid.load(); // 这步极其关键，强制底层切断卡死的网络流
+                    activeVid.remove(); // 将标签从内存中彻底扬弃
+                }
             }
         });
 
