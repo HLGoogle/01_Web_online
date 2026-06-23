@@ -1,5 +1,5 @@
-// 🏷️ 升级到 v5：剔除了破坏视频帧的媒体拦截机制，把视频交还给浏览器原生缓存
-const CACHE_NAME = 'terminal-offline-v5'; 
+// 🏷️ 升级到 v6：配合前端轻量化视频拉取，强制清空旧的拥堵缓存
+const CACHE_NAME = 'terminal-offline-v6'; 
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -11,7 +11,7 @@ self.addEventListener('install', event => {
     self.skipWaiting(); 
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log('>> 本地防空洞 v5 正在播种...');
+            console.log('>> 本地防空洞 v6 正在播种...');
             return cache.addAll(ASSETS_TO_CACHE);
         })
     );
@@ -34,7 +34,6 @@ self.addEventListener('fetch', event => {
     const request = event.request;
     const url = request.url;
 
-    // 🚀 核心修复：移除了对 video 的劫持！让浏览器原生底层去处理复杂的 MP4 分块传输和缓存。
     const isPageOrCss = request.mode === 'navigate' || url.includes('all.min.css') || url.endsWith('.html');
     const isImage = request.destination === 'image';
 
@@ -42,7 +41,6 @@ self.addEventListener('fetch', event => {
         event.respondWith(
             caches.match(request).then(cachedResponse => {
                 const networkFetch = fetch(request).then(networkResponse => {
-                    // 绝不缓存 206，避免破坏文件流
                     if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 0 || networkResponse.type === 'opaque')) {
                         const cacheCopy = networkResponse.clone();
                         caches.open(CACHE_NAME).then(cache => {
